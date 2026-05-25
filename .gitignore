@@ -33,6 +33,10 @@ Thumbs.db
 /tests/snapshots/**/*.actual.png
 /tests/snapshots/**/*.diff.png
 
+# MkDocs build output — deployed to the `gh-pages` orphan branch by
+# .github/workflows/docs.yml; never committed to main.
+site/
+
 # Claude Code local-only settings (per-machine permission overrides).
 .claude/settings.local.json
 .claude/projects/
