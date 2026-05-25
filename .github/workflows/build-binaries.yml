@@ -87,16 +87,11 @@ jobs:
             source .venv/Scripts/activate   # Windows venv layout
           fi
           python -m pip install --upgrade pip
-          # Install ONLY the build-time deps (maturin + pyinstaller +
-          # framework runtime deps), NOT the project itself in editable
-          # mode. The downstream Build step calls `scripts/build.py`,
-          # which runs `maturin develop --release` to compile + install
-          # the native extension in one shot. Doing an editable install
-          # here first AND then running maturin develop again races on
-          # `target/maturin/lib_native.so` (Linux trips a maturin ELF-
-          # parse error "Object is too small" when the second call
-          # finds a cache-hit cargo build).
-          pip install "maturin>=1.7,<2" "pyinstaller>=6" numpy pillow scipy scikit-image
+          # Editable install of the project (including [build] extras)
+          # so the `elysium` Python package is on `sys.path` for the
+          # downstream Build step's `_check_native()` import. This
+          # also builds the native extension via maturin once.
+          pip install -e ".[build]"
           # Persist the venv's python on PATH for subsequent steps —
           # GitHub Actions starts each `run:` block in a fresh shell,
           # so we need to emit the activated PATH/VIRTUAL_ENV explicitly.
@@ -123,10 +118,15 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          # `--skip-native`: the previous step already ran `maturin
+          # develop` via `pip install -e .`, so the native extension
+          # is built and importable. Running `maturin develop` a
+          # second time here triggers a known maturin/ELF-parse bug
+          # on Linux when cargo hits its incremental cache.
           if [ "${{ steps.parse.outputs.kind }}" = "designer" ]; then
-            python scripts/build.py designer --clean
+            python scripts/build.py designer --clean --skip-native
           else
-            python scripts/build.py example "${{ steps.parse.outputs.name }}" --clean
+            python scripts/build.py example "${{ steps.parse.outputs.name }}" --clean --skip-native
           fi
 
       - name: Upload artifact
