@@ -52,9 +52,16 @@ impl A11yBridge {
     /// Windows: attach to the live HWND.
     #[cfg(target_os = "windows")]
     pub fn attach_windows(&mut self, hwnd: isize) {
+        // `windows` crate 0.54 (pinned transitively by
+        // accesskit_windows 0.22) made HWND a non-primitive tuple
+        // struct: `pub struct HWND(pub *mut c_void);`. winit hands
+        // the raw handle out as an isize, so construct the wrapper
+        // explicitly instead of relying on an `as` cast.
+        use windows::Win32::Foundation::HWND;
+        let hwnd = HWND(hwnd as *mut std::ffi::c_void);
         let adapter = unsafe {
             accesskit_windows::Adapter::new(
-                hwnd as _, false,
+                hwnd, false,
                 StateActionHandler { state: self.state.clone() },
             )
         };
