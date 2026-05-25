@@ -53,12 +53,13 @@ impl A11yBridge {
     #[cfg(target_os = "windows")]
     pub fn attach_windows(&mut self, hwnd: isize) {
         // `windows` crate 0.54 (pinned transitively by
-        // accesskit_windows 0.22) made HWND a non-primitive tuple
-        // struct: `pub struct HWND(pub *mut c_void);`. winit hands
-        // the raw handle out as an isize, so construct the wrapper
-        // explicitly instead of relying on an `as` cast.
+        // accesskit_windows 0.22) made `HWND` a non-primitive tuple
+        // struct: `pub struct HWND(pub isize);`. winit hands the
+        // raw handle out as an isize, so construct the wrapper
+        // explicitly — `hwnd as _` no longer compiles because the
+        // target type isn't primitive.
         use windows::Win32::Foundation::HWND;
-        let hwnd = HWND(hwnd as *mut std::ffi::c_void);
+        let hwnd = HWND(hwnd);
         let adapter = unsafe {
             accesskit_windows::Adapter::new(
                 hwnd, false,
