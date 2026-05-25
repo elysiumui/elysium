@@ -80,21 +80,17 @@ impl A11yBridge {
     pub fn attach_linux(&mut self) {
         // `accesskit_unix 0.12` switched `Adapter::new` from
         //   `(is_window_focused: bool, action_handler) -> Result<Self>`
-        // to a 3-handler form:
-        //   `(activation_handler, action_handler, deactivation_handler)`
-        // — plus the result type changed (older versions returned the
-        // adapter directly when the bus connection succeeded; newer
-        // versions still return Result, but the construction signature
-        // changed). Provide noop ActivationHandler /
-        // DeactivationHandler implementations alongside the existing
-        // ActionHandler.
+        // to a 3-handler form returning the adapter directly:
+        //   `(activation_handler, action_handler, deactivation_handler) -> Self`
+        // The bus connection is no longer fallible at construction
+        // time; AT-SPI activation is deferred until a screen reader
+        // actually asks for the tree (via the `ActivationHandler`).
         let action = StateActionHandler { state: self.state.clone() };
         let activate = NoopActivationHandler;
         let deactivate = NoopDeactivationHandler;
-        match accesskit_unix::Adapter::new(activate, action, deactivate) {
-            Some(a) => { self.adapter = Some(a); self.refresh(); }
-            None    => self.adapter = None,
-        }
+        let adapter = accesskit_unix::Adapter::new(activate, action, deactivate);
+        self.adapter = Some(adapter);
+        self.refresh();
     }
 
     /// Publish the latest tree to the platform. Call after the
