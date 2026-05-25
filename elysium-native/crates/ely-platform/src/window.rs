@@ -214,6 +214,28 @@ pub enum WindowRequest {
     /// fullscreen rather than zoom; `Some(Fullscreen::Borderless)`
     /// stretches the window over the active monitor.
     SetFullscreen { fullscreen: bool },
+    /// Cross-platform — start an OS-driven interactive resize from
+    /// one of the eight directional edges. Used by the Designer's
+    /// borderless-window edge-resize band: on press inside the band
+    /// the Designer fires this; the OS takes over until the user
+    /// releases the mouse. Mirrors winit's
+    /// `Window::drag_resize_window(ResizeDirection)`.
+    DragResize { direction: ResizeDirection },
+}
+
+/// Edge/corner the user wants to resize from.  Maps 1:1 to
+/// `winit::window::ResizeDirection` so the event loop's handler
+/// can pattern-match without translation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResizeDirection {
+    East,
+    North,
+    NorthEast,
+    NorthWest,
+    South,
+    SouthEast,
+    SouthWest,
+    West,
 }
 
 impl WindowHandle {
@@ -236,6 +258,10 @@ impl WindowHandle {
     pub fn request_set_minimized(&self, minimized: bool) {
         self.inner.window_requests.lock()
             .push(WindowRequest::SetMinimized { minimized });
+    }
+    pub fn request_drag_resize(&self, direction: ResizeDirection) {
+        self.inner.window_requests.lock()
+            .push(WindowRequest::DragResize { direction });
     }
     pub fn request_set_maximized(&self, maximized: bool) {
         self.inner.window_requests.lock()

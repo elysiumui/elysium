@@ -1,4 +1,4 @@
-use crate::window::{CursorKind, WindowConfig, WindowHandle, WindowRequest};
+use crate::window::{CursorKind, ResizeDirection, WindowConfig, WindowHandle, WindowRequest};
 use crossbeam_channel::Sender;
 use ely_core::{Color, DisplayList, DrawCommand};
 use ely_render::{spawn_render_thread, RenderControl, SurfaceRenderer, SurfaceTarget};
@@ -345,6 +345,28 @@ fn apply_window_request(win: &WinitWindow, req: WindowRequest) {
             } else {
                 None
             });
+        }
+        // Cross-platform — start an OS-driven interactive resize from
+        // a specific edge / corner. winit forwards this to the
+        // compositor (NSResizeMode on macOS, WM_SYSCOMMAND on Win32,
+        // _NET_WM_MOVERESIZE on X11). The OS owns the drag until
+        // mouse release; we don't need a release event here.
+        WindowRequest::DragResize { direction } => {
+            use winit::window::ResizeDirection as WD;
+            let dir = match direction {
+                ResizeDirection::East       => WD::East,
+                ResizeDirection::North      => WD::North,
+                ResizeDirection::NorthEast  => WD::NorthEast,
+                ResizeDirection::NorthWest  => WD::NorthWest,
+                ResizeDirection::South      => WD::South,
+                ResizeDirection::SouthEast  => WD::SouthEast,
+                ResizeDirection::SouthWest  => WD::SouthWest,
+                ResizeDirection::West       => WD::West,
+            };
+            // Best-effort: some platforms may refuse mid-event (e.g.
+            // when there's no active mouse button); swallow the error
+            // and let the user try again.
+            let _ = win.drag_resize_window(dir);
         }
     }
 }

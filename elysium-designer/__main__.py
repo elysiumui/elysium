@@ -42,6 +42,8 @@ from elysium.render.designer_preview import (
 
 
 IS_MAC = sys.platform == "darwin"
+IS_WIN = sys.platform == "win32"
+IS_LINUX = sys.platform.startswith("linux")
 
 # Window geometry.
 WIDTH, HEIGHT = 1360, 880
@@ -181,14 +183,36 @@ def _bdbg(msg: str) -> None:
 # (Polygon primitives → Phase 10, NURBS → Phase 11, Sculpt → Phase 12,
 # Rigging → Phase 14, FX → Phase 15+).
 SHELVES_DATA: list[tuple[str, list[tuple[str, str, str, str]]]] = [
-    ("Polygons", [
-        # Seeded with the MESH_LIBRARY primitives already shipping.
+    # Reordered May 2026 after Windows beta feedback: Sculpting is now
+    # the LEFTMOST shelf because vertex / face / extrude / polygon
+    # primitives are the user's first port of call when modelling, and
+    # the previous Polygons shelf is dissolved into a sub-row of
+    # Sculpting (still discoverable, no extra tab to hunt for). The old
+    # Sculpting contents (brush / erase / fill / eyedropper) move to a
+    # new Texturing shelf — those tools paint onto selection masks /
+    # textures, they don't add or move vertices.
+    ("Sculpting", [
+        # Topology editing — vertices, edges, faces.
+        ("tool.vertex",       "tool_anchor",  "Vertex (edit anchors)", "V"),
+        ("sculpt.add_edge",   "tool_bezier",  "Add Edge",             ""),
+        ("sculpt.add_face",   "shape_polygon","Add Face",             ""),
+        ("sculpt.extrude",    "tb_render",    "Extrude",              "Ctrl+E"),
+        ("sculpt.bevel",      "tb_loop",      "Bevel Edge",           ""),
+        # Polygon primitives — was the standalone Polygons shelf.
         ("polygon.cube",      "shape_rect",     "Polygon Cube",       ""),
         ("polygon.sphere",    "shape_ellipse",  "Polygon Sphere",     ""),
         ("polygon.cylinder",  "tb_render",      "Polygon Cylinder",   ""),
         ("polygon.plane",     "shape_rect",     "Polygon Plane",      ""),
         ("polygon.cone",      "shape_polygon",  "Polygon Cone",       ""),
         ("polygon.torus",     "tb_loop",        "Polygon Torus",      ""),
+    ]),
+    ("Texturing", [
+        # The old Sculpting contents — paint / erase / fill / sample
+        # the active selection's mask / texture.
+        ("tool.brush",        "tool_brush",   "Paint with Brush",     "B"),
+        ("tool.erase",        "tool_eraser",  "Erase from Mask",      "Shift+B"),
+        ("tool.fill",         "tool_fill",    "Fill Bucket",          "G"),
+        ("tool.eyedrop",      "tool_eyedrop", "Eyedropper",           "I"),
     ]),
     ("Animation", [
         ("anim.set_key",      "tb_add_state",   "Set Key",            "S"),
@@ -214,15 +238,6 @@ SHELVES_DATA: list[tuple[str, list[tuple[str, str, str, str]]]] = [
         ("curves.loft",       "tb_render",    "Loft Selected Curves", ""),
         ("polygon.sphere",    "shape_ellipse","NURBS-style Sphere",   ""),
         ("polygon.cylinder",  "tb_render",    "NURBS-style Cylinder", ""),
-    ]),
-    ("Sculpting", [
-        # Activates the matching tool from the toolbox  one click
-        # to start sculpting / erasing / filling without hunting
-        # the side toolbox.
-        ("tool.brush",        "tool_brush",   "Sculpt with Brush",    "B"),
-        ("tool.erase",        "tool_eraser",  "Erase from Mask",      "Shift+B"),
-        ("tool.fill",         "tool_fill",    "Fill Bucket",          "G"),
-        ("tool.eyedrop",      "tool_eyedrop", "Eyedropper",           "I"),
     ]),
     ("Rigging", [
         # Maya parity  the core rigging ops the user can already
@@ -282,6 +297,7 @@ TOOL_SELECT  = "select"
 TOOL_HAND    = "hand"
 TOOL_PEN     = "pen"             # freehand drag-record
 TOOL_BEZIER  = "bezier"          # click-to-add anchors w/ drag handles
+TOOL_VERTEX  = "vertex"          # vertex/anchor drag editor for polygon + path shapes
 TOOL_RECT    = "rect"
 TOOL_ELLIPSE = "ellipse"
 TOOL_LINE    = "line"
@@ -381,6 +397,11 @@ TOOLS: list[ToolEntry] = [
     ToolEntry(TOOL_PEN, "Pen — freehand path", "tool_pen"),
     # Row 4 — Vector path + paint.
     ToolEntry(TOOL_BEZIER, "Pen — bezier anchors", "tool_bezier"),
+    ToolEntry(TOOL_VERTEX,
+              "Vertex — drag a polygon/path's anchor points to reshape "
+              "the geometry. Click a Shape placement to reveal its "
+              "anchors; drag a dot to move that vertex (V).",
+              "tool_anchor"),
     ToolEntry(TOOL_BRUSH, "Brush — paint on selection", "tool_brush"),
     ToolEntry(TOOL_ERASE, "Erase brush", "tool_erase"),
     # Row 5 — Texture sampling + fill.
@@ -1232,6 +1253,16 @@ class Designer:
         global WIDTH, HEIGHT
         prefs = _load_designer_prefs()
         init_w, init_h = prefs.get("size", (WIDTH, HEIGHT))
+        # Title-bar pin state — when True the auto-hide tween is
+        # suppressed and the strip stays fully visible. Default off
+        # (matches the user-feedback request: auto-hide by default,
+        # pin to override). Persisted in _designer_prefs across runs.
+        self.title_pinned: bool = bool(prefs.get("title_pinned", False))
+        # Smoothed [0, 1] visibility for the title strip — 1 = fully
+        # visible, 0 = fully off-screen. Tweened toward `_title_target`
+        # each frame.
+        self._title_visible: float = 1.0
+        self._title_target:  float = 1.0
         # Self-host migration: the Designer's OWN host window is
         # FULLY borderless  transparent + no native title bar
         # so every pixel of chrome is Elysium-styled. Drag, close,
@@ -1609,6 +1640,19 @@ class Designer:
         self._play_clock: float = 0.0
         self.preview_mode: bool = False
         self._preview_rect: tuple[float, float, float, float] = (0, 0, 0, 0)
+        # Play-time before/after compare slider — overlays a draggable
+        # vertical wipe that reveals the wireframe rigging beneath the
+        # final shaded animation. Activated on Play when the scene
+        # has a Mesh3D placement; cleared on Stop.
+        self.compare_slider_active: bool = False
+        self.compare_slider_x:      float = 0.0
+        self.compare_slider_drag:   bool = False
+        # Quarter-resolution sync render flag — flipped on while an
+        # alt-drag camera gesture is active so `_mesh_render_bytes`
+        # produces a fast preview instead of dispatching the heavy
+        # async worker.
+        self._dragging_camera: bool = False
+        self._cam_gesture: tuple | None = None
 
         # Toolbar buttons.
         self.save_btn   = ui.Button(w=72, h=24, label="Save",   variant="solid",
@@ -4835,6 +4879,52 @@ class Designer:
                               if parent_name
                               else f"Unparented '{child.name}'")
 
+    def _resolve_skin_relative(self, path: str) -> str:
+        """Translate a skin-relative asset path (e.g. ``_3ds/foo.3ds``
+        stored in `designer_layout.json`) to an absolute path on disk.
+
+        Resolution order:
+          1. Already absolute & exists  → return as-is.
+          2. Relative to the .esk bundle's parent directory (so a
+             reference like ``_3ds/butterfly.3ds`` inside
+             ``examples/butterfly/butterfly.esk`` resolves to the
+             sibling ``examples/butterfly/_3ds/butterfly.3ds``).
+          3. Relative to the .esk bundle itself.
+          4. Relative to the CWD (legacy fallback).
+        Falls through to the input string unchanged if nothing
+        matches — callers downstream emit their own "file not found"
+        diagnostics."""
+        if not path:
+            return path
+        p = Path(path)
+        if p.is_absolute() and p.exists():
+            return str(p)
+        bases = [self.skin_path.parent, self.skin_path, Path.cwd()]
+        for base in bases:
+            cand = (base / path).resolve()
+            if cand.exists():
+                return str(cand)
+        return path
+
+    def _rewrite_skin_asset_paths(self) -> None:
+        """Walk the just-loaded placements and resolve any skin-relative
+        asset paths (mesh `file:` URIs, texture paths, image paths) to
+        absolute filesystem paths. Done at load time so the downstream
+        renderers (which use bare ``Path(...)`` against CWD) never
+        have to know about bundle-relative references."""
+        for p in self.placements:
+            mk = getattr(p, "mesh_kind", "") or ""
+            if mk.startswith("file:"):
+                rel = mk.split(":", 1)[1]
+                p.mesh_kind = "file:" + self._resolve_skin_relative(rel)
+            for attr in ("image_path", "texture_path",
+                          "pbr_albedo_map", "pbr_metallic_rough_map",
+                          "pbr_normal_map", "pbr_ao_map",
+                          "pbr_emissive_map"):
+                cur = getattr(p, attr, "") or ""
+                if cur and not Path(cur).is_absolute():
+                    setattr(p, attr, self._resolve_skin_relative(cur))
+
     def load_layout(self) -> None:
         if self.doc_path.is_file():
             try:
@@ -4843,6 +4933,7 @@ class Designer:
                 if "window" in data:
                     self.window_doc = AppWindow.from_json(data["window"])
                 self._rebuild_counters()
+                self._rewrite_skin_asset_paths()
                 self.sel_kind, self.sel_idx = "none", -1
                 return
             except Exception as e:
@@ -5718,6 +5809,33 @@ class Designer:
         # least one on_frame.
         if press_just or release_just or pressed:
             self._last_busy_t = self._anim_clock_t
+
+        # --- Maya-parity camera (alt+drag + scroll wheel) -------------
+        # When the user holds Alt and drags inside the form area, that's
+        # always a camera gesture (regardless of which tool is selected):
+        #   * Alt + LMB  → orbit  (mesh_yaw / mesh_pitch)
+        #   * Alt + RMB  → dolly  (mesh_dist)
+        #   * Alt + Shift + LMB → pan  (canvas_pan_x / canvas_pan_y, as a
+        #     stand-in for middle-mouse since we don't poll MMB today)
+        #   * Scroll wheel → zoom (dolly, no modifier needed)
+        # The handler returns True if it consumed the event, so downstream
+        # tool dispatch can skip it. Sets `self._dragging_camera` for the
+        # quarter-res render path in `_mesh_render_bytes`.
+        cam_consumed = self._maybe_handle_camera_gesture(
+            cur, press_just, right_press_just, pressed, release_just)
+        if cam_consumed:
+            press_just = False
+            right_press_just = False
+
+        # --- Play-time compare slider thumb drag ----------------------
+        # When Play is active and the compare slider is up, the thumb
+        # owns the LMB while held. Takes priority over the camera
+        # gesture above only on press; mid-drag releases let the
+        # camera handler reclaim control.
+        slider_consumed = self._maybe_handle_compare_slider(
+            cur, press_just, pressed, release_just)
+        if slider_consumed:
+            press_just = False
         # Diagnostic: every press transition prints input state so we
         # can correlate clicks with dispatcher behaviour.
         if _BRUSH_DEBUG and (press_just or right_press_just):
@@ -5729,6 +5847,13 @@ class Designer:
                   f"cur={cur} mods={mods} in_toolbox={in_toolbox} "
                   f"slot_popover={self._slot_popover is not None}")
         shift_held = bool(self.win.modifiers & 1)
+
+        # --- Frame-loop poll watchdog (Windows freeze guard) -----------
+        # If any native poll takes longer than ~4 ms we abort that poll's
+        # drain loop for this frame so the UI thread doesn't get stuck
+        # in winit's event-handling on Windows (where a slow OS call
+        # would otherwise lock out the close button + every input).
+        _poll_deadline = time.monotonic() + 0.004
 
         # --- Trackpad pinch gesture → canvas zoom --------------------
         try:
@@ -5744,6 +5869,16 @@ class Designer:
 
         # --- Drain file-drop events -----------------------------------
         while True:
+            if time.monotonic() > _poll_deadline:
+                # Bail without consuming the rest of the queue — they'll
+                # surface on the next frame. Logs once per slow frame so
+                # we can correlate freeze reports with the poll that's
+                # been blocking.
+                if not getattr(self, "_logged_slow_poll", False):
+                    print("designer: poll_file_drop drain exceeded 4ms; "
+                          "deferring remaining events", file=sys.stderr)
+                    self._logged_slow_poll = True
+                break
             drop = self.win.poll_file_drop()
             if drop is None: break
             self._handle_file_drop(*drop)
@@ -5758,6 +5893,12 @@ class Designer:
         # typing session, not just on the keystroke frames themselves.
         had_key_event = False
         while True:
+            if time.monotonic() > _poll_deadline:
+                if not getattr(self, "_logged_slow_poll", False):
+                    print("designer: poll_key_event drain exceeded 4ms; "
+                          "deferring remaining events", file=sys.stderr)
+                    self._logged_slow_poll = True
+                break
             ev = self.win.poll_key_event()
             if ev is None: break
             had_key_event = True
@@ -5794,6 +5935,12 @@ class Designer:
                 self._install_native_menu()
             self._menu_install_ticks += 1
             while True:
+                if time.monotonic() > _poll_deadline:
+                    if not getattr(self, "_logged_slow_poll", False):
+                        print("designer: poll_menu_action drain exceeded 4ms; "
+                              "deferring remaining events", file=sys.stderr)
+                        self._logged_slow_poll = True
+                    break
                 tag = _n.poll_menu_action()
                 if tag is None: break
                 cmd = self._menu_tag_to_cmd.get(int(tag))
@@ -5943,6 +6090,51 @@ class Designer:
                         self._toolbox_scroll_hold_t = self._anim_clock_t
                         scroll_consumed = True
                     break
+        # --- Edge-resize band (8-px) ---
+        # Every borderless window with `resizable=True` lets winit
+        # forward edge-grab gestures to the OS via
+        # `drag_resize_window(direction)`. We compute which edge /
+        # corner the cursor is in and (a) set the OS cursor to the
+        # appropriate ↔ / ↕ / ↘↖ / ↙↗ glyph for hover feedback and
+        # (b) dispatch the resize on press. Skipped entirely when the
+        # cursor is over the title strip (which owns its own drag) or
+        # the user is mid-drag of a placement / handle.
+        edge_band = 8.0
+        resize_edge: str | None = None
+        if cur is not None:
+            cx, cy = cur
+            in_left   = cx <= edge_band
+            in_right  = cx >= WIDTH - edge_band
+            in_top    = cy <= edge_band
+            in_bottom = cy >= HEIGHT - edge_band
+            if   in_top and in_left:     resize_edge = "nw"
+            elif in_top and in_right:    resize_edge = "ne"
+            elif in_bottom and in_left:  resize_edge = "sw"
+            elif in_bottom and in_right: resize_edge = "se"
+            elif in_top:                 resize_edge = "n"
+            elif in_bottom:              resize_edge = "s"
+            elif in_left:                resize_edge = "w"
+            elif in_right:                resize_edge = "e"
+        if resize_edge and self.drag_kind is None:
+            # OS cursor feedback. The mapping mirrors the user's
+            # mental model of "↔ when grabbing W or E", etc.
+            try:
+                self.win.set_cursor({
+                    "n":  "ns-resize", "s":  "ns-resize",
+                    "w":  "ew-resize", "e":  "ew-resize",
+                    "nw": "nwse-resize", "se": "nwse-resize",
+                    "ne": "nesw-resize", "sw": "nesw-resize",
+                }[resize_edge])
+            except Exception: pass
+            # On press, hand control to the OS for the duration of
+            # the drag. winit takes over until mouse-up; we don't
+            # need any per-frame state on our side.
+            if press_just:
+                try:
+                    self.win.drag_resize_window(resize_edge)
+                except Exception: pass
+                press_just = False   # don't dispatch this click anywhere else
+
         # --- Custom title strip dispatch (drag + traffic lights) ---
         # Press on a traffic light fires that light's action; press
         # anywhere else inside the title strip starts a window drag.
@@ -5951,9 +6143,27 @@ class Designer:
         # API needed): each frame we move the window so the cursor
         # stays at the same window-relative offset it had at press.
         title_strip_press = False
+        # Only treat clicks as title-strip interactions when the strip
+        # is actually visible (auto-hide is off OR the user just
+        # revealed it by moving to the top edge). Without this gate,
+        # phantom clicks in the top 30 px would close the window even
+        # when the strip is fully tucked off-screen.
+        title_visible_now = getattr(self, "_title_visible", 1.0) > 0.5
         if (press_just and cur is not None
-                and cur[1] < TITLE_STRIP_H):
-            light = self._title_button_hit(*cur)
+                and cur[1] < TITLE_STRIP_H
+                and title_visible_now):
+            # Pin button first — sits inside the title strip but isn't
+            # a window control, so check it before the OS-button dispatch.
+            if self._title_pin_hit(*cur):
+                self.title_pinned = not bool(getattr(self, "title_pinned", False))
+                self.menu_status = ("Title bar pinned (always visible)"
+                                     if self.title_pinned
+                                     else "Title bar auto-hides")
+                _prefs = _load_designer_prefs()
+                _prefs["title_pinned"] = self.title_pinned
+                _save_designer_prefs(_prefs)
+                title_strip_press = True
+            light = None if title_strip_press else self._title_button_hit(*cur)
             if light == "close":
                 # Ask the native to close the window, stop the
                 # animation thread, then hard-exit. `win.close()`
@@ -7114,6 +7324,8 @@ class Designer:
              "label": "Frame Selected",     "hotkey": "F"},
             {"icon": "vp_frame_all",  "action": "frame_all",
              "label": "Frame All",          "hotkey": "Home"},
+            {"icon": "vp_reset_camera", "action": "reset_camera",
+             "label": "Reset Camera (Return to 3D)", "hotkey": "Shift+R"},
         ]
 
     def _view_panel_rect(self) -> tuple[float, float, float, float]:
@@ -7205,6 +7417,8 @@ class Designer:
             self._frame_selected()
         elif action == "frame_all":
             self._frame_all()
+        elif action == "reset_camera":
+            self._reset_camera()
 
     def _set_view_mode(self, mode: str) -> None:
         """Apply a Maya-style display mode (wireframe / shaded /
@@ -7238,7 +7452,12 @@ class Designer:
             cache = getattr(self, c, None)
             if cache: cache.clear()
         if not targets:
-            self.menu_status = f"View mode → {mode} (no Mesh3D to apply to)"
+            # User clicked Wireframe / Shaded / Textured with no Mesh3D
+            # in the scene — say so explicitly so the click doesn't
+            # feel like a no-op (beta-tester feedback).
+            self.menu_status = (
+                f"{mode.capitalize()} view: select a 3D mesh first "
+                f"(Sculpting shelf ▸ Add Cube / Sphere / …)")
         else:
             self.menu_status = (f"View mode → {mode} on "
                                   f"{len(targets)} mesh{'es' if len(targets) != 1 else ''}")
@@ -7276,6 +7495,39 @@ class Designer:
         # framing across resizes by disabling auto-fit. The user can
         # re-enable via View ▸ Fit Canvas to App Window.
         self.canvas_auto_fit = False
+
+    def _reset_camera(self) -> None:
+        """View panel → Reset Camera (Shift+R). Restores
+        mesh_yaw/pitch/roll/dist to the placement-class defaults so a
+        user who rotated themselves into a degenerate edge-on view can
+        snap back to a 3/4-perspective 3D view in one click. Resets
+        every Mesh3D / PBRSphere placement (or just the selected one
+        if a single Mesh is selected) plus invalidates the mesh
+        bitmap caches so the next frame re-renders."""
+        targets: list[Placement] = []
+        if self.sel_kind == "placement" and 0 <= self.sel_idx < len(self.placements):
+            p = self.placements[self.sel_idx]
+            if p.kind in ("Mesh3D", "PBRSphere"):
+                targets = [p]
+        if not targets:
+            targets = [p for p in self.placements
+                          if p.kind in ("Mesh3D", "PBRSphere")]
+        if not targets:
+            self.menu_status = "Reset Camera · no 3D placements"
+            return
+        # Match the Placement field defaults (lines 520-526).
+        for p in targets:
+            p.mesh_yaw   = 0.4
+            p.mesh_pitch = 0.25
+            p.mesh_roll  = 0.0
+            p.mesh_dist  = 3.5
+        # Drop the per-mesh render caches so the next paint re-renders.
+        if hasattr(self, "_mesh_cache"):       self._mesh_cache = {}
+        if hasattr(self, "_mesh_bytes_cache"): self._mesh_bytes_cache = {}
+        if hasattr(self, "_pbr_cache"):        self._pbr_cache = {}
+        self.menu_status = (f"Reset Camera · {len(targets)} placement(s)"
+                            if len(targets) > 1
+                            else f"Reset Camera · {targets[0].name or targets[0].kind}")
 
     def _frame_selected(self) -> None:
         """Maya F — frame the current selection at ~80 % of the form
@@ -7602,6 +7854,12 @@ class Designer:
             self._frame_selected(); return
         if mods == 0 and code == "Home":
             self._frame_all(); return
+        # Reset Camera (Shift+R) — snap mesh_yaw/pitch/roll/dist back
+        # to defaults for the selected Mesh3D (or all of them). Useful
+        # when a user rotated themselves into a degenerate edge-on
+        # view and can't see the mesh any more.
+        if shift and not (meta or alt) and code == "KeyR":
+            self._reset_camera(); return
         # G3 Phase 6a — View-mode hotkeys (Maya parity).
         if mods == 0 and code in ("Digit4", "Digit5", "Digit6", "Digit7"):
             mode = {"Digit4": "wireframe", "Digit5": "shaded",
@@ -7749,6 +8007,7 @@ class Designer:
                 # Pan + drawing tools — kept on the same keys as before.
                 "KeyH": TOOL_HAND,
                 "KeyP": TOOL_PEN,
+                "KeyV": TOOL_VERTEX,      # Vertex-Drag — May 2026 addition
                 "KeyL": TOOL_LINE,
                 "KeyG": TOOL_POLYGON,
                 "KeyX": TOOL_REGION,
@@ -7997,10 +8256,18 @@ class Designer:
         cf_key = tuple(cf) if isinstance(cf, (list, tuple)) else cf
         part_tex = getattr(p, "mesh_part_textures", None) or {}
         part_tex_key = tuple(sorted(part_tex.items()))
+        # During an alt-drag camera gesture, render at quarter resolution
+        # synchronously on the main thread so the user sees the new pose
+        # immediately (no async-worker lag, no placeholder flash). Final
+        # high-res render happens on release when _dragging_camera flips
+        # back to False and the cache invalidates again.
+        dragging_cam = bool(getattr(self, "_dragging_camera", False))
+        size_target = 64 if dragging_cam else 192
         key = (p.mesh_kind, p.mesh_wireframe, p.mesh_yaw, p.mesh_pitch,
                p.mesh_flap, getattr(p, "mesh_dist", 3.5),
                getattr(p, "mesh_flip_y", False),
                int(p.w), int(p.h),
+               size_target,
                cf_key, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
                getattr(p, "pbr_albedo_map", ""), getattr(p, "texture_path", ""),
                part_tex_key)
@@ -8138,7 +8405,7 @@ class Designer:
                 studio = pbr_engine.STUDIOS.get(self.window_doc.studio,
                                                 pbr_engine.STUDIOS["Default Soft Studio"])
                 env = pbr_engine.to_environment(studio)
-                size = 192
+                size = size_target
                 rgba = pbr_engine.render_mesh(
                     size, size, obj, env,
                     cam_yaw=p.mesh_yaw, cam_pitch=p.mesh_pitch,
@@ -8174,6 +8441,12 @@ class Designer:
                       file=sys.stderr, flush=True)
                 with self._mesh_bytes_lock:
                     self._mesh_bytes_pending.discard(key)
+        if dragging_cam:
+            # Synchronous live-drag path — finish the render on the
+            # main thread inside the time budget of one frame
+            # (~16 ms at 60 Hz; size=64 keeps it well under).
+            worker()
+            return cache.get(key)
         threading.Thread(target=worker, daemon=True).start()
         return None
 
@@ -8609,6 +8882,28 @@ class Designer:
                     self.dragging_anchor = ai
                     self._push_undo()
                     return
+            # 2b) Vertex tool — click a polygon to enter anchor-edit
+            # mode (or to grab an existing anchor on the active polygon).
+            # Reuses the same editing_anchors_of / dragging_anchor state
+            # the bezier tool established, so the renderer at
+            # _paint_form_area already draws the dots for us.
+            if self.tool == TOOL_VERTEX:
+                idx = self._hit_placement(cx, cy)
+                if (idx >= 0
+                        and self.placements[idx].shape == "polygon"
+                        and self.placements[idx].points):
+                    self._select_placement(idx, additive=False)
+                    self.editing_anchors_of = idx
+                    ai = self._hit_anchor(cx, cy)
+                    if ai >= 0:
+                        self.dragging_anchor = ai
+                    self._push_undo()
+                    self.menu_status = (
+                        f"Vertex tool · drag any anchor on "
+                        f"{self.placements[idx].name or 'polygon'}")
+                    return
+                # Click off any polygon → exit anchor-edit mode.
+                self.editing_anchors_of = -1
             # 3) Hit a placement?
             shift_held = bool(self.win.modifiers & 1)
             idx = self._hit_placement(cx, cy)
@@ -10791,6 +11086,30 @@ class Designer:
         self._mesh_menu_session = sess
         return sess
 
+    def _project_row_thumbnail_path(self, item: dict) -> str | None:
+        """For a Project Explorer tree row, return the on-disk path to
+        an image we can blit as a 16×16 thumbnail next to the row's
+        label. Only returns a path that actually exists. Used by the
+        Project Explorer overlay paint to replace the abstract
+        coloured-dot icon with the actual texture the user bound."""
+        # Asset rows already point at a file path directly.
+        path = item.get("asset_path")
+        if path and Path(path).is_file():
+            return str(path)
+        # Placement rows: look up the index and pick the most
+        # representative texture (image_path > texture_path >
+        # pbr_albedo_map).
+        if (item.get("action") == "select_placement"
+                and isinstance(item.get("click_data"), int)):
+            idx = int(item["click_data"])
+            if 0 <= idx < len(self.placements):
+                p = self.placements[idx]
+                for attr in ("image_path", "texture_path", "pbr_albedo_map"):
+                    cand = getattr(p, attr, "") or ""
+                    if cand and Path(cand).is_file():
+                        return cand
+        return None
+
     def _selected_mesh3d(self) -> "Placement | None":
         if self.sel_kind != "placement" or not (0 <= self.sel_idx < len(self.placements)):
             self.menu_status = "Select a Mesh3D placement first"
@@ -10800,6 +11119,251 @@ class Designer:
             self.menu_status = f"Selected placement is {p.kind!r}, not Mesh3D"
             return None
         return p
+
+    def _camera_target(self) -> "Placement | None":
+        """Find the placement the camera gesture should drive — either
+        the currently-selected Mesh3D / PBRSphere, or the first one in
+        the scene (so Alt+drag works even if no placement is selected,
+        matching Maya's "navigate the active viewport" convention)."""
+        if (self.sel_kind == "placement"
+                and 0 <= self.sel_idx < len(self.placements)
+                and self.placements[self.sel_idx].kind in ("Mesh3D", "PBRSphere")):
+            return self.placements[self.sel_idx]
+        for p in self.placements:
+            if p.kind in ("Mesh3D", "PBRSphere"):
+                return p
+        return None
+
+    # --- Play-time before/after compare slider -----------------------
+    #
+    # When the user hits Play on a skin containing a Mesh3D placement,
+    # this overlays a draggable vertical wipe that reveals the
+    # wireframe / rigging beneath the final shaded animation. The
+    # interaction matches the "before/after" image-compare pattern:
+    # rigging is the base layer; production is the top layer with a
+    # left-of-slider mask; the user drags the circular thumb at the
+    # slider's X to grow / shrink the production region.
+
+    def _paint_compare_slider_mesh(self, dl, t, p: "Placement",
+                                       ax: float, ay: float) -> None:
+        """Render the active Mesh3D in compare mode: wireframe full
+        size as the base, then production-shaded version clipped to
+        the LEFT of `self.compare_slider_x` overlaid on top. Both
+        renders go through `_mesh_render_bytes` so they share the
+        cache + the worker pipeline; only the cache key differs
+        (mesh_wireframe is part of the key)."""
+        # Production layer — what _mesh_render_bytes already would
+        # have produced.
+        prod_blob = self._mesh_render_bytes(p)
+        # Wireframe layer — flip the flag, fetch (or kick off the
+        # render), then restore. The cache key includes mesh_wireframe
+        # so this stays cached independently of the production blob.
+        was_wf = p.mesh_wireframe
+        try:
+            p.mesh_wireframe = True
+            wire_blob = self._mesh_render_bytes(p)
+        finally:
+            p.mesh_wireframe = was_wf
+        # If either layer isn't ready yet, fall back to a placeholder.
+        if prod_blob is None and wire_blob is None:
+            dl.fill_path(_round(ax, ay, p.w, p.h, 4),
+                          themes.with_alpha(t.on_surface_muted, 0.15))
+            dl.draw_text("Compare loading…",
+                          ax + p.w / 2 - 48, ay + p.h / 2 + 4,
+                          12, t.on_surface_muted)
+            return
+        # Resolve the slider X to a fraction of the placement's width
+        # (clamped). Slider X is stored in canvas coords; convert to
+        # the placement's local 0..1 range.
+        sx_canvas = float(getattr(self, "compare_slider_x", ax + p.w / 2.0))
+        frac = (sx_canvas - ax) / max(1.0, p.w)
+        frac = max(0.0, min(1.0, frac))
+        # Base layer — wireframe across the full placement rect.
+        if wire_blob is not None:
+            rgba_w, ww, wh = wire_blob
+            dl.draw_image_bytes(rgba_w, ww, wh, ax, ay, p.w, p.h)
+        else:
+            dl.fill_path(_round(ax, ay, p.w, p.h, 4),
+                          themes.with_alpha(t.on_surface_muted, 0.10))
+        # Production overlay — sliced to the LEFT of the slider via
+        # numpy. `draw_image_bytes` doesn't support a src-region, so
+        # we crop the RGBA buffer to the [0, frac*W] columns and
+        # draw it at the left half of the placement rect.
+        if prod_blob is not None and frac > 0.001:
+            rgba_p, pw, ph = prod_blob
+            try:
+                import numpy as _np
+                arr = _np.frombuffer(rgba_p, dtype=_np.uint8).reshape(ph, pw, 4)
+                cut = max(1, int(pw * frac))
+                left = _np.ascontiguousarray(arr[:, :cut, :])
+                dl.draw_image_bytes(bytes(left.tobytes()),
+                                     cut, ph,
+                                     ax, ay, p.w * frac, p.h)
+            except Exception:
+                # Fall back to drawing the whole production layer if
+                # the numpy crop fails — never block on the compare
+                # overlay.
+                dl.draw_image_bytes(rgba_p, pw, ph, ax, ay, p.w, p.h)
+
+    def _paint_compare_slider_ui(self, dl, t) -> None:
+        """Vertical line + circular thumb at the active slider X.
+        Drawn over the form area AFTER all placements + selection
+        rings so it always reads as the topmost UI element."""
+        if not (getattr(self, "compare_slider_active", False)
+                and getattr(self, "playing", False)):
+            return
+        # Locate the Mesh3D this slider is wiping — same logic as
+        # `_camera_target` so the slider follows the active selection.
+        tgt = self._camera_target()
+        if tgt is None:
+            return
+        sx = float(getattr(self, "compare_slider_x", tgt.x + tgt.w / 2.0))
+        # Clamp to the placement's horizontal extent.
+        sx = max(tgt.x, min(tgt.x + tgt.w, sx))
+        self.compare_slider_x = sx
+        y0 = tgt.y
+        y1 = tgt.y + tgt.h
+        # Vertical divider line — bright white, semi-transparent.
+        dl.stroke_path(f"M {sx} {y0} L {sx} {y1}",
+                        themes.with_alpha((255, 255, 255, 255), 0.85), 2.0)
+        # Thumb — circular handle at the vertical midpoint.
+        cy = (y0 + y1) / 2.0
+        # Drop shadow.
+        dl.filled_circle(sx, cy + 1.5, 16.0,
+                          themes.with_alpha((0, 0, 0, 255), 0.25))
+        dl.filled_circle(sx, cy, 14.0, (255, 255, 255, 235))
+        dl.stroke_path(_ellipse_d(sx, cy, 14.0, 14.0),
+                        themes.with_alpha(t.primary, 0.7), 1.5)
+        # Two arrow chevrons inside the thumb so the wipe affordance
+        # reads at a glance (◀ ▶).
+        chev = themes.with_alpha((0, 0, 0, 255), 0.65)
+        dl.stroke_path(f"M {sx - 4} {cy - 3} L {sx - 7} {cy} L {sx - 4} {cy + 3}",
+                        chev, 1.6)
+        dl.stroke_path(f"M {sx + 4} {cy - 3} L {sx + 7} {cy} L {sx + 4} {cy + 3}",
+                        chev, 1.6)
+
+    def _maybe_handle_compare_slider(self, cur, press_just, pressed,
+                                       release_just) -> bool:
+        """Mouse-press / drag dispatcher for the compare slider thumb.
+        Returns True if the event was consumed (caller should skip
+        downstream placement-click dispatch)."""
+        if not (getattr(self, "compare_slider_active", False)
+                and getattr(self, "playing", False)):
+            self.compare_slider_drag = False
+            return False
+        tgt = self._camera_target()
+        if tgt is None:
+            return False
+        sx = float(getattr(self, "compare_slider_x", tgt.x + tgt.w / 2.0))
+        cy = tgt.y + tgt.h / 2.0
+        # Thumb hit-test — ±20-px circle (generous so the user can
+        # grab it even mid-flap).
+        hit_thumb = (cur is not None
+                      and (cur[0] - sx) ** 2 + (cur[1] - cy) ** 2 <= 20 * 20)
+        if release_just:
+            self.compare_slider_drag = False
+            return False
+        if press_just and hit_thumb:
+            self.compare_slider_drag = True
+            return True
+        if self.compare_slider_drag and pressed and cur is not None:
+            new_x = max(tgt.x, min(tgt.x + tgt.w, float(cur[0])))
+            self.compare_slider_x = new_x
+            return True
+        return False
+
+    def _maybe_handle_camera_gesture(self, cur, press_just, right_press_just,
+                                       pressed, release_just) -> bool:
+        """Maya-parity camera handler. Returns True if it consumed the
+        gesture (caller should skip downstream tool dispatch).
+
+        State machine: `_cam_gesture` tracks the active drag —
+        `("orbit", anchor_x, anchor_y, yaw0, pitch0)` /
+        `("pan",   anchor_x, anchor_y, pan_x0, pan_y0)` /
+        `("dolly", anchor_x, anchor_y, dist0)`. Set on press, advanced on
+        every frame the mouse is held, cleared on release.
+        Live-render at quarter-resolution via `_dragging_camera`."""
+        st = getattr(self, "_cam_gesture", None)
+        # End-of-drag — clean up once.
+        if release_just and st is not None:
+            self._cam_gesture = None
+            self._dragging_camera = False
+            # Force the cache to invalidate so the next paint kicks off
+            # a high-quality render of the final pose.
+            for c in ("_mesh_bytes_cache", "_mesh_cache"):
+                cache = getattr(self, c, None)
+                if cache: cache.clear()
+            return True
+
+        mods = getattr(self.win, "modifiers", 0)
+        alt   = bool(mods & 4)
+        shift = bool(mods & 1)
+
+        # Scroll-wheel zoom — independent of drag state.
+        try:
+            wheel = float(self.win.poll_pinch_delta())
+        except Exception:
+            wheel = 0.0
+        if abs(wheel) > 0.001:
+            tgt = self._camera_target()
+            if tgt is not None:
+                tgt.mesh_dist = max(0.4, min(20.0,
+                                              tgt.mesh_dist - wheel * 0.5))
+                for c in ("_mesh_bytes_cache", "_mesh_cache"):
+                    cache = getattr(self, c, None)
+                    if cache: cache.clear()
+                return True
+
+        # Need a press + Alt to start an orbit / pan / dolly.
+        in_form = False
+        if cur is not None:
+            fx, fy, fw, fh = self._form_rect()
+            in_form = (fx <= cur[0] <= fx + fw and fy <= cur[1] <= fy + fh)
+        if st is None and alt and in_form and (press_just or right_press_just):
+            tgt = self._camera_target()
+            if tgt is None:
+                return False    # nothing to orbit
+            if right_press_just:
+                self._cam_gesture = ("dolly", cur[0], cur[1], tgt.mesh_dist)
+            elif shift:
+                self._cam_gesture = ("pan",   cur[0], cur[1],
+                                      getattr(self, "canvas_pan_x", 0.0),
+                                      getattr(self, "canvas_pan_y", 0.0))
+            else:
+                self._cam_gesture = ("orbit", cur[0], cur[1],
+                                      tgt.mesh_yaw, tgt.mesh_pitch)
+            self._dragging_camera = True
+            return True
+
+        # Continue an active drag.
+        if st is not None and pressed and cur is not None:
+            kind = st[0]
+            tgt = self._camera_target()
+            if tgt is None:
+                self._cam_gesture = None
+                self._dragging_camera = False
+                return False
+            dx = cur[0] - st[1]
+            dy = cur[1] - st[2]
+            if kind == "orbit":
+                _, _, _, yaw0, pitch0 = st
+                # Maya conventions: horizontal drag → yaw, vertical → pitch.
+                tgt.mesh_yaw   = yaw0   + dx * 0.01
+                tgt.mesh_pitch = max(-1.5, min(1.5, pitch0 + dy * 0.01))
+            elif kind == "dolly":
+                _, _, _, dist0 = st
+                # Vertical drag dollies; down = farther, up = closer.
+                tgt.mesh_dist = max(0.4, min(20.0, dist0 + dy * 0.01))
+            elif kind == "pan":
+                _, _, _, pan_x0, pan_y0 = st
+                self.canvas_pan_x = pan_x0 + dx
+                self.canvas_pan_y = pan_y0 + dy
+            # Drop the cache so the next render reflects the new pose.
+            for c in ("_mesh_bytes_cache", "_mesh_cache"):
+                cache = getattr(self, c, None)
+                if cache: cache.clear()
+            return True
+        return False
 
     def _selected_reference_image(self) -> "Placement | None":
         # Multi-selection path: prefer an Image placement in sel_set.
@@ -12516,15 +13080,26 @@ class Designer:
                                  12, t.on_surface_muted)
                 return
             if p.kind == "Mesh3D":
-                blob = self._mesh_render_bytes(p)
-                if blob is not None:
-                    rgba, w_img, h_img = blob
-                    dl.draw_image_bytes(rgba, w_img, h_img, ax, ay, p.w, p.h)
+                # Play-time compare slider: when self.playing is True
+                # and the compare overlay is active, render this Mesh3D
+                # TWICE — once with wireframe ON (rigging base layer)
+                # and once with wireframe OFF (production top layer
+                # clipped to the LEFT of the slider X). The thumb +
+                # vertical line are painted by the form-area overlay
+                # pass at the end of `_paint_form_area`.
+                if (getattr(self, "compare_slider_active", False)
+                        and getattr(self, "playing", False)):
+                    self._paint_compare_slider_mesh(dl, t, p, ax, ay)
                 else:
-                    dl.fill_path(_round(ax, ay, p.w, p.h, 4),
-                                 themes.with_alpha(t.on_surface_muted, 0.15))
-                    dl.draw_text("3D rendering…", ax + p.w/2 - 38, ay + p.h/2 + 4,
-                                 12, t.on_surface_muted)
+                    blob = self._mesh_render_bytes(p)
+                    if blob is not None:
+                        rgba, w_img, h_img = blob
+                        dl.draw_image_bytes(rgba, w_img, h_img, ax, ay, p.w, p.h)
+                    else:
+                        dl.fill_path(_round(ax, ay, p.w, p.h, 4),
+                                     themes.with_alpha(t.on_surface_muted, 0.15))
+                        dl.draw_text("3D rendering…", ax + p.w/2 - 38, ay + p.h/2 + 4,
+                                     12, t.on_surface_muted)
                 # Fall through (no return) so the PaintMask overlay step
                 # below composites brush strokes / stamps on top of the
                 # rendered mesh.
@@ -12745,8 +13320,30 @@ class Designer:
                               self.customize_btn])
 
         # Custom Elysium title strip (replaces the native OS title
-        # bar  the host window is borderless).
-        self._paint_title_strip(dl, t, cur)
+        # bar  the host window is borderless). Auto-hides when the
+        # cursor isn't in the top 32-px reveal band, unless pinned.
+        # The smoothed `_title_visible` value translates the strip
+        # vertically off-screen via a save_with_transform sandwich;
+        # painting still happens unconditionally so the title text +
+        # button hit-rects are valid as soon as the cursor returns to
+        # the top edge.
+        reveal_band_px = 32.0
+        cursor_in_band = (cur is not None
+                          and 0.0 <= cur[1] < (TITLE_STRIP_H + reveal_band_px))
+        self._title_target = (1.0 if self.title_pinned or cursor_in_band
+                              else 0.0)
+        # Smooth tween — ~140 ms ease.
+        delta = self._title_target - self._title_visible
+        step = max(0.06, abs(delta) * 0.18)
+        if abs(delta) < step:
+            self._title_visible = self._title_target
+        else:
+            self._title_visible += step if delta > 0 else -step
+        if self._title_visible > 0.005:
+            ty = -(1.0 - self._title_visible) * TITLE_STRIP_H
+            dl.save_with_transform(0.0, ty, 1.0, 1.0, 0.0)
+            self._paint_title_strip(dl, t, cur)
+            dl.restore()
         if not IS_MAC:
             self._paint_menu_bar(dl, t, cur)
         self._paint_toolbar(dl, t, cur)
@@ -12949,34 +13546,62 @@ class Designer:
     _TITLE_LIGHT_GAP = 8.0   # gap between lights
     _TITLE_LIGHTS_X0 = 14.0  # left margin
 
+    # Windows-style chrome dimensions: 46-px-wide × full-strip-tall hit
+    # zones at the right edge (matches Win 11 caption buttons).
+    _WIN_BTN_W = 46.0
+
     def _title_light_rects(self
                             ) -> list[tuple[str,
                                             tuple[float, float, float, float]]]:
-        """Bounding-rect-per-traffic-light for hit-testing.
-        Order: close (red), minimize (yellow), maximize (green)
-        macOS convention so the muscle memory ports cleanly."""
-        r = self._TITLE_LIGHT_R
-        gap = self._TITLE_LIGHT_GAP
-        cy = TITLE_STRIP_H / 2.0
+        """Bounding-rect-per-button for hit-testing.
+
+        macOS layout: three traffic-light circles at the LEFT
+        (close / minimize / maximize), the order convention OS X has
+        used since 2001.
+
+        Windows layout: three Win-11-style caption buttons at the RIGHT
+        (minimize / maximize / close), tall rectangles matching the
+        native chrome the OS would draw.
+
+        The kind keys ("close", "minimize", "maximize") are identical
+        across platforms so `_title_button_hit` and the click dispatcher
+        stay platform-agnostic.
+        """
         out: list[tuple[str,
                          tuple[float, float, float, float]]] = []
-        x = self._TITLE_LIGHTS_X0
-        for kind in ("close", "minimize", "maximize"):
-            out.append((kind, (x - r, cy - r, r * 2.0, r * 2.0)))
-            x += r * 2.0 + gap
+        if IS_MAC:
+            r = self._TITLE_LIGHT_R
+            gap = self._TITLE_LIGHT_GAP
+            cy = TITLE_STRIP_H / 2.0
+            x = self._TITLE_LIGHTS_X0
+            for kind in ("close", "minimize", "maximize"):
+                out.append((kind, (x - r, cy - r, r * 2.0, r * 2.0)))
+                x += r * 2.0 + gap
+        else:
+            # Windows / Linux: right-aligned − □ ✕ tall rectangles.
+            bw = self._WIN_BTN_W
+            x = float(WIDTH) - 3 * bw
+            for kind in ("minimize", "maximize", "close"):
+                out.append((kind, (x, 0.0, bw, float(TITLE_STRIP_H))))
+                x += bw
         return out
 
     def _title_drag_rect(self
                           ) -> tuple[float, float, float, float]:
         """The clickable drag region: full title strip minus the
-        traffic-light cluster on the left."""
-        lights_w = (self._TITLE_LIGHTS_X0
-                    + 3 * (self._TITLE_LIGHT_R * 2.0)
-                    + 2 * self._TITLE_LIGHT_GAP
-                    + 8.0)
-        return (lights_w, 0.0,
-                float(WIDTH) - lights_w,
-                float(TITLE_STRIP_H))
+        button cluster (left on macOS, right on Windows / Linux)."""
+        if IS_MAC:
+            lights_w = (self._TITLE_LIGHTS_X0
+                        + 3 * (self._TITLE_LIGHT_R * 2.0)
+                        + 2 * self._TITLE_LIGHT_GAP
+                        + 8.0)
+            return (lights_w, 0.0,
+                    float(WIDTH) - lights_w,
+                    float(TITLE_STRIP_H))
+        # Windows / Linux: drag region is everything left of the
+        # button cluster.
+        btn_cluster_x = float(WIDTH) - 3 * self._WIN_BTN_W
+        return (0.0, 0.0, btn_cluster_x, float(TITLE_STRIP_H))
 
     def _title_button_hit(self, mx: float, my: float) -> str | None:
         for kind, (lx, ly, lw, lh) in self._title_light_rects():
@@ -13081,14 +13706,24 @@ class Designer:
                                 t.primary, 0.15 * breath_a)
         dl.draw_text(title_str, title_x, title_y, title_size,
                      deep_blue)
-        # Traffic lights. Each light is a luminous orb with:
-        #   1. Always-on soft outer halo (3-px) so they read as
-        #      glowing buttons even idle.
-        #   2. Drop-shadow underneath for the 3D pop.
-        #   3. Radial-gradient body (lighter top, darker bottom).
-        #   4. Top inner gloss highlight (specular catch).
-        #   5. Inner darker rim for bevel depth.
-        #   6. Brighter hover halo + glyph on hover.
+        # Window controls. macOS = round traffic lights on the left;
+        # Windows / Linux = right-aligned − □ ✕ caption buttons matching
+        # the native Win 11 chrome (so a Windows beta tester doesn't see
+        # the Mac convention on their own OS).
+        if IS_MAC:
+            self._paint_mac_traffic_lights(dl, cur)
+        else:
+            self._paint_win_caption_buttons(dl, t, cur)
+        # Pin button (auto-hide override) — sits opposite the OS
+        # buttons so it doesn't crowd them.
+        self._paint_title_pin_button(dl, t, cur)
+
+    # --- per-OS title-bar button painters -----------------------------
+
+    def _paint_mac_traffic_lights(self, dl, cur) -> None:
+        """Three luminous round orbs at the left edge — the classic
+        macOS chrome the original Designer shipped with. Kept for
+        platform parity (Mac users expect this convention)."""
         for kind, (lx, ly, lw, lh) in self._title_light_rects():
             cx = lx + lw / 2.0
             cy = ly + lh / 2.0
@@ -13101,40 +13736,30 @@ class Designer:
             hov = (cur is not None
                     and lx - 4 <= cur[0] <= lx + lw + 4
                     and ly - 4 <= cur[1] <= ly + lh + 4)
-            # 1. Always-on outer halo (subtle when idle, brighter on hover).
             halo_alpha = 0.40 if hov else 0.18
-            dl.fill_path(_ellipse_d(cx, cy, radius + 4.0,
-                                      radius + 4.0),
-                         themes.with_alpha(base, halo_alpha))
-            # 2. Drop shadow underneath, offset down 1px.
+            dl.fill_path(_ellipse_d(cx, cy, radius + 4.0, radius + 4.0),
+                          themes.with_alpha(base, halo_alpha))
             dl.fill_path(_ellipse_d(cx, cy + 1.2,
                                       radius * 0.95, radius * 0.95),
-                         themes.with_alpha((0, 0, 0, 255), 0.22))
-            # 3. Body gradient  the orb body, lighter at top + a touch
-            # of darker bottom so the sphere reads as a 3D ball.
+                          themes.with_alpha((0, 0, 0, 255), 0.22))
             body_top = themes.lighten(base, 0.18)
             body_bot = themes.mix(base, (0, 0, 0, base[3]), 0.18)
             dl.fill_path_linear_gradient(
                 _ellipse_d(cx, cy, radius, radius),
                 (cx, cy - radius), (cx, cy + radius),
                 body_top, body_bot)
-            # 4. Top inner specular gloss  the wet-paint catch.
             dl.fill_path_linear_gradient(
                 _ellipse_d(cx, cy - radius * 0.30,
                             radius * 0.78, radius * 0.50),
                 (cx, cy - radius), (cx, cy + radius * 0.15),
                 themes.with_alpha((255, 255, 255, 255), 0.70),
                 themes.with_alpha((255, 255, 255, 255), 0.0))
-            # 5. Inner darker rim along the bottom arc  the bevel
-            # depth that finishes the 3D illusion.
             dl.stroke_path(_ellipse_d(cx, cy, radius - 0.5,
-                                       radius - 0.5),
-                           themes.with_alpha((0, 0, 0, 255), 0.20),
-                           1.0)
-            # Glyph (×, , +) appears on hover so the lights look
-            # clean idle.
+                                        radius - 0.5),
+                            themes.with_alpha((0, 0, 0, 255), 0.20),
+                            1.0)
             if hov:
-                glyph = {"close": "×", "minimize": "", "maximize": "+"}[kind]
+                glyph = {"close": "×", "minimize": "−", "maximize": "+"}[kind]
                 glbl = self._chrome_label(
                     f"title_light:{kind}", size=10.0, align="left")
                 glbl.text = glyph
@@ -13149,6 +13774,110 @@ class Designer:
                     "maximize": "Maximize / Restore",
                 }[kind]
                 self.tip_pos = (cur[0] + 14, cur[1] + 18)
+
+    def _paint_win_caption_buttons(self, dl, t, cur) -> None:
+        """Right-aligned − □ ✕ caption buttons matching Win 11 native
+        chrome. Hover for − and □ tints to the surface accent; hover
+        for ✕ tints red. Each button is a full-height rectangle —
+        matches the OS's hit target so click feel is consistent with
+        any other Windows app."""
+        for kind, (lx, ly, lw, lh) in self._title_light_rects():
+            cx = lx + lw / 2.0
+            cy = ly + lh / 2.0
+            hov = (cur is not None
+                    and lx <= cur[0] <= lx + lw
+                    and ly <= cur[1] <= ly + lh)
+            if hov:
+                if kind == "close":
+                    bg = (232, 17, 35, 255)        # Win 11 close-red
+                    fg = (255, 255, 255, 255)
+                else:
+                    bg = themes.with_alpha(t.on_surface, 0.10)
+                    fg = t.on_surface
+                dl.fill_path(_rect(lx, ly, lw, lh), bg)
+            else:
+                fg = themes.with_alpha(t.on_surface, 0.85)
+            # Glyph drawing — flat 1-px strokes (Win 11 style).
+            if kind == "minimize":
+                # Single horizontal bar.
+                dl.fill_path(_rect(cx - 5, cy + 0.5, 10, 1), fg)
+            elif kind == "maximize":
+                # Empty square outline (1px stroke approximated by four
+                # thin filled bars so the strokes are perfectly crisp).
+                bx, by, bw, bh = cx - 5, cy - 5, 10, 10
+                dl.fill_path(_rect(bx, by,           bw, 1), fg)   # top
+                dl.fill_path(_rect(bx, by + bh - 1,  bw, 1), fg)   # bottom
+                dl.fill_path(_rect(bx, by,           1,  bh), fg)  # left
+                dl.fill_path(_rect(bx + bw - 1, by,  1,  bh), fg)  # right
+            elif kind == "close":
+                # Diagonal cross — two stroke_paths for clean anti-aliasing.
+                dl.stroke_path(f"M {cx - 5} {cy - 5} L {cx + 5} {cy + 5}",
+                                fg, 1.2)
+                dl.stroke_path(f"M {cx - 5} {cy + 5} L {cx + 5} {cy - 5}",
+                                fg, 1.2)
+            if hov:
+                self.tip_text = {
+                    "close":    "Close",
+                    "minimize": "Minimize",
+                    "maximize": "Maximize / Restore",
+                }[kind]
+                self.tip_pos = (cur[0] + 14, cur[1] + 18)
+
+    # --- Pin button (auto-hide override) ------------------------------
+
+    _PIN_BTN_SIZE = 22.0
+
+    def _title_pin_rect(self) -> tuple[float, float, float, float]:
+        """The pin button's clickable rect. Sits opposite the OS-button
+        cluster: right-of-traffic-lights on macOS, just-left-of caption
+        buttons on Windows / Linux so the layout stays balanced."""
+        s = self._PIN_BTN_SIZE
+        cy = TITLE_STRIP_H / 2.0 - s / 2.0
+        if IS_MAC:
+            # Right side of the strip, mirroring the left-edge lights.
+            return (float(WIDTH) - s - 12.0, cy, s, s)
+        else:
+            # Left side of the strip (caption buttons live at the right).
+            return (12.0, cy, s, s)
+
+    def _paint_title_pin_button(self, dl, t, cur) -> None:
+        """Pushpin icon on the title strip. Click toggles
+        `self.title_pinned`; when pinned, the auto-hide tween is
+        suppressed and the strip stays fully visible regardless of
+        cursor position. Persists in `_designer_prefs` so reopening
+        the app preserves the user's preference."""
+        bx, by, bw, bh = self._title_pin_rect()
+        cx = bx + bw / 2.0
+        cy = by + bh / 2.0
+        hov = (cur is not None
+                and bx <= cur[0] <= bx + bw
+                and by <= cur[1] <= by + bh)
+        pinned = bool(getattr(self, "title_pinned", False))
+        if hov:
+            dl.fill_path(_round(bx, by, bw, bh, 4),
+                          themes.with_alpha(t.on_surface, 0.10))
+        # Pushpin glyph — drawn as a 14-pt triangle head with a vertical
+        # stem. Rotates 0° when un-pinned (lying on its side) and -45°
+        # when pinned (driven into the wall), as a visual on/off cue.
+        col = (t.primary if pinned
+                else themes.with_alpha(t.on_surface, 0.85))
+        if pinned:
+            # Pin head (filled disc) + stem pointing down-right (driven in).
+            dl.filled_circle(cx, cy - 1, 4.5, col)
+            dl.stroke_path(f"M {cx} {cy} L {cx + 4} {cy + 5}", col, 1.6)
+        else:
+            # Pin lying on side (head left, point right). Outline-only
+            # disc + stem so the un-pinned state reads as "click to pin".
+            dl.stroke_path(_ellipse_d(cx - 2, cy, 3.8, 3.8), col, 1.4)
+            dl.stroke_path(f"M {cx + 1} {cy} L {cx + 7} {cy}", col, 1.6)
+        if hov:
+            self.tip_text = ("Unpin title bar (allow auto-hide)" if pinned
+                             else "Pin title bar (always show)")
+            self.tip_pos = (cur[0] + 14, cur[1] + 18)
+
+    def _title_pin_hit(self, mx: float, my: float) -> bool:
+        bx, by, bw, bh = self._title_pin_rect()
+        return bx <= mx <= bx + bw and by <= my <= by + bh
 
     def _paint_menu_bar(self, dl, t, cur) -> None:
         # Self-host migration, Stage 3b: the in-window menu bar
@@ -13321,9 +14050,24 @@ class Designer:
         self.playing = not self.playing
         if self.playing:
             self._play_clock = 0.0
-            self.menu_status = ("Animation playing"
-                                 + (" (loop)" if self.play_loop else " (one-shot)"))
+            # Activate the play-time before/after compare slider if
+            # the scene contains a Mesh3D to wipe between. Initial
+            # thumb position = the placement's horizontal centre.
+            tgt = self._camera_target()
+            if tgt is not None and tgt.kind == "Mesh3D":
+                self.compare_slider_active = True
+                self.compare_slider_x = float(tgt.x + tgt.w / 2.0)
+                self.compare_slider_drag = False
+                self.menu_status = (
+                    "Animation playing — drag the slider to wipe "
+                    "between rigging (wireframe) and final shaded view")
+            else:
+                self.compare_slider_active = False
+                self.menu_status = ("Animation playing"
+                                     + (" (loop)" if self.play_loop else " (one-shot)"))
         else:
+            self.compare_slider_active = False
+            self.compare_slider_drag = False
             self.menu_status = "Animation stopped"
 
     def _toggle_loop(self) -> None:
@@ -14006,6 +14750,23 @@ class Designer:
         elif action_id.startswith("polygon."):
             kind = action_id.split(".", 1)[1].capitalize()
             self._spawn_polygon_primitive(kind)
+        elif action_id.startswith("sculpt."):
+            # New Sculpting-shelf entries: add edge / face, extrude,
+            # bevel. Each is a stub that pops a "use the Vertex tool"
+            # hint until the corresponding operator is fully wired —
+            # the Vertex tool covers the 80 % case of editing existing
+            # geometry, which is the immediate beta-tester request.
+            sub = action_id.split(".", 1)[1]
+            hints = {
+                "add_edge": "Add Edge: Vertex tool + click on an edge midpoint",
+                "add_face": "Add Face: Vertex tool + Shift-click 3+ anchors",
+                "extrude":  "Extrude: select a face, press Ctrl+E (TBD)",
+                "bevel":    "Bevel: select an edge, click Sculpting ▸ Bevel (TBD)",
+            }
+            self.menu_status = hints.get(sub, f"Sculpt action: {sub}")
+            # Switch to the Vertex tool so the user has a working
+            # next step even when the specific sub-op isn't wired yet.
+            self.tool = TOOL_VERTEX
         elif action_id.startswith("tool."):
             # Sculpting shelf  one-click tool activation. Mirrors
             # the toolbox column tools but in the shelf strip so the
@@ -14020,6 +14781,7 @@ class Designer:
                 "hand":    TOOL_HAND,
                 "pen":     TOOL_PEN,
                 "bezier":  TOOL_BEZIER,
+                "vertex":  TOOL_VERTEX,
             }
             if tool_name in tool_map:
                 self.tool = tool_map[tool_name]
@@ -15807,6 +16569,40 @@ class Designer:
         except Exception:
             pass
 
+        # Play-time compare slider UI (vertical line + thumb). Painted
+        # after every placement so it always reads as the topmost UI
+        # element on the canvas.
+        try:
+            self._paint_compare_slider_ui(dl, t)
+        except Exception as _ce:
+            self.menu_status = f"compare slider paint error: {_ce}"
+
+        # Empty-canvas hint: when the user launched without a skin (or
+        # just hit File > Close Skin), the placements list is empty
+        # and the App Window is its default-themed rectangle. Render a
+        # centred "Open Skin…" prompt so the canvas doesn't look
+        # broken / mid-loading. Hidden as soon as anything is added.
+        try:
+            scratch_name = "untitled.esk"
+            is_scratch = self.skin_path.name == scratch_name
+            if (is_scratch and not self.placements
+                    and self.sel_kind in ("none", "window")):
+                shortcut = "Cmd+O" if IS_MAC else "Ctrl+O"
+                hx = fx + fw / 2.0
+                hy = fy + fh / 2.0
+                # Heading
+                head = "No skin loaded"
+                dl.draw_text(head,
+                              hx - len(head) * 4.5, hy - 8, 18,
+                              themes.with_alpha(t.on_surface, 0.85))
+                # Subtitle
+                sub = f"File ▸ Open Skin…  ({shortcut})"
+                dl.draw_text(sub,
+                              hx - len(sub) * 3.4, hy + 18, 12,
+                              themes.with_alpha(t.on_surface_muted, 0.85))
+        except Exception:
+            pass
+
     def _paint_resize_cursor_hint(self, dl, t, mx: float, my: float,
                                     handle_idx: int) -> None:
         """Draw a double-arrow glyph at (mx, my) reflecting the resize
@@ -17140,6 +17936,28 @@ class Designer:
         tree.w = row_rw
         tree.h = rows_per * 20.0
         tree.paint(dl)
+        # Thumbnail overlay — for placements that have a bound texture
+        # (Image kind with image_path, Mesh3D with texture_path /
+        # pbr_albedo_map), draw a 16×16 down-scaled thumbnail to the
+        # LEFT of the label, replacing the abstract coloured dot. Beta
+        # testers expected the Project Explorer to actually show the
+        # image they uploaded; the existing icon-color hint was too
+        # abstract.
+        for i, item in enumerate(items_visible):
+            thumb_path = self._project_row_thumbnail_path(item)
+            if not thumb_path:
+                continue
+            yy = tree_top + i * 20
+            depth = int(item.get("depth", 0))
+            # Position the thumbnail over the coloured-dot slot the
+            # framework `ui.Tree` already laid out — same x-offset as
+            # the dot, vertically centred in the 20-px row.
+            tx = row_rx + 14 + depth * 14
+            ty = yy + 2
+            try:
+                dl.draw_image_file(thumb_path, tx, ty, 16, 16)
+            except Exception:
+                pass
         for i, item in enumerate(items_visible):
             yy = tree_top + i * 20
             depth = item.get("depth", 0)
@@ -22169,6 +22987,25 @@ def _icon_tool_pivot_edit(ctx: IconCtx) -> None:
                   themes.with_alpha(fg, 0.85))
 
 
+@icon_painter("tool_anchor")
+def _icon_tool_anchor(ctx: IconCtx) -> None:
+    """Vertex / Anchor tool — three small square handles connected by
+    a polyline, showing the user this tool lets them grab the anchor
+    points of a polygon and drag them. Active dot is highlighted in
+    the accent colour."""
+    cx, cy, dl, fg, acc = ctx.cx, ctx.cy, ctx.dl, ctx.fg, ctx.acc
+    # Three anchor points (rough triangle).
+    pts = [(cx - 7, cy - 4), (cx + 6, cy - 6), (cx, cy + 7)]
+    # Polyline connecting them.
+    d = f"M {pts[0][0]} {pts[0][1]} L {pts[1][0]} {pts[1][1]} L {pts[2][0]} {pts[2][1]} Z"
+    dl.stroke_path(d, themes.with_alpha(fg, 0.55), 1.2)
+    # Square handles — accent on the "active" one (top-right).
+    for i, (px, py) in enumerate(pts):
+        col = acc if i == 1 else fg
+        dl.fill_path(_rect(px - 3, py - 3, 6, 6), (255, 255, 255, 255))
+        dl.stroke_path(_rect(px - 3.5, py - 3.5, 7, 7), col, 1.3)
+
+
 @icon_painter("tool_gizmo")
 def _icon_tool_gizmo(ctx: IconCtx) -> None:
     """Rotate (E) — KEEP the existing 3-ellipse gizmo glyph
@@ -22553,6 +23390,33 @@ def _icon_vp_frame_sel(ctx: IconCtx) -> None:
                   themes.with_alpha(acc, 0.85))
 
 
+@icon_painter("vp_reset_camera")
+def _icon_vp_reset_camera(ctx: IconCtx) -> None:
+    """3D house-of-cards cube with a circular-arrow ring — Reset Camera /
+    Return to 3D. The cube reads as 'a 3D scene'; the arrow reads as
+    'snap back / orbit reset'."""
+    cx, cy, dl, fg, acc = ctx.cx, ctx.cy, ctx.dl, ctx.fg, ctx.acc
+    # Iso cube (front face + top face + right face).
+    dl.fill_path(
+        f"M {cx-5} {cy-2} L {cx} {cy-5} L {cx+5} {cy-2} L {cx} {cy+1} Z",
+        themes.with_alpha(acc, 0.85))
+    dl.fill_path(
+        f"M {cx-5} {cy-2} L {cx-5} {cy+5} L {cx} {cy+8} L {cx} {cy+1} Z",
+        themes.with_alpha(acc, 0.55))
+    dl.fill_path(
+        f"M {cx+5} {cy-2} L {cx+5} {cy+5} L {cx} {cy+8} L {cx} {cy+1} Z",
+        themes.with_alpha(acc, 0.7))
+    # Circular-arrow ring above the cube (3/4 of a circle + arrowhead).
+    dl.stroke_path(
+        f"M {cx-8} {cy-3} "
+        f"Q {cx-8} {cy-10} {cx} {cy-10} "
+        f"Q {cx+8} {cy-10} {cx+8} {cy-3}",
+        fg, 1.3)
+    # Arrowhead at the open end.
+    dl.fill_path(
+        f"M {cx+6} {cy-5} L {cx+8} {cy-1} L {cx+10} {cy-5} Z", fg)
+
+
 @icon_painter("vp_frame_all")
 def _icon_vp_frame_all(ctx: IconCtx) -> None:
     """Magnifier + scene brackets — Frame All."""
@@ -22678,20 +23542,41 @@ def _default_skin_path() -> Path | None:
     return None
 
 
+def _untitled_scratch_skin() -> Path:
+    """Per-user scratch bundle at ~/.elysium/untitled.esk. Created on
+    demand so File > Close Skin (and the no-arg startup path) have a
+    safe place to land — a Save in this state writes here instead of
+    clobbering a real bundle the user might have just opened."""
+    scratch = Path(os.path.expanduser("~/.elysium/untitled.esk"))
+    scratch.mkdir(parents=True, exist_ok=True)
+    manifest = scratch / "manifest.json"
+    if not manifest.is_file():
+        manifest.write_text(json.dumps({
+            "schema_version": "1.0",
+            "id":   "dev.elysium.untitled",
+            "name": "Untitled",
+            "version": "0.0.1",
+            "color_space": "srgb",
+        }, indent=2))
+    return scratch
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="elysium-designer",
                                      description="Visual authoring tool.")
     parser.add_argument("skin", nargs="?",
                           help="Path to the .esk directory. Optional — "
-                                "when omitted, a bundled example skin is "
-                                "loaded so the Designer can launch from "
-                                "Finder / Explorer without arguments.")
+                                "when omitted, the Designer launches "
+                                "blank and the user opens a skin via "
+                                "File > Open Skin (Ctrl/Cmd+O).")
     args = parser.parse_args()
-    skin_path = Path(args.skin) if args.skin else _default_skin_path()
-    if skin_path is None:
-        parser.error(
-            "no skin given and no bundled default could be located. "
-            "Pass a .esk directory path explicitly.")
+    # No-arg launch lands on a blank scratch skin instead of auto-loading
+    # an example — the previous "double-click in Finder opens butterfly"
+    # behaviour confused beta testers who expected an empty canvas they
+    # could open their own bundle into. The `_default_skin_path()`
+    # function stays in place for `elysium-designer examples/...` and
+    # other explicit-path callers.
+    skin_path = Path(args.skin) if args.skin else _untitled_scratch_skin()
     Designer(skin_path).run()
     return 0
 

@@ -285,6 +285,32 @@ impl PyWindow {
         self.handle.request_set_minimized(minimized);
     }
 
+    /// Begin an OS-driven interactive resize from a specific edge
+    /// or corner. `direction` is one of
+    /// `"e" | "n" | "ne" | "nw" | "s" | "se" | "sw" | "w"`.
+    /// Used by the Designer's borderless-window edge-resize band:
+    /// on press inside the band, dispatch this and the OS takes
+    /// over until the user releases the mouse. Backed by winit's
+    /// `Window::drag_resize_window` (winit 0.30+).
+    fn drag_resize_window(&self, direction: &str) -> PyResult<()> {
+        use ely_platform::window::ResizeDirection as RD;
+        let dir = match direction.to_ascii_lowercase().as_str() {
+            "e"  | "east"       => RD::East,
+            "n"  | "north"      => RD::North,
+            "ne" | "northeast"  => RD::NorthEast,
+            "nw" | "northwest"  => RD::NorthWest,
+            "s"  | "south"      => RD::South,
+            "se" | "southeast"  => RD::SouthEast,
+            "sw" | "southwest"  => RD::SouthWest,
+            "w"  | "west"       => RD::West,
+            other => return Err(pyo3::exceptions::PyValueError::new_err(
+                format!("drag_resize_window: unknown direction {:?}; \
+                         expected one of e/n/ne/nw/s/se/sw/w", other))),
+        };
+        self.handle.request_drag_resize(dir);
+        Ok(())
+    }
+
     /// Toggle the OS maximised state. Custom borderless windows
     /// that paint their own traffic-light buttons call this from
     /// the maximise click.

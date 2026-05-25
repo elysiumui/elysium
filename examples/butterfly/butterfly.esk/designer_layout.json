@@ -142,22 +142,22 @@
         "use_color_fill": true
       },
       "mesh": {
-        "kind": "file:/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/_3ds/butterfly.3ds",
+        "kind": "file:_3ds/butterfly.3ds",
         "wireframe": false,
         "yaw": 0.4,
         "pitch": 0.25,
         "flap": 0.0,
-        "flap_freq": 0.0,
-        "flap_amp": 0.6,
-        "dist": 3.5,
-        "flip_y": false,
+        "flap_freq": 2.5,
+        "flap_amp": 0.7,
+        "dist": 1.2,
+        "flip_y": true,
         "roll": 0.0,
         "part_textures": {},
         "view_mode": "lit"
       },
       "cycle_states": true,
       "texture": {
-        "path": "/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/Texture/Alas mariposa.jpg",
+        "path": "Texture/Alas mariposa.jpg",
         "scale": 1.0,
         "offset_x": 0.0,
         "offset_y": 0.0,

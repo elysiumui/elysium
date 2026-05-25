@@ -195,6 +195,26 @@ class _WindowProxy:
         if fn is not None:
             fn(bool(fullscreen))
 
+    def set_cursor(self, name: str) -> None:
+        """Swap the OS mouse cursor icon. CSS-style names supported:
+        ``default | pointer | text | crosshair | move | grab |
+        grabbing | not-allowed | ew-resize | ns-resize | nwse-resize |
+        nesw-resize | zoom-in | zoom-out``. Unknown names fall back to
+        ``default``. No-op on older native builds."""
+        fn = getattr(self._native, "set_cursor", None)
+        if fn is not None:
+            fn(str(name))
+
+    def drag_resize_window(self, direction: str) -> None:
+        """Begin an OS-driven interactive resize from one of the
+        eight edges / corners (``e | n | ne | nw | s | se | sw | w``).
+        Used by borderless-window edge-resize bands: on press inside
+        the band, fire this and the OS takes over until mouse-up.
+        No-op on older native builds without the binding."""
+        fn = getattr(self._native, "drag_resize_window", None)
+        if fn is not None:
+            fn(str(direction))
+
     # --- macOS Cocoa polish -------------------------------------------
 
     def set_blur_behind(self, enabled: bool, material: int = 12) -> None:
