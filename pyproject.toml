@@ -21,7 +21,19 @@ classifiers     = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
 ]
-dependencies = []
+dependencies = [
+    # Scientific stack — used by the framework's image / brush / paint
+    # / PBR / Designer paths and by every example app that touches
+    # pixels. Declaring them here ensures `pip install elysium` pulls
+    # them in for end-users AND that the PyInstaller build bundles
+    # them (PyInstaller can only bundle modules that are importable
+    # in the build venv; without these declared, the Designer .exe
+    # crashed at launch with ModuleNotFoundError: numpy on Windows).
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "Pillow>=10",
+    "scikit-image>=0.22",
+]
 
 [project.optional-dependencies]
 dev = [
