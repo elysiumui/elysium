@@ -1,0 +1,59 @@
+<idea-plugin>
+    <id>dev.elysium.pycharm</id>
+    <name>Elysium UI</name>
+    <vendor email="hello@elysium.dev" url="https://elysium.dev">Elysium</vendor>
+
+    <description><![CDATA[
+        First-class PyCharm support for the Elysium UI framework.
+        <ul>
+            <li>Hook completion at <code>window[&quot;</code> with type info.</li>
+            <li>Goto-definition: jump from a hook reference into the
+            <code>.esk</code> node that declares it.</li>
+            <li>Code-lens on <code>@win.on(...)</code> decorators that opens
+            the Designer at the matching component.</li>
+            <li>Run / Debug configuration "Elysium App" with hot-reload
+            wired automatically.</li>
+            <li>Embedded Designer tool window.</li>
+            <li>Live Inspector + per-frame profiler.</li>
+        </ul>
+        Bundles the <code>elysium-lsp</code> sidecar; communicates over LSP-stdio
+        via the LSP4IJ runtime, so feature parity with VS Code is automatic.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.python</depends>
+    <depends>com.redhat.devtools.lsp4ij</depends>
+
+    <extensions defaultExtensionNs="com.redhat.devtools.lsp4ij">
+        <server id="elysium-lsp"
+                name="Elysium UI"
+                factoryClass="dev.elysium.pycharm.ElysiumLspFactory"/>
+        <languageMapping language="Python" serverId="elysium-lsp"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Elysium Designer"
+                    anchor="right"
+                    factoryClass="dev.elysium.pycharm.DesignerToolWindowFactory"/>
+        <toolWindow id="Elysium Inspector"
+                    anchor="bottom"
+                    factoryClass="dev.elysium.pycharm.InspectorToolWindowFactory"/>
+
+        <configurationType
+            implementation="dev.elysium.pycharm.run.ElysiumAppConfigurationType"/>
+
+        <postStartupActivity
+            implementation="dev.elysium.pycharm.StubgenStartupActivity"/>
+    </extensions>
+
+    <actions>
+        <action id="elysium.openInDesigner"
+                class="dev.elysium.pycharm.actions.OpenInDesignerAction"
+                text="Open in Elysium Designer"
+                description="Open the current hook in the Designer panel.">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default"
+                               first-keystroke="ctrl alt D"/>
+        </action>
+    </actions>
+</idea-plugin>

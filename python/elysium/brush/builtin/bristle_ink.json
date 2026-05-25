@@ -1,0 +1,24 @@
+{
+  "id": "elysium.bristle.ink",
+  "name": "Bristle Ink",
+  "engine": "Bristle",
+  "params": {
+    "size": 22,
+    "opacity": 1.0,
+    "hardness": 0.95,
+    "flow": 0.95,
+    "spacing": 0.03,
+    "strands": 14,
+    "scatter": 0.25,
+    "strand_size": 0.1
+  },
+  "color_mode": "active",
+  "category": "Bristle",
+  "tags": [
+    "bristle",
+    "ink",
+    "brush"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_bristle_ink.png"
+}

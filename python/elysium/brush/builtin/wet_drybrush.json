@@ -1,0 +1,24 @@
+{
+  "id": "elysium.wet.drybrush",
+  "name": "Dry Brush",
+  "engine": "WetMix",
+  "params": {
+    "size": 24,
+    "opacity": 0.8,
+    "hardness": 0.85,
+    "flow": 0.4,
+    "spacing": 0.1,
+    "wetness": 0.15,
+    "dilution": 0.0,
+    "dry_rate": 0.35
+  },
+  "color_mode": "active",
+  "category": "Wet Media",
+  "tags": [
+    "dry",
+    "scumble",
+    "rough"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_wet_drybrush.png"
+}

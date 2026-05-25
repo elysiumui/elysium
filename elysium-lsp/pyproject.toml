@@ -1,0 +1,18 @@
+[project]
+name = "elysium-lsp"
+version = "0.1.0"
+description = "Language server for Elysium UI — hook completion, refactor, diagnostics."
+requires-python = ">=3.10"
+dependencies = [
+  "elysium",
+  "pygls>=1.3",
+]
+[project.scripts]
+elysium-lsp = "elysium_lsp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/elysium_lsp"]

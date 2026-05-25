@@ -1,0 +1,22 @@
+{
+  "id": "elysium.ink.marker",
+  "name": "Marker",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 22,
+    "opacity": 0.92,
+    "hardness": 0.55,
+    "flow": 0.85,
+    "spacing": 0.04,
+    "jitter": 0.0
+  },
+  "color_mode": "active",
+  "category": "Ink / Liners",
+  "tags": [
+    "ink",
+    "marker",
+    "fill"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_ink_marker.png"
+}

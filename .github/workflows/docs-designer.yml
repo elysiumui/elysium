@@ -1,0 +1,75 @@
+name: Docs (Designer)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs-designer/**
+      - mkdocs-designer.yml
+      - scripts/gen_aether_tool_reference.py
+      - python/elysium/aether/tools/**
+      - .github/workflows/docs-designer.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  # The Framework docs workflow uses concurrency group "pages". Use a separate
+  # group here so the two sites can deploy in parallel without canceling each
+  # other.
+  group: "pages-designer"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Install build dependencies
+        run: pip install mkdocs-material pymdown-extensions
+      - name: Generate Aether tool reference partial
+        # Keeps docs-designer/reference/aether-tool-reference.partial.md in
+        # sync with python/elysium/aether/tools/*.py on every build.
+        run: python scripts/gen_aether_tool_reference.py
+      - name: Verify code samples compile
+        # Scans every ```python block in docs-designer/ and fails the build
+        # if any block contains a SyntaxError. Blocks tagged `no-check`
+        # are skipped. Framework docs are verified by the sibling workflow.
+        run: python scripts/verify_docs_examples.py
+      - name: Lint for em dashes and British spellings
+        # Per the documentation directives: no em dashes in user-facing
+        # copy, and American English spelling throughout.
+        run: |
+          set -e
+          # Scan only the Designer site since the Framework site is checked
+          # in its own workflow. Find prints the offending line; fail if any
+          # are present. Em dash character is U+2014.
+          if grep -nrP "—" docs-designer/ | grep -v '^[^:]*:[[:space:]]*<!--'; then
+            echo "::error::em dash (—) found in docs-designer/. Replace with a comma, colon, parenthesis, or rewrite."
+            exit 1
+          fi
+          # Common British spellings. Add to this list as more drift in.
+          if grep -nrEi '\b(colour|favourite|behaviour|honour|neighbour|centre|organis(e|ation|ed|ing)|catalogue|dialogue|licenc(e|ed)|serialis(e|ed)|normalis(e|ed)|optimis(e|ed)|recognis(e|ed)|defenc(e|ed))\b' docs-designer/; then
+            echo "::error::British spelling found in docs-designer/. Use American English."
+            exit 1
+          fi
+      - name: Build site
+        run: mkdocs build --strict --site-dir _site -f mkdocs-designer.yml
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages-designer
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

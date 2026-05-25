@@ -1,0 +1,9 @@
+{
+  "root": {
+    "type": "scene",
+    "id": "designer_chrome",
+    "size": { "w": 1360, "h": 880 },
+    "background": { "type": "color", "value": "#00000000" },
+    "children": []
+  }
+}

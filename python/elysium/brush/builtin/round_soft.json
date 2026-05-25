@@ -1,0 +1,22 @@
+{
+  "id": "elysium.round.soft",
+  "name": "Soft Round",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 28,
+    "opacity": 0.85,
+    "hardness": 0.2,
+    "flow": 0.6,
+    "spacing": 0.04,
+    "jitter": 0.0
+  },
+  "color_mode": "active",
+  "category": "Round",
+  "tags": [
+    "round",
+    "soft",
+    "blend"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_round_soft.png"
+}

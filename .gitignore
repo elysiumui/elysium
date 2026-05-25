@@ -1,0 +1,41 @@
+# Rust
+/elysium-native/target/
+**/*.rs.bk
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+*.so
+*.pyd
+*.dylib
+
+# maturin
+/target/
+.cargo/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Elysium
+.elysium/
+/tests/snapshots/**/*.actual.png
+/tests/snapshots/**/*.diff.png
+
+# MkDocs build output — the docs-deploy workflow rebuilds it on push.
+site/
+
+# Claude Code local-only settings (per-machine permission overrides).
+.claude/settings.local.json
+.claude/projects/

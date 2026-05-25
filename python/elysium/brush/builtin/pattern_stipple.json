@@ -1,0 +1,24 @@
+{
+  "id": "elysium.pattern.stipple",
+  "name": "Stipple",
+  "engine": "Pattern",
+  "params": {
+    "size": 24,
+    "opacity": 1.0,
+    "flow": 1.0,
+    "spacing": 1.4,
+    "rotation": "random",
+    "scale_jitter": 0.35,
+    "hue_jitter": 0.0,
+    "pattern_path": ""
+  },
+  "color_mode": "active",
+  "category": "Pattern",
+  "tags": [
+    "stipple",
+    "dots",
+    "shading"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_pattern_stipple.png"
+}

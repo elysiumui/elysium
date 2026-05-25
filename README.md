@@ -1,0 +1,128 @@
+# Elysium UI
+
+> Python UI without the rectangles.
+
+A GPU-accelerated framework for borderless, shaped, animated Python
+desktop applications. Skia + wgpu hybrid rendering, designer-and-
+developer split via `.esk` skin files, animation as a first-class
+citizen, and a dedicated authoring app (Elysium Designer).
+
+## Documentation
+
+- **Framework**: [docs.elysium.dev](https://docs.elysium.dev) (the
+  `elysium` Python package)
+- **Designer**: [designer.elysium.dev](https://designer.elysium.dev)
+  (the `.esk` authoring app)
+
+Both sites build from this repo: `docs/` and `docs-designer/`.
+
+## Quick start
+
+```bash
+pip install elysium
+```
+
+Run the minimum borderless ellipse window:
+
+```python
+import elysium as ely
+
+ELLIPSE = "M 0,180 A 180,180 0 1 0 360,180 A 180,180 0 1 0 0,180 Z"
+
+app = ely.App(title="Hello", identifier="dev.example.hello")
+window = app.window(transparent=True, title_bar=False,
+                    resizable=False, initial_size=(360, 360))
+window.set_hit_test_path(ELLIPSE)
+app.run()
+```
+
+A 360 by 360 transparent ellipse window appears with no chrome,
+clipping clicks to the ellipse.
+
+## Four lead demos
+
+The Getting Started tutorials walk through four flagship apps:
+
+| Demo | Time | What you build |
+|---|---|---|
+| [Aurora Clock](https://docs.elysium.dev/getting-started/aurora-clock-01-window/) | 30 min | Borderless transparent ellipse clock with breathing aurora glow |
+| [Pomodoro Timer](https://docs.elysium.dev/getting-started/pomodoro-01-shape-and-modes/) | 25 min | Rounded-rect Pomodoro with radial progress + popover settings |
+| [Stylized Music Player](https://docs.elysium.dev/getting-started/stylized-music-01-the-faceplate/) | 90 min | Late-1990s-style irregular faceplate music player skin |
+| [Butterfly Banner](https://docs.elysium.dev/getting-started/butterfly-banner-01-load-the-skin/) | 20 min | The Elysium logo: a butterfly descends and unfurls the wordmark |
+
+Together they exercise the entire public API: `App`, `Window`,
+shaped windows, skins, signals, effects, Tweens, Springs,
+Timelines, themes, components, brush, PBR, AI, marketplace.
+
+## The Designer
+
+The companion authoring app ships as a signed standalone executable
+per OS:
+
+- macOS: `Elysium Designer.app`
+- Windows: `ElysiumDesigner.exe`
+- Linux: `Elysium-Designer.AppImage`
+
+Download from [releases](https://github.com/elysium-ui/elysium/releases),
+or build from source (see
+[the build-from-source guide](https://designer.elysium.dev/installation/build-from-source/)).
+
+The Designer's lead tutorial is the
+[Blue Morpho to Monarch butterfly](https://designer.elysium.dev/getting-started/butterfly/)
+texture-transfer workflow, which produces the same `.esk` the
+Butterfly Banner framework demo loads.
+
+## Architecture
+
+| Layer | Crate / Package |
+|---|---|
+| Pure-Rust primitives (geometry, display list, color, time) | [`ely-core`](elysium-native/crates/ely-core) |
+| Windowing + input + a11y (winit) | [`ely-platform`](elysium-native/crates/ely-platform) |
+| Skia paint + wgpu compositor + WGSL effects | [`ely-render`](elysium-native/crates/ely-render) |
+| `.esk` parser + naga shader sandbox + Ed25519 signatures | [`ely-skin`](elysium-native/crates/ely-skin) |
+| Hot-reload IPC | [`ely-ipc`](elysium-native/crates/ely-ipc) |
+| PyO3 bindings (the `_native` module) | [`ely-py`](elysium-native/crates/ely-py) |
+| Pure-Python framework | [`python/elysium/`](python/elysium) |
+| Standalone visual designer | [`elysium-designer/`](elysium-designer) |
+
+## Build from source
+
+```bash
+# Native + Python in one command:
+maturin develop --release
+
+# Rust workspace tests:
+cd elysium-native && cargo test --workspace
+
+# Python suite:
+pytest python/elysium/
+
+# Live-window end-to-end test (gated on a display):
+ELYSIUM_RUN_WINDOW_TEST=1 pytest tests/test_smoke.py::test_phase0_live_window_end_to_end
+```
+
+Contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[contributing guide on the docs site](https://docs.elysium.dev/resources/contributing/).
+
+## Examples
+
+| Folder | Purpose |
+|---|---|
+| [`examples/hello/`](examples/hello) | Minimum-viable app; smoke test |
+| [`examples/butterfly/`](examples/butterfly) | Blue Morpho reference + Monarch model used by both lead tutorials |
+| [`examples/components/`](examples/components) | Single-window showcase of every built-in component |
+| [`examples/agent-cursor/`](examples/agent-cursor) | Aether-driven borderless cursor companion |
+| [`examples/snapshot-relay/`](examples/snapshot-relay) | Headless `/snapshot` HTTP relay for tests |
+
+## License
+
+Permissive. See [LICENSE](LICENSE).
+
+## Links
+
+- [docs.elysium.dev](https://docs.elysium.dev) (framework)
+- [designer.elysium.dev](https://designer.elysium.dev) (Designer)
+- [GitHub Releases](https://github.com/elysium-ui/elysium/releases)
+- [PyPI](https://pypi.org/project/elysium)
+- [Issues](https://github.com/elysium-ui/elysium/issues)
+- [Discussions](https://github.com/elysium-ui/elysium/discussions)

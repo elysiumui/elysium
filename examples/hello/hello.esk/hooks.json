@@ -1,0 +1,6 @@
+{
+  "greeting_button.click":  { "node": "greeting_button", "type": "event", "events": ["click"] },
+  "greeting_button.hover":  { "node": "greeting_button", "type": "event", "events": ["enter", "leave"] },
+  "greeting_button.state":  { "node": "greeting_button", "type": "state", "states": ["idle", "hover", "pressed"] },
+  "message.text":           { "node": "message", "type": "text" }
+}

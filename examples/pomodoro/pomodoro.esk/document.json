@@ -1,0 +1,15 @@
+{
+  "root": {
+    "type": "scene",
+    "id": "root",
+    "size": { "w": 480, "h": 320 },
+    "children": [
+      {
+        "type": "image",
+        "id": "tomato_photo",
+        "src": "/Users/KenleyJacquesLamaute/ElysiumUI/examples/pomodoro/assets/tomato-timer-1x.png",
+        "d": "M 0 0 L 480 0 L 480 320 L 0 320 Z"
+      }
+    ]
+  }
+}

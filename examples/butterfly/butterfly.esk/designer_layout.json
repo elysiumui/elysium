@@ -1,0 +1,170 @@
+{
+  "window": {
+    "name": "MainWindow",
+    "title": "App Window",
+    "w": 640,
+    "h": 800,
+    "shape": "rect",
+    "path_d": "",
+    "bg_color": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "gradient_end": null,
+    "gradient_angle": 90.0,
+    "border_radius": 8,
+    "transparent": true,
+    "show_title_bar": false,
+    "title_bar_color": null,
+    "title_bar_color_end": null,
+    "studio": "Studio Beauty",
+    "texture_export_mode": "referenced",
+    "code_file": "/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/butterfly.py"
+  },
+  "placements": [
+    {
+      "kind": "Image",
+      "x": 100,
+      "y": 100,
+      "w": 200,
+      "h": 200,
+      "name": "BlueMorphoSrc",
+      "props": {},
+      "shape": "",
+      "points": [],
+      "path_d": "",
+      "fill": [
+        122,
+        88,
+        244,
+        255
+      ],
+      "stroke": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "stroke_w": 1.5,
+      "image_path": "/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/iridescentwinged_butterfly.png",
+      "states": [
+        {
+          "name": "default",
+          "dx": 0.0,
+          "dy": 0.0,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.4,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        }
+      ],
+      "current_state": 0,
+      "on_click_target": "",
+      "on_click_state": 1,
+      "is_hotspot": false,
+      "pbr": {
+        "metallic": 0.0,
+        "roughness": 0.4,
+        "specular": 0.5,
+        "clearcoat": 0.0,
+        "clearcoat_roughness": 0.05,
+        "use_color_fill": true
+      },
+      "mesh": {
+        "kind": "Sphere",
+        "wireframe": false,
+        "yaw": 0.4,
+        "pitch": 0.25,
+        "flap": 0.0,
+        "flap_freq": 0.0,
+        "flap_amp": 0.6,
+        "dist": 3.5,
+        "flip_y": false,
+        "roll": 0.0,
+        "part_textures": {},
+        "view_mode": "lit"
+      },
+      "cycle_states": true,
+      "gradient_angle": 90.0
+    },
+    {
+      "kind": "Mesh3D",
+      "x": 320,
+      "y": 320,
+      "w": 240,
+      "h": 240,
+      "name": "butterfly3",
+      "props": {},
+      "shape": "",
+      "points": [],
+      "path_d": "",
+      "fill": [
+        122,
+        88,
+        244,
+        255
+      ],
+      "stroke": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "stroke_w": 1.5,
+      "image_path": "",
+      "states": [
+        {
+          "name": "default",
+          "dx": 0.0,
+          "dy": 0.0,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.4,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        }
+      ],
+      "current_state": 0,
+      "on_click_target": "",
+      "on_click_state": 1,
+      "is_hotspot": false,
+      "pbr": {
+        "metallic": 0.0,
+        "roughness": 0.4,
+        "specular": 0.5,
+        "clearcoat": 0.0,
+        "clearcoat_roughness": 0.05,
+        "use_color_fill": true
+      },
+      "mesh": {
+        "kind": "file:/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/_3ds/butterfly.3ds",
+        "wireframe": false,
+        "yaw": 0.4,
+        "pitch": 0.25,
+        "flap": 0.0,
+        "flap_freq": 0.0,
+        "flap_amp": 0.6,
+        "dist": 3.5,
+        "flip_y": false,
+        "roll": 0.0,
+        "part_textures": {},
+        "view_mode": "lit"
+      },
+      "cycle_states": true,
+      "texture": {
+        "path": "/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/Texture/Alas mariposa.jpg",
+        "scale": 1.0,
+        "offset_x": 0.0,
+        "offset_y": 0.0,
+        "rotation": 0.0,
+        "blend": "normal"
+      },
+      "gradient_angle": 90.0
+    }
+  ]
+}

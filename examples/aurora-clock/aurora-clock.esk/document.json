@@ -1,0 +1,101 @@
+{
+  "root": {
+    "type": "scene",
+    "id": "root",
+    "size": { "w": 420, "h": 420 },
+    "children": [
+      {
+        "type": "path",
+        "id": "face_outer",
+        "d": "M 210 30 Q 30 30 30 210 Q 30 390 210 390 Q 390 390 390 210 Q 390 30 210 30 Z",
+        "fill": { "type": "linear_gradient",
+                  "stops": [[0, "#1E3A6E"], [1, "#0F1E3D"]],
+                  "angle": 135 }
+      },
+      {
+        "type": "path",
+        "id": "aurora_band",
+        "d": "M 210 56 Q 60 56 60 210 Q 60 364 210 364 Q 360 364 360 210 Q 360 56 210 56 Z",
+        "fill": { "type": "linear_gradient",
+                  "stops": [[0, "#3FE0B0"], [1, "#9C5BFF"]],
+                  "angle": 45 }
+      },
+      {
+        "type": "path",
+        "id": "face_inner",
+        "d": "M 210 76 Q 80 76 80 210 Q 80 344 210 344 Q 340 344 340 210 Q 340 76 210 76 Z",
+        "fill": { "type": "linear_gradient",
+                  "stops": [[0, "#0A1430"], [1, "#06091A"]],
+                  "angle": 135 }
+      },
+      { "type": "path", "id": "tick_12",
+        "d": "M 207 96 L 213 96 L 213 116 L 207 116 Z",
+        "fill": { "type": "color", "value": "#7EE0B8" } },
+      { "type": "path", "id": "tick_3",
+        "d": "M 304 207 L 324 207 L 324 213 L 304 213 Z",
+        "fill": { "type": "color", "value": "#7EE0B8" } },
+      { "type": "path", "id": "tick_6",
+        "d": "M 207 304 L 213 304 L 213 324 L 207 324 Z",
+        "fill": { "type": "color", "value": "#7EE0B8" } },
+      { "type": "path", "id": "tick_9",
+        "d": "M 96 207 L 116 207 L 116 213 L 96 213 Z",
+        "fill": { "type": "color", "value": "#7EE0B8" } },
+      { "type": "path", "id": "tick_1",
+        "d": "M 254 110 L 260 108 L 266 124 L 260 126 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_2",
+        "d": "M 296 152 L 302 148 L 312 162 L 306 166 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_4",
+        "d": "M 296 268 L 302 272 L 312 258 L 306 254 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_5",
+        "d": "M 254 310 L 260 312 L 266 296 L 260 294 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_7",
+        "d": "M 154 312 L 160 310 L 154 294 L 160 296 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_8",
+        "d": "M 108 268 L 114 272 L 124 258 L 118 254 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_10",
+        "d": "M 108 152 L 114 148 L 124 162 L 118 166 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+      { "type": "path", "id": "tick_11",
+        "d": "M 154 110 L 160 112 L 154 124 L 160 126 Z",
+        "fill": { "type": "color", "value": "#5BB892" } },
+
+      {
+        "type": "path",
+        "id": "hour_hand",
+        "d": "M 206 210 L 214 210 L 214 132 Q 214 128 210 128 Q 206 128 206 132 Z",
+        "fill": { "type": "color", "value": "#FAF7FF" }
+      },
+      {
+        "type": "path",
+        "id": "minute_hand",
+        "d": "M 207 210 L 213 210 L 213 100 Q 213 96 210 96 Q 207 96 207 100 Z",
+        "fill": { "type": "color", "value": "#E0F5FF" }
+      },
+      {
+        "type": "path",
+        "id": "second_hand",
+        "d": "M 208 210 L 212 210 L 212 88 Q 212 86 210 86 Q 208 86 208 88 Z",
+        "fill": { "type": "color", "value": "#FF7A6B" }
+      },
+      {
+        "type": "path",
+        "id": "center_pin",
+        "d": "M 210 204 Q 204 204 204 210 Q 204 216 210 216 Q 216 216 216 210 Q 216 204 210 204 Z",
+        "fill": { "type": "color", "value": "#3FE0B0" }
+      },
+      {
+        "type": "text",
+        "id": "brand",
+        "value": "AURORA",
+        "x": 178, "y": 270, "font_size": 11,
+        "color": "#7EE0B8"
+      }
+    ]
+  }
+}

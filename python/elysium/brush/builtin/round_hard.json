@@ -1,0 +1,22 @@
+{
+  "id": "elysium.round.hard",
+  "name": "Hard Round",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 14,
+    "opacity": 1.0,
+    "hardness": 1.0,
+    "flow": 1.0,
+    "spacing": 0.1,
+    "jitter": 0.0
+  },
+  "color_mode": "active",
+  "category": "Round",
+  "tags": [
+    "round",
+    "hard",
+    "default"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_round_hard.png"
+}

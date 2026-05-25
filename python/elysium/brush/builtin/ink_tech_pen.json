@@ -1,0 +1,23 @@
+{
+  "id": "elysium.ink.tech_pen",
+  "name": "Tech Pen",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 2,
+    "opacity": 1.0,
+    "hardness": 1.0,
+    "flow": 1.0,
+    "spacing": 0.05,
+    "jitter": 0.0
+  },
+  "color_mode": "active",
+  "category": "Ink / Liners",
+  "tags": [
+    "ink",
+    "thin",
+    "technical"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.4352992,
+  "thumbnail": "thumbs/elysium_ink_tech_pen.png"
+}

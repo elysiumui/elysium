@@ -1,0 +1,24 @@
+{
+  "id": "elysium.bristle.wet",
+  "name": "Wet Bristle",
+  "engine": "Bristle",
+  "params": {
+    "size": 24,
+    "opacity": 0.95,
+    "hardness": 0.45,
+    "flow": 0.85,
+    "spacing": 0.04,
+    "strands": 16,
+    "scatter": 0.3,
+    "strand_size": 0.16
+  },
+  "color_mode": "active",
+  "category": "Bristle",
+  "tags": [
+    "wet",
+    "bristle"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.436079,
+  "thumbnail": "thumbs/elysium_bristle_wet.png"
+}

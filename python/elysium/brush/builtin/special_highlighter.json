@@ -1,0 +1,23 @@
+{
+  "id": "elysium.special.highlighter",
+  "name": "Highlighter",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 32,
+    "opacity": 0.4,
+    "hardness": 1.0,
+    "flow": 1.0,
+    "spacing": 0.04,
+    "jitter": 0.0
+  },
+  "color_mode": "active",
+  "category": "Special",
+  "tags": [
+    "highlighter",
+    "marker",
+    "transparent"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.436971,
+  "thumbnail": "thumbs/elysium_special_highlighter.png"
+}

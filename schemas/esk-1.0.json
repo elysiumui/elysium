@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elysium.dev/schemas/esk-1.0.json",
+  "title": "Elysium Skin (.esk) v1.0",
+  "type": "object",
+  "$defs": {
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+    },
+    "size": {
+      "type": "object",
+      "required": ["w", "h"],
+      "properties": { "w": { "type": "number" }, "h": { "type": "number" } }
+    },
+    "fill": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "value"], "properties": {
+            "type": { "const": "color" }, "value": { "$ref": "#/$defs/color" } } },
+        { "type": "object", "required": ["type", "stops"], "properties": {
+            "type": { "enum": ["linear_gradient", "radial_gradient", "conic_gradient"] },
+            "stops": { "type": "array", "items": {
+              "type": "array", "minItems": 2, "maxItems": 2,
+              "prefixItems": [{ "type": "number" }, { "$ref": "#/$defs/color" }] } },
+            "angle": { "type": "number" } } },
+        { "type": "object", "required": ["type", "src"], "properties": {
+            "type": { "const": "image_pattern" }, "src": { "type": "string" } } },
+        { "type": "object", "required": ["type", "shader"], "properties": {
+            "type": { "const": "shader" }, "shader": { "type": "string" } } }
+      ]
+    },
+    "effect": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": [
+          "outer_shadow", "inner_shadow", "blur", "glow",
+          "noise", "displacement", "chromatic_aberration",
+          "bloom", "vignette", "frosted_glass", "gradient_mesh"
+        ]},
+        "offset": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "blur":   { "type": "number" },
+        "color":  { "$ref": "#/$defs/color" },
+        "radius": { "type": "number" },
+        "tint":   { "$ref": "#/$defs/color" }
+      }
+    },
+    "hookSpec": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name":   { "type": "string", "pattern": "^[a-zA-Z_][a-zA-Z0-9_.]*$" },
+        "type":   { "enum": ["event", "text", "image", "value", "state", "slot", "style"] },
+        "events": { "type": "array", "items": { "type": "string" } },
+        "states": { "type": "array", "items": { "type": "string" } },
+        "range":  { "type": "array", "prefixItems": [
+          { "type": "number" }, { "type": "number" }
+        ], "minItems": 2, "maxItems": 2 },
+        "accessible": {
+          "type": "object",
+          "properties": {
+            "role":               { "type": "string" },
+            "label":              { "type": "string" },
+            "description":        { "type": "string" },
+            "keyboard_shortcut":  { "type": "string" }
+          }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "id":        { "type": "string" },
+        "type":      { "enum": ["scene", "group", "path", "image", "text", "component", "webview"] },
+        "transform": {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number" }, "y": { "type": "number" },
+            "rotation": { "type": "number" },
+            "scale": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+          }
+        },
+        "d":        { "type": "string" },
+        "fill":     { "$ref": "#/$defs/fill" },
+        "stroke":   { "anyOf": [{ "$ref": "#/$defs/fill" }, { "type": "null" }] },
+        "effects":  { "type": "array", "items": { "$ref": "#/$defs/effect" } },
+        "hit_test": { "type": "string", "pattern": "^(path|bbox|none|circle:\\d+(\\.\\d+)?|alpha:0?\\.\\d+)$" },
+        "hooks":    { "type": "array", "items": { "$ref": "#/$defs/hookSpec" } },
+        "hook":     { "$ref": "#/$defs/hookSpec" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+      }
+    }
+  },
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "required": ["schema_version", "id", "name", "version"],
+      "properties": {
+        "schema_version":      { "type": "string", "const": "1.0" },
+        "elysium_min_version": { "type": "string" },
+        "id":                  { "type": "string" },
+        "name":                { "type": "string" },
+        "version":             { "type": "string" },
+        "authors":             { "type": "array", "items": { "type": "string" } },
+        "license":             { "type": "string" },
+        "description":         { "type": "string" },
+        "tags":                { "type": "array", "items": { "type": "string" } },
+        "color_space":         { "enum": ["srgb", "display-p3"] },
+        "supports_variants":   { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "document": {
+      "type": "object",
+      "required": ["root"],
+      "properties": { "root": { "$ref": "#/$defs/node" } }
+    }
+  }
+}

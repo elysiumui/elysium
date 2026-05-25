@@ -1,0 +1,31 @@
+[package]
+name             = "ely-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name        = "_native"
+crate-type  = ["cdylib"]
+
+[dependencies]
+pyo3                = { workspace = true }
+pyo3-async-runtimes = { workspace = true }
+ely-core            = { path = "../ely-core" }
+ely-platform        = { path = "../ely-platform" }
+ely-render          = { path = "../ely-render" }
+ely-skin            = { path = "../ely-skin" }
+serde_json          = { workspace = true }
+ely-ipc             = { path = "../ely-ipc" }
+naga                = { workspace = true }
+tokio               = { workspace = true }
+parking_lot         = { workspace = true }
+thiserror           = { workspace = true }
+tracing             = { workspace = true }
+tracing-subscriber  = { workspace = true }
+skia-safe           = { workspace = true }
+crossbeam-channel   = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2              = "0.5"

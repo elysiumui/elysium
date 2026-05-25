@@ -1,0 +1,22 @@
+{
+  "id": "elysium.airbrush.soft",
+  "name": "Airbrush Soft",
+  "engine": "Airbrush",
+  "params": {
+    "size": 80,
+    "opacity": 1.0,
+    "hardness": 0.05,
+    "flow": 0.1,
+    "spacing": 0.02,
+    "density": 1.0
+  },
+  "color_mode": "active",
+  "category": "Airbrush",
+  "tags": [
+    "airbrush",
+    "soft",
+    "spray"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_airbrush_soft.png"
+}

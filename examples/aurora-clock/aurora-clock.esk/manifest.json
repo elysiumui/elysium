@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "id": "dev.elysium.aurora-clock",
+  "name": "Aurora Clock",
+  "version": "0.1.0",
+  "color_space": "srgb"
+}

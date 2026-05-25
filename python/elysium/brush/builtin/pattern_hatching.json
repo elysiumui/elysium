@@ -1,0 +1,24 @@
+{
+  "id": "elysium.pattern.hatching",
+  "name": "Hatching",
+  "engine": "Pattern",
+  "params": {
+    "size": 30,
+    "opacity": 1.0,
+    "flow": 1.0,
+    "spacing": 0.6,
+    "rotation": "follow",
+    "scale_jitter": 0.1,
+    "hue_jitter": 0.0,
+    "pattern_path": ""
+  },
+  "color_mode": "active",
+  "category": "Pattern",
+  "tags": [
+    "hatching",
+    "lines",
+    "shading"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_pattern_hatching.png"
+}
