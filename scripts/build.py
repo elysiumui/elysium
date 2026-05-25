@@ -88,6 +88,31 @@ FRAMEWORK_HIDDEN_IMPORTS = [
     "elysium.ai.openai",
     "elysium.ai.ollama",
     "elysium.ai.stub",
+    # Scientific-stack roots. These ARE imported statically by the
+    # framework + Designer (image ops, brush math, paint masks, photo
+    # asset prep, PBR pipeline), but PyInstaller's static analysis
+    # misses them on Windows when numpy is wrapped in try/except for
+    # graceful-degradation paths. Enumerating them here is belt-and-
+    # suspenders for the .exe — without it, the Designer launches and
+    # then dies with "No module named 'numpy'" the first time anything
+    # touches an image.
+    "numpy",
+    "numpy.core._methods",
+    "numpy.core._dtype_ctypes",
+    "numpy.core.multiarray",
+    "scipy",
+    "scipy.ndimage",
+    "scipy.spatial",
+    "scipy.linalg",
+    "PIL",
+    "PIL.Image",
+    "PIL.ImageDraw",
+    "PIL.ImageFilter",
+    "skimage",
+    "skimage.color",
+    "skimage.filters",
+    "skimage.morphology",
+    "skimage.transform",
 ]
 
 # Designer-only hidden imports. The `elysium.aether` subpackage is
