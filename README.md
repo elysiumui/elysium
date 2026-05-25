@@ -104,6 +104,25 @@ ELYSIUM_RUN_WINDOW_TEST=1 pytest tests/test_smoke.py::test_phase0_live_window_en
 Contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [contributing guide on the docs site](https://docs.elysium.dev/resources/contributing/).
 
+### Where the artifacts land
+
+| What           | Where                                    | For                                                                 |
+| -------------- | ---------------------------------------- | ------------------------------------------------------------------- |
+| Framework      | `elysium-native/target/wheels/`          | `pip install` consumers (developers building apps with the library) |
+| Designer (Mac) | `dist/macos/ElysiumDesigner.app`         | End-users on macOS                                                  |
+| Designer (Win) | `dist/windows/ElysiumDesigner.exe`       | End-users on Windows                                                |
+
+The framework directory holds the `pip`-installable wheel +
+universal sdist produced by `maturin build --release --sdist`. The
+Designer directories hold the single-file PyInstaller bundles
+produced by `scripts/build-designer.sh` (or `.ps1` on Windows) — no
+Python install required to run, since each bundle ships its own
+interpreter and the compiled native extension.
+
+Cross-platform wheels + Designer binaries also come out of CI:
+trigger `release-library.yml` for wheels (Win/Mac arm64+x86_64/Linux),
+or `build-binaries.yml` for the Designer matrix.
+
 ## Examples
 
 | Folder | Purpose |
