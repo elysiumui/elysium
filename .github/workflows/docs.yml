@@ -14,6 +14,10 @@ on:
       - .github/workflows/docs.yml
   workflow_dispatch:
 
+# Opt every JavaScript action into Node 24 — see build-binaries.yml.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write   # needed to push to gh-pages
 

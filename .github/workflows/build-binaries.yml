@@ -14,6 +14,14 @@ on:
     tags:
       - "v*"
 
+# Opt every JavaScript action in this workflow into Node 24. Without
+# this GitHub emits a deprecation warning on every run because
+# checkout@v4 / setup-python@v5 / cache@v4 / upload-artifact@v4 are
+# all Node 20 actions, and Node 20 stops working on runners by
+# September 2026.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: ${{ matrix.os }}  ${{ matrix.target }}

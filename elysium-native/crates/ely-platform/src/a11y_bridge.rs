@@ -14,6 +14,11 @@ use crate::a11y::{A11yNode, A11yState, A11yTree};
 use accesskit::{
     Action, Node, NodeBuilder, NodeId, Rect, Role, Tree, TreeUpdate,
 };
+// Used only by `attach_linux` and the noop handler impls below; gated
+// to avoid an "unused import" warning (which is a hard error under
+// our `-D warnings` lint level in CI) on macOS / Windows.
+#[cfg(target_os = "linux")]
+use accesskit::{ActivationHandler, DeactivationHandler};
 use std::sync::Arc;
 
 pub struct A11yBridge {
@@ -73,10 +78,22 @@ impl A11yBridge {
     /// Linux: attach an AT-SPI2 adapter.
     #[cfg(target_os = "linux")]
     pub fn attach_linux(&mut self) {
-        let h = StateActionHandler { state: self.state.clone() };
-        match accesskit_unix::Adapter::new(false, h) {
-            Ok(a)  => { self.adapter = Some(a); self.refresh(); }
-            Err(_) => self.adapter = None,
+        // `accesskit_unix 0.12` switched `Adapter::new` from
+        //   `(is_window_focused: bool, action_handler) -> Result<Self>`
+        // to a 3-handler form:
+        //   `(activation_handler, action_handler, deactivation_handler)`
+        // — plus the result type changed (older versions returned the
+        // adapter directly when the bus connection succeeded; newer
+        // versions still return Result, but the construction signature
+        // changed). Provide noop ActivationHandler /
+        // DeactivationHandler implementations alongside the existing
+        // ActionHandler.
+        let action = StateActionHandler { state: self.state.clone() };
+        let activate = NoopActivationHandler;
+        let deactivate = NoopDeactivationHandler;
+        match accesskit_unix::Adapter::new(activate, action, deactivate) {
+            Some(a) => { self.adapter = Some(a); self.refresh(); }
+            None    => self.adapter = None,
         }
     }
 
@@ -169,4 +186,25 @@ impl accesskit::ActionHandler for StateActionHandler {
         let name = format!("{:?}", req.action);
         self.state.push_action(node_id, name);
     }
+}
+
+/// No-op handler given to `accesskit_unix::Adapter::new` so a screen
+/// reader can wake the tree on demand. Returning `None` tells accesskit
+/// "no initial tree yet" — the next `refresh()` call from the framework
+/// pushes the real one via `update_if_active`.
+#[cfg(target_os = "linux")]
+struct NoopActivationHandler;
+#[cfg(target_os = "linux")]
+impl ActivationHandler for NoopActivationHandler {
+    fn request_initial_tree(&mut self) -> Option<accesskit::TreeUpdate> { None }
+}
+
+/// No-op deactivation handler — we don't carry any AT-SPI-specific
+/// resources that need explicit teardown when the bus drops us; the
+/// `Adapter` itself owns whatever it allocates.
+#[cfg(target_os = "linux")]
+struct NoopDeactivationHandler;
+#[cfg(target_os = "linux")]
+impl DeactivationHandler for NoopDeactivationHandler {
+    fn deactivate_accessibility(&mut self) {}
 }

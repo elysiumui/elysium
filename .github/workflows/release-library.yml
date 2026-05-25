@@ -11,6 +11,10 @@ on:
     tags:
       - "v*"
 
+# Opt every JavaScript action into Node 24 — see build-binaries.yml.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: write   # for attaching wheels to a Release on tag push
 
