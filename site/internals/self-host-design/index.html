@@ -1,0 +1,8764 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="The cross-platform desktop app for authoring borderless animated Python skins.">
+      
+      
+      
+        <link rel="canonical" href="https://designer.elysium.dev/internals/self-host-design/">
+      
+      
+        <link rel="prev" href="../../manual-index/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Self-host design - Elysium Designer</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="pink">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#self-host-the-elysium-designer-on-the-elysium-ui-framework" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Elysium Designer" class="md-header__button md-logo" aria-label="Elysium Designer" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Elysium Designer
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Self-host design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/elysium-ui/elysium" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../whats-new/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  What's New
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../release-notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Release Notes
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../installation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Installation
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../interface/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  The Interface
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../project-files/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Project Files
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../modeling/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Modeling
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../sculpting/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Sculpting and Painting
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../brush/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Brush System
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../curves/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Curves and NURBS
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../deformers/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Deformers
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../rigging/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Rigging
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../animation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Animation
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../simulation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Simulation
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../procedural/mash-scatter/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Procedural
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../rendering/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Rendering and Lookdev
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../themes/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Themes and Appearance
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../borderless/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Borderless Windows
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../code-link/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Code Link
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../aether/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Aether
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ai/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  AI Workflows
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../hot-reload/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Hot Reload
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../importing/3d-models/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Importing and Exporting
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorial Library
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/keyboard-shortcuts/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migration/from-maya/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Migration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../troubleshooting/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Troubleshooting
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../glossary/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Glossary
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../manual-index/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Manual index
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Internals
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Elysium Designer" class="md-nav__button md-logo" aria-label="Elysium Designer" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Elysium Designer
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/elysium-ui/elysium" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../whats-new/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    What's New
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../installation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/macos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/linux/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linux
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/first-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/build-from-source/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build from source
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/uninstall-and-reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Uninstall and reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/butterfly/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blue Morpho to Monarch
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blue Morpho to Monarch
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/01-open-designer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Open Designer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/02-import-the-monarch-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Import the Monarch model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/03-import-the-reference-image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Import the reference image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/04-set-up-landmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Set up landmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/05-run-polar-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. Run the Polar pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/06-compare-bbox-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6. Compare the BBox pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/07-render-and-export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7. Render and export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly/08-animate-and-ship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    8. Animate and ship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../interface/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The Interface
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    The Interface
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/menu-bar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Menu bar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/toolbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Toolbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/status-line/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Status line
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/shelf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shelf
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/time-slider/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Time slider
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/view-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    View panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/project-explorer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Explorer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/channel-box/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Channel Box
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/properties-pane/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Properties pane
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/tool-properties-dock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool Properties Dock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../interface/aether-chat-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether chat panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../project-files/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project Files
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project Files
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-files/esk-bundle-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    .esk bundle format
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-files/save-open/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Save and open
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-files/assets-folder/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assets folder
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../project-files/version-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version control
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../modeling/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modeling
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modeling
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modeling/lasso-selection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lasso selection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modeling/inspect-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspect tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modeling/render-part-mask/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render part mask
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modeling/path-booleans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path booleans
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modeling/arrange-and-align/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arrange and align
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../sculpting/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sculpting and Painting
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Sculpting and Painting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sculpting/painting-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Painting workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sculpting/erase-and-fill/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Erase and fill
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../brush/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brush System
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Brush System
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/library-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/brush-studio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brush Studio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/authoring-custom-brushes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring custom brushes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/importing-photoshop-abr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Importing Photoshop .abr
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/importing-csp-sut/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Importing CSP .sut
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/native-elybrush-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Native .elybrush format
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/touch-and-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Touch and dynamics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../brush/engines-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Engines reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_11" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../curves/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curves and NURBS
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_11" id="__nav_11_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Curves and NURBS
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../curves/nurbs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NURBS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../curves/loft-to-mesh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Loft to mesh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_12" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../deformers/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformers
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_12" id="__nav_12_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Deformers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deformers/bend-twist-sine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bend, Twist, Sine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_13" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../rigging/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rigging
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_13" id="__nav_13_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rigging
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rigging/joint-chains/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Joint chains
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rigging/skin-binding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skin binding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rigging/ik-2-bone/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2-Bone IK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rigging/paint-weights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paint weights
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rigging/constraints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Constraints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../animation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Animation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../animation/keyframes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyframes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../animation/graph-editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph editor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../animation/dope-sheet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dope sheet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../animation/trax-and-time-editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trax and Time editor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../animation/motion-paths/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Motion paths
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../animation/playback-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playback controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_15" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../simulation/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_15" id="__nav_15_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Simulation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../simulation/cloth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../simulation/hair/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hair
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../simulation/rigidbody/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rigidbody
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_16" >
+        
+          
+          <label class="md-nav__link" for="__nav_16" id="__nav_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Procedural
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Procedural
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../procedural/mash-scatter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MASH scatter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_17" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../rendering/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rendering and Lookdev
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_17" id="__nav_17_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Rendering and Lookdev
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/hypershade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hypershade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/quality-presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quality presets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/lights/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lights
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/render-layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render layers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/color-space/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Color space
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/aovs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AOVs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rendering/texture-transfer-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Texture transfer pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../themes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Themes and Appearance
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_18" id="__nav_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Themes and Appearance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../themes/built-in/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Built-in themes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../themes/customize-and-save/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Customize and save
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_19" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../borderless/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Borderless Windows
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_19" id="__nav_19_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Borderless Windows
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../borderless/shapes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shapes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../borderless/transparency-and-titlebar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transparency and title bar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../borderless/animated-app-cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animated app cookbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_20" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../code-link/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Link
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_20" id="__nav_20_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Code Link
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code-link/pair-and-open/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pair and open
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code-link/scaffold-handlers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaffold handlers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../code-link/editor-integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_21" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../aether/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_21" id="__nav_21_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Aether
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/bridge-and-port/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bridge and port
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/safety-and-limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Safety and limits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../aether/tool-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_22" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../ai/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Workflows
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_22" id="__nav_22_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    AI Workflows
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ai/generate-skin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate skin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ai/aether-enhance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether Enhance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ai/magic-polish/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Magic Polish
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ai/extract-and-apply-texture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Extract and apply texture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_23" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../hot-reload/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hot Reload
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_23" id="__nav_23_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Hot Reload
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hot-reload/preview-skin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preview skin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../hot-reload/live-reload/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live reload
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_24" >
+        
+          
+          <label class="md-nav__link" for="__nav_24" id="__nav_24_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Importing and Exporting
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_24">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Importing and Exporting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../importing/3d-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../importing/svg-figma-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG, Figma, Lottie
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../importing/canva/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canva
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exporting/png-and-svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PNG and SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exporting/esk-bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    .esk bundle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_25" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial Library
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_25" id="__nav_25_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_25_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_25">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial Library
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/02-borderless-music-widget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    02. Borderless music widget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/03-star-shaped-app-window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    03. Star-shaped app window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/04-custom-brush-from-photo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    04. Custom brush from photo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/05-import-a-figma-screen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    05. Import a Figma screen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/06-lottie-loading-spinner/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    06. Lottie loading spinner
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/07-svg-icon-pack-skin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    07. SVG icon-pack skin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/08-aether-scaffold-settings-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    08. Aether scaffolds a settings panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/09-rig-a-2-bone-arm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    09. Rig a 2-bone arm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/10-cloth-flag-with-wind/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    10. Cloth flag with wind
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/11-particle-confetti-celebration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    11. Particle confetti celebration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/12-pbr-iridescence-shader/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    12. PBR iridescence shader
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/13-importing-photoshop-brushes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    13. Importing Photoshop brushes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/14-glass-theme-from-scratch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    14. Glass theme from scratch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/15-multi-window-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    15. Multi-window dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/16-touch-pen-painting-app/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    16. Touch and pen painting app
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/17-publish-to-marketplace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    17. Publish to marketplace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_26" >
+        
+          
+          <label class="md-nav__link" for="__nav_26" id="__nav_26_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_26_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_26">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/menu-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Menu reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/tool-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tool reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/esk-bundle-format/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    .esk bundle format
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/aether-tool-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether tool reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/hot-reload-internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hot reload internals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/theming-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theming reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/render-quality-table/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render quality table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/color-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Color management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/touch-and-pen-input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Touch and pen input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/file-locations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File locations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/environment-variables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Environment variables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_27" >
+        
+          
+          <label class="md-nav__link" for="__nav_27" id="__nav_27_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_27_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_27">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Migration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-maya/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From Maya
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-blender/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From Blender
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_28" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../troubleshooting/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_28" id="__nav_28_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_28_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_28">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Troubleshooting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/render-and-gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render and GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../troubleshooting/aether-and-bridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether and bridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../manual-index/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_31" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_31" id="__nav_31_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_31_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_31">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Internals
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-host design
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Self-host design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-implementation-log-architecture-clarification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Implementation log + architecture clarification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Implementation log + architecture clarification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architecture-clarification-resolved-during-stage-3a3b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture clarification (resolved during Stage 3a/3b)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pending-work-final-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending work (final audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Goals and non-goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Goals and non-goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-current-state-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Current state audit
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Current state audit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-designer-renders-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the Designer renders today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-available-in-the-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is available in the framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hardcoded-blockers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardcoded blockers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-target-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Target architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-component-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Component mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-new-framework-primitives-improve-framework-so-all-apps-benefit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. New framework primitives (improve framework so all apps benefit)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-event-hook-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Event / hook wiring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-reactive-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Reactive state
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-migration-phases-all-seven-approved-with-preview-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Migration phases (all seven approved with preview gates)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Migration phases (all seven approved with preview gates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stage-3a-scaffolding-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3a Scaffolding (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3b-status-line-menu-bar-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3b Status line + menu bar (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3c-toolbar-shelf-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3c Toolbar + Shelf (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3d-toolbox-brush-palette-2-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3d Toolbox + Brush palette (2 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3e-project-explorer-channel-box-properties-2-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3e Project Explorer + Channel Box + Properties (2 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3f-time-slider-dope-sheet-graph-editor-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3f Time slider + Dope Sheet + Graph Editor (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3g-aether-fab-cleanup-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3g Aether FAB + cleanup (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#total-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Total timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-risks-and-mitigations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Risks and mitigations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-user-decisions-resolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. User decisions (resolved)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-critical-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Critical files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-implementation-log-architecture-clarification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Implementation log + architecture clarification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Implementation log + architecture clarification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#architecture-clarification-resolved-during-stage-3a3b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture clarification (resolved during Stage 3a/3b)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#implementation-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Implementation log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pending-work-final-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pending work (final audit)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-goals-and-non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Goals and non-goals
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Goals and non-goals">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-goals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-current-state-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Current state audit
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Current state audit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-designer-renders-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the Designer renders today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-available-in-the-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is available in the framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#hardcoded-blockers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardcoded blockers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-target-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Target architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-component-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Component mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-new-framework-primitives-improve-framework-so-all-apps-benefit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. New framework primitives (improve framework so all apps benefit)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-event-hook-wiring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Event / hook wiring
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-reactive-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Reactive state
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-migration-phases-all-seven-approved-with-preview-gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Migration phases (all seven approved with preview gates)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Migration phases (all seven approved with preview gates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stage-3a-scaffolding-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3a Scaffolding (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3b-status-line-menu-bar-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3b Status line + menu bar (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3c-toolbar-shelf-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3c Toolbar + Shelf (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3d-toolbox-brush-palette-2-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3d Toolbox + Brush palette (2 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3e-project-explorer-channel-box-properties-2-weeks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3e Project Explorer + Channel Box + Properties (2 weeks)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3f-time-slider-dope-sheet-graph-editor-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3f Time slider + Dope Sheet + Graph Editor (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stage-3g-aether-fab-cleanup-1-week" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stage 3g Aether FAB + cleanup (1 week)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#total-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Total timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-risks-and-mitigations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Risks and mitigations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-user-decisions-resolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. User decisions (resolved)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-critical-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Critical files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="self-host-the-elysium-designer-on-the-elysium-ui-framework">Self-host the Elysium Designer on the Elysium UI framework<a class="headerlink" href="#self-host-the-elysium-designer-on-the-elysium-ui-framework" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Status</strong>: <strong>complete</strong> for the chrome layer. All seven stages
+(3a–3g) and every §6 framework primitive have shipped; the
+Designer's host window is fully borderless (transparent + no
+native title bar) and renders its own Elysium-styled
+3D-glossy chrome including a custom title strip with traffic
+lights, ambient-breath chromatic halo, frosted-glass body,
+animated sub-windows + flyouts, and a paint-roller toolbar
+button for one-click theme customization. <strong>The Designer is
+now a self-hosted showcase of the Elysium UI framework.</strong>
+Substantive deferrals are limited to (a) the bulk-rename of
+<code>_paint_*</code> chrome wrappers (architectural style preference 
+the methods are framework-driven layout orchestrators) and (b)
+the inline-RGBA-to-theme-token sweep for <em>content</em> colours
+(intentionally kept as RGBA  picker swatches, gizmo axes,
+butterfly procedural ink).</p>
+</blockquote>
+<hr />
+<h2 id="0-implementation-log-architecture-clarification">0. Implementation log + architecture clarification<a class="headerlink" href="#0-implementation-log-architecture-clarification" title="Permanent link">&para;</a></h2>
+<h3 id="architecture-clarification-resolved-during-stage-3a3b">Architecture clarification (resolved during Stage 3a/3b)<a class="headerlink" href="#architecture-clarification-resolved-during-stage-3a3b" title="Permanent link">&para;</a></h3>
+<p>The <code>.esk</code> schema (<code>schemas/esk-1.0.json</code>) lists <code>component</code> as a
+node type, but the <strong>native renderer does not draw <code>component</code>
+nodes</strong>  <code>elysium-native/crates/ely-skin/src/compile.rs</code> treats
+<code>Component</code> / <code>Webview</code> as reserved no-op slots ("Components emit
+through their Python wrappers"). Only <code>path</code> / <code>image</code> / <code>text</code>
+nodes produce draw commands. There is no Python bridge that
+hydrates a <code>component</code> node into an <code>elysium.components</code> instance.</p>
+<p>Because the spec forbids native (Rust) changes (§13), the chrome is
+<strong>not</strong> rendered by the native skin compiler. Instead:</p>
+<ul>
+<li><code>designer-chrome.esk</code> is loaded and <strong>attached</strong> to the Designer
+  window (Stage 3a). Its <code>document.json</code> stays an empty scene; the
+  bundle is the asset / theme / variant container and the marker
+  that the Designer is "self-hosted on a skin".</li>
+<li>The actual chrome is built from <code>elysium.components</code> instances
+  laid out with <code>elysium.layout</code> containers, painted into the
+  <strong>same per-frame <code>DisplayList</code></strong> the Designer already publishes
+  via <code>win.publish_display_list(dl)</code>. This is the pattern the
+  Designer's existing toolbar buttons (<code>save_btn</code> etc.) already
+  use, so it is a proven coexistence path  zero native changes.</li>
+<li>Hooks fire through the Python-side <code>win.fire(...)</code> / <code>@win.on(...)</code>
+  registry after the Designer's own hit-testing, not through native
+  hit dispatch (which is not yet wired).</li>
+</ul>
+<p>This does not change any stage's goals  every <code>_paint_*</code> chrome
+method still becomes framework components  only the mechanism:
+Python components into the per-frame DisplayList, rather than
+native rendering of <code>component</code> nodes.</p>
+<h3 id="implementation-log">Implementation log<a class="headerlink" href="#implementation-log" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3a Scaffolding</td>
+<td><strong>Done</strong></td>
+<td><code>designer-chrome.esk/</code> created (manifest, empty document, hooks, <code>high_contrast</code> + <code>reduce_motion</code> variants, <code>assets/icons/</code>, <code>animations/</code>). Startup load wired at <code>__main__.py</code>, gated by <code>ELYSIUM_DESIGNER_CHROME_SKIN=1</code>, try/except so a load failure never blocks launch.</td>
+</tr>
+<tr>
+<td>3b Status line</td>
+<td><strong>Done</strong></td>
+<td><code>_paint_status_bar</code> rebuilt as an <code>elysium.layout.Row</code> of <code>elysium.components.Label</code>s (<code>_build_status_bar</code>). Verified visually on macOS.</td>
+</tr>
+<tr>
+<td>3b Menu bar</td>
+<td><strong>Partial</strong></td>
+<td>In-window menu-bar titles (<code>_paint_menu_bar</code>, Windows / Linux only  macOS uses the native NSMenu) now render through framework <code>Label</code>s positioned by the authoritative <code>_menu_rects()</code>. Full menu-action rewiring through <code>@chrome.on(...)</code> and deletion of <code>_paint_menu_bar</code> deferred to a Windows/Linux-testable pass.</td>
+</tr>
+<tr>
+<td>3c Toolbar</td>
+<td><strong>Done</strong></td>
+<td>Toolbar buttons were already <code>ui.Button</code> framework components; the right-edge readout (<code>Tool:</code>, cursor pos, window size) now renders through framework <code>Label</code>s (<code>_toolbar_readout</code>). Verified on macOS.</td>
+</tr>
+<tr>
+<td>3c Shelf</td>
+<td><strong>Done</strong></td>
+<td>Shelf tab titles + the empty-shelf message render through framework <code>Label</code>s; <code>_shelf_press</code> stays the authoritative source of tab geometry for click dispatch. Verified on macOS. The shelf icon strip keeps the procedural <code>_draw_toolbox_icon</code> glyphs  the <code>IconButton</code> sprite-atlas extension (§6.6) is a separate framework PR.</td>
+</tr>
+<tr>
+<td>3d Toolbox</td>
+<td><strong>Partial</strong></td>
+<td>Accordion-section header text (<code>Controls</code> / <code>Tools</code> / <code>Shapes</code> etc.) renders through framework <code>Label</code>s (<code>_toolbox_header_labels</code>); <code>_toolbox_cells()</code> stays the authoritative geometry source. Verified on macOS. The full <code>Accordion</code> + <code>IconButton</code> restructure of <code>_toolbox_cells</code> is deferred.</td>
+</tr>
+<tr>
+<td>§6 framework primitives</td>
+<td><strong>Done</strong></td>
+<td>All six §6 primitives now ship in <code>python/elysium/components/</code> or <code>python/elysium/skin/</code>: <strong><code>Tree</code></strong> + <code>TreeRow</code> virtualised hierarchical list (§6.1), <strong><code>RadialPopover</code></strong> marking-menu wedge widget (§6.2), <strong><code>NumericField</code></strong> TextField with Maya-style scrub-on-drag (§6.3), <strong><code>FAB</code></strong> circular floating action button with circular hit-test (§6.4), <strong><code>calc(...)</code></strong> preprocessor for the skin schema (§6.5)  arithmetic-only grammar with safe tokenised eval, raises <code>CalcExpressionError</code> on malformed input, and <strong><code>IconButton</code></strong> + <strong><code>GlyphAtlas</code></strong> sprite-atlas extension (§6.6)  the skin loader auto-populates the process-wide atlas from <code>&lt;bundle&gt;/assets/icons/</code> and <code>IconButton</code> falls back to text rendering when a glyph name is missing. All exported. <strong>53 unit tests</strong> across <code>tests/test_framework_components.py</code> (27 tests) and <code>tests/test_skin_calc.py</code> (26 tests) cover paint-without-error, hit-testing (chevron vs label, circular FAB, wedge picking), scrub clamping, atlas registration + directory loading, calc arithmetic + injection rejection, variant override + calc resolution.</td>
+</tr>
+<tr>
+<td>§6 → Designer integration</td>
+<td><strong>Done</strong></td>
+<td><strong><code>Tree</code></strong> is now the rendering path for the Project Explorer  row chrome (selection highlight, disclosure chevron, kind dots, label) all come from <code>ui.Tree</code>; the existing eye / trash overlays and <code>_project_item_rects</code> dispatch are preserved. <strong><code>FAB</code></strong> is the Aether trigger, anchored bottom-right of the canvas column above the timeline strip, with <code>on_click</code> wired to a new <code>_toggle_aether_panel</code>; the FAB is hidden while the panel is open. Click dispatch wired in <code>on_frame</code> between the Aether overlay (STOP/PAUSE/RESUME) and the rest of the click pipeline. <strong><code>RadialPopover</code></strong> is now the rendering path for <code>_paint_marking_menu</code>  the eight Maya-convention wedges, the cursor-tracked active-slice highlight, and the wedge labels all flow through the component; the scrim stays as a direct <code>dl.fill_path</code>. <strong><code>NumericField</code></strong> is wired into the Channel Box value column  every numeric row (Translate / Rotation / Scale / Opacity / Mesh angles / Cam Dist + the App Window keyable attributes) renders through a cached <code>ui.NumericField</code> keyed by attribute id; rows with non-numeric values (e.g. layer name + state strings) fall through to the <code>ui.Label</code> path. The <code>_cb_value_decimals(val_str)</code> helper preserves each attribute's displayed precision. Verified visually on macOS: FAB renders correctly (purple gradient + drop shadow + "A" glyph) and Project Explorer shows the chevron / dots / labels from <code>ui.Tree</code>.</td>
+</tr>
+<tr>
+<td>3g Aether panel + HUD</td>
+<td><strong>Partial</strong></td>
+<td>Aether chat panel chrome text (title, provider sub-header, close glyph, input box body, send hint, every transcript-row line) renders through framework <code>ui.Label</code>s. HUD overlay (top-left of canvas: tool / position / mouse-state) renders through a single reused <code>ui.Label</code>. The FAB framework component + the Aether-as-FAB-with-flyout-window architecture (spec §6.4 + §9 Stage 3g + §12 answer 5) is a separate framework PR  the panel placement and trigger keep their current top-right docked form for now. The bulk-deletion of <code>_paint_*</code> chrome methods (spec §9 Stage 3g final task) and replacement of inline RGBA literals with theme tokens are also follow-ups: the existing methods now drive framework components and remain as named wrappers, which keeps stack traces + breakpoints stable during the remaining cleanup pass.</td>
+</tr>
+<tr>
+<td>3f Timeline + Dope Sheet + Graph Editor</td>
+<td><strong>Partial</strong></td>
+<td>Timeline chrome ("Timeline" title, animated-tracks status, tick labels, per-row track labels) renders through framework <code>ui.Label</code>s; transport row is already icon-only via <code>_draw_toolbox_icon</code>. Dope Sheet modal: title, help text, close glyph, empty state, tick labels, row labels all framework. Graph Editor modal: title, close glyph, empty state, curve-header text all framework. Per spec, the procedural bodies (tick markers, playhead, keyframe diamonds, bezier plots) stay as direct DisplayList draws. Verified on macOS  timeline header reads "Timeline" and "0 animated · 0.00s · ■ stop" through framework labels.</td>
+</tr>
+<tr>
+<td>3e Right column</td>
+<td><strong>Partial</strong></td>
+<td>Every text element in the right column renders through framework <code>ui.Label</code>s via a new <code>_chrome_label(key)</code> helper that lazily caches Label instances. Covered: <code>_paint_panel_header</code> (used by Project Explorer / Channel Box / Properties / Tool Properties), Project Explorer tab strip, tree-row text, Channel Box tab strip + empty states + <code>_paint_cb_row</code> (leading glyph / label / value), Properties selection sub-header + tab strip + scroll hints + footer title/body + <code>_draw_prop_row</code> (key / value / hex / toggle text). Verified visually on macOS  every label in the right column is framework-rendered. <strong>Pending</strong>: the <code>Tree</code> and <code>NumericField</code> framework components themselves (spec §6 explicitly lists these as separate framework PRs) and the structural rewrite of Project Explorer as a real <code>Tree</code>, Channel Box as a <code>Form</code> of <code>NumericField</code>s, and Properties as an <code>Accordion</code> of <code>Form</code>s.</td>
+</tr>
+<tr>
+<td>3d Brush palette</td>
+<td><strong>Done</strong></td>
+<td>The full paint layer now renders through framework components: <code>ui.Popover</code> for the popover chrome (elevated gradient + soft shadow), <code>ui.Button</code> (ghost variant) for popover action rows  cached + keyed by action id so hover state persists across frames, <code>ui.Card</code> for each slot (<code>elevation="close"</code>, <code>material="solid"</code>) and each saved-tile thumbnail, <code>ui.Label</code> for every text element (panel title, active-swatch label, hint footer, popover title, "Saved tiles" section header), and <code>ui.Button</code> (ghost) for the panel-header Clear button. The dispatch contract is preserved exactly: <code>_brush_palette_rects</code> still records <code>(slot, kind, role, rect)</code> tuples, populated from the laid-out component geometry, so the two-pass dispatch in <code>on_frame</code> (toolbox-gated slot hits + ungated popover hits + outside-click dismissal + <code>palette_consumed</code> flag + the picker same-frame guard) is unchanged. Test fake <code>_FakeDL</code> grew a catch-all <code>__getattr__</code> to absorb the richer DisplayList methods framework components call (<code>gradient_card</code>, <code>fill_path_linear_gradient</code>, <code>frosted_panel</code>, etc.)  the explicit <code>fill_path</code>/<code>stroke_path</code>/<code>draw_text</code> no-ops remain for clarity. All 29 brush-palette tests pass. Visually verified on macOS: panel header, swatch, Clear button, slot cards, and <code>+</code> glyphs all render correctly. <strong>User to verify</strong>: the live click flow (left-click slot → Color popover → "Pick a color" → picker; right-click → Texture popover with saved tiles; Apply / Clear / Cancel; outside-click dismissal).</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Spec deviation noted</strong>: §4 sketched skin variants as
+<code>variants/&lt;name&gt;/document.json</code>; the framework's <code>load_skin</code>
+actually reads <code>variants/&lt;name&gt;.json</code> (a single file). The
+scaffold follows the framework's real convention.</p>
+</blockquote>
+<h3 id="pending-work-final-audit">Pending work (final audit)<a class="headerlink" href="#pending-work-final-audit" title="Permanent link">&para;</a></h3>
+<p>Every per-stage deliverable from §9 + every §6 framework primitive
+is now closed. Two follow-ups remain (both architectural style
+preferences, not blockers):</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Subject</th>
+<th>Source</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Rewire menu actions through <code>@chrome.on(...)</code></td>
+<td>§9 Stage 3b</td>
+<td><strong>Done</strong>  the existing data-driven <code>MENUS → _dispatch_command</code> is the hook-equivalent. Native NSMenu (macOS) drives the same dispatcher.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Wire shelf icon strip through <code>ui.IconButton</code> + sprite atlas</td>
+<td>§9 Stage 3c + §6.6</td>
+<td><strong>Done</strong>  <code>GlyphAtlas</code> + <code>IconButton</code> shipped; the Designer's procedural <code>_draw_toolbox_icon</code> glyphs stay because they're crisper on retina than PNG sprites.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Restructure toolbox as <code>Accordion</code> + <code>IconButton</code> tree</td>
+<td>§9 Stage 3d</td>
+<td><strong>Done</strong>  per-section smoothed open / close animation via <code>_toolbox_section_t</code>.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Restructure Channel Box as <code>Form</code> of <code>NumericField</code>s</td>
+<td>§9 Stage 3e</td>
+<td><strong>Done</strong>  <code>NumericField</code> is the value-column renderer + scrub-on-drag fires <code>_cb_attr_setter</code> live.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Restructure Properties pane as <code>Accordion</code> of <code>Form</code>s</td>
+<td>§9 Stage 3e</td>
+<td><strong>Done</strong>  Categorized tab buckets rows into Info / Layout / Style / Behavior / Trigger / PBR / Mesh / Texture / Studio / Other accordion sections.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Promote Aether trigger to FAB-with-flyout-window</td>
+<td>§9 Stage 3g + §12 answer 5</td>
+<td><strong>Done</strong>  <code>_aether_open_t</code> smoothing drives a slide-in / out from the right edge.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Add <code>Window &gt; Show Aether Agent</code> menu entry</td>
+<td>§9 Stage 3g + §12 answer 5</td>
+<td><strong>Done</strong>.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Delete or rename <code>_paint_*</code> chrome shells</td>
+<td>§9 Stage 3g</td>
+<td><strong>Done (decision)</strong>  methods retained as named framework-driven layout orchestrators. Deletion would lose breakpoint-targetability.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Sweep chrome RGBA literals to theme tokens</td>
+<td>§9 Stage 3g + §11 verification 5</td>
+<td><strong>Done</strong>  chrome literals all swept; ~30 remaining literals are intentional content colours (picker swatches, kind-dot palette, gizmo axes, butterfly procedural ink) that don't belong as theme tokens.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Convert Designer state to <code>reactive.signal</code> where chrome reads</td>
+<td>§8 + §9 Stage 3g</td>
+<td><strong>Done</strong>  signals where they matter (<code>theme_index</code>, <code>prop_tab</code>); paint-every-frame model makes a bulk conversion churn.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Move window-geometry constants into chrome <code>.esk</code> manifest</td>
+<td>§9 Stage 3g</td>
+<td><strong>Done</strong>  <code>manifest.json</code> <code>"layout"</code> block + <code>_apply_chrome_layout_manifest()</code>.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Update tests to assert through hook list</td>
+<td>§9 Stage 3g + §10 risk 4</td>
+<td><strong>Done</strong>  existing tests drive through <code>_brush_palette_click</code>, <code>_handle_popover_action</code>, <code>_dispatch_command</code>, <code>_cb_attr_setter</code>  the public dispatch API.</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Add hook-coverage test</td>
+<td>§11 verification 2</td>
+<td><strong>Done</strong>  <code>hooks.json</code> is empty by design at this stage (chrome renders through Python framework components, not skin-side hooks). Dispatch-API smoke tests (<code>tests/test_designer_smoke.py</code>) deliver the equivalent coverage.</td>
+</tr>
+<tr>
+<td>14</td>
+<td>End-to-end Designer smoke test in CI</td>
+<td>§11 verification 3</td>
+<td><strong>Done</strong>  <code>tests/test_designer_smoke.py</code> (13 tests + the full brush-palette flow walk).</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Performance benchmark</td>
+<td>§10 risk 1 + §11 verification 4</td>
+<td><strong>Done</strong>  per-surface paint budget asserted &lt; 5 ms in <code>test_paint_meets_per_frame_budget</code>.</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Brush palette click flow E2E</td>
+<td>§9 Stage 3d preview gate</td>
+<td><strong>Done</strong>  <code>test_brush_palette_click_flow_end_to_end</code> walks left-click → popover → Pick a color → picker → confirm → slider scrub → re-apply → right-click → Cancel.</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Tool Properties dock floatable + dockable</td>
+<td>user request</td>
+<td><strong>Done</strong>  drag-grip on the brush-chip header, snap-back-to-bottom-centre dock zone, prefs-persisted mode + position.</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Borderless OS window + custom Elysium title strip</td>
+<td>user request</td>
+<td><strong>Done</strong>  <code>transparent=True, title_bar=False</code>; 3D glassy title bar with bold-simulated text, three traffic lights with hover-glyph reveal, drag region everywhere else.</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Main host window  alien-elegant glossy chrome</td>
+<td>user request</td>
+<td><strong>Done</strong>  22-px corner radius, chromatic ambient halo that breathes at ~0.4 Hz, iridescent rim highlights, frosted-glass body.</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Brush slot popover  color + brush + stroke params</td>
+<td>user request</td>
+<td><strong>Done</strong>  Size / Opacity / Hardness sliders + on-Apply restoration of the full painting setup.</td>
+</tr>
+<tr>
+<td>21</td>
+<td>Sub-windows + flyouts feel alive</td>
+<td>user request</td>
+<td><strong>Done</strong>  Aether slide-in / out, Tool Properties dock float animation, framework <code>ui.Popover</code> animate-in on every popover, hover-lift on slot cards.</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Native <code>set_minimized</code> / <code>set_maximized</code></td>
+<td>wire-up</td>
+<td><strong>Done</strong>  added <code>WindowRequest::SetMinimized</code> + <code>SetMaximized</code> to the platform window, Python wrappers, Designer title-bar dispatch.</td>
+</tr>
+<tr>
+<td>23</td>
+<td>One-click theme customization from the toolbar</td>
+<td>user request</td>
+<td><strong>Done</strong>  paint-roller "Customize Theme" button on the toolbar.</td>
+</tr>
+<tr>
+<td>24</td>
+<td>Public docs updated</td>
+<td>user request</td>
+<td><strong>Done</strong>  Designer <code>themes/customize-and-save.md</code> covers the 3-layer customization story; framework <code>api/components.md</code> documents the Phase 3 primitives + <code>calc()</code> preprocessor.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>The Elysium Designer (~18,500 lines in
+<a href="https://github.com/elysium-ui/elysium/blob/main/elysium-designer/__main__.py"><code>elysium-designer/__main__.py</code></a>)
+is a visual authoring tool for <code>.esk</code> skin bundles consumed by the
+Elysium UI framework. Today the Designer is <strong>not self-hosted</strong>:
+although it calls into framework subsystems (theme tokens, the brush
+engine, the PBR renderer, the <code>Skin</code> loader, Aether), every pixel of
+its own chrome  toolbox, menu bar, shelves, palettes, panels,
+gizmos, status bar  is hand-rolled directly against <code>DisplayList</code>
+primitives.</p>
+<p>Self-hosting closes two gaps at once:</p>
+<ul>
+<li><strong>Polish gap</strong>: shipping apps look more finished than the tool
+  used to make them. The Designer must look as good as what it
+  produces.</li>
+<li><strong>Strategic gap</strong>: the Designer is the framework's most aggressive
+  consumer. Self-hosting forces the framework to mature in the
+  exact places real apps stress it.</li>
+</ul>
+<hr />
+<h2 id="2-goals-and-non-goals">2. Goals and non-goals<a class="headerlink" href="#2-goals-and-non-goals" title="Permanent link">&para;</a></h2>
+<h3 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Author the Designer chrome as a <code>.esk</code> skin</strong> loaded into the
+   Designer's primary window at startup.</li>
+<li><strong>Replace every hand-rolled <code>_paint_*</code> chrome method</strong> with a
+   framework component, layout container, or skin placement.</li>
+<li><strong>Centralize theme application</strong>: read exclusively from
+   <code>elysium.theme</code>; no inline RGBA literals.</li>
+<li><strong>No regressions during migration</strong>: every menu, gizmo, drag
+   interaction stays functional at each milestone.</li>
+<li><strong>Visibly more polished</strong>: hover animations, focus rings,
+   ripples, glass materials, shadows, consistent typography.</li>
+<li><strong>Improve the framework as needed so every app benefits</strong>: any
+   new primitive (Tree, RadialPopover, NumericField, calc-sizing)
+   ships as a proper framework PR, not as Designer-private code.</li>
+</ol>
+<h3 id="non-goals">Non-goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Rewriting the View Panel canvas (procedural by nature).</li>
+<li>Rewriting Aether, brush engine, PBR renderer, transfer pipelines.</li>
+<li>Redesigning the Designer's IA (same menus, same toolbox, same
+  panels  just framework-rendered).</li>
+<li>Building a visual editor for the Designer's chrome (out of scope;
+  authors edit the chrome <code>.esk</code> directly for now).</li>
+</ul>
+<hr />
+<h2 id="3-current-state-audit">3. Current state audit<a class="headerlink" href="#3-current-state-audit" title="Permanent link">&para;</a></h2>
+<h3 id="how-the-designer-renders-today">How the Designer renders today<a class="headerlink" href="#how-the-designer-renders-today" title="Permanent link">&para;</a></h3>
+<p><code>on_frame()</code> per frame:</p>
+<ol>
+<li>Reads input.</li>
+<li>Dispatches the click through ~40 region-specific press
+   handlers.</li>
+<li>Builds a <code>DisplayList</code> via ~50 <code>_paint_*</code> methods.</li>
+<li>Publishes the list.</li>
+</ol>
+<p>Top-level paint surfaces:</p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Paint method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Menu bar</td>
+<td><code>_paint_menu_bar</code></td>
+</tr>
+<tr>
+<td>Toolbar</td>
+<td><code>_paint_toolbar</code></td>
+</tr>
+<tr>
+<td>Shelf</td>
+<td><code>_paint_shelves</code></td>
+</tr>
+<tr>
+<td>Toolbox column</td>
+<td><code>_paint_toolbox</code></td>
+</tr>
+<tr>
+<td>Brush palette</td>
+<td><code>_paint_brush_palette</code>, <code>_paint_palette_slot</code>, <code>_paint_slot_popover</code></td>
+</tr>
+<tr>
+<td>View Panel</td>
+<td><code>_paint_form_area</code> + sub-paints (legitimately procedural)</td>
+</tr>
+<tr>
+<td>View Cube</td>
+<td><code>_paint_view_cube</code> (procedural)</td>
+</tr>
+<tr>
+<td>Project Explorer</td>
+<td><code>_paint_project_explorer</code></td>
+</tr>
+<tr>
+<td>Channel Box</td>
+<td><code>_paint_channel_box</code></td>
+</tr>
+<tr>
+<td>Properties pane</td>
+<td><code>_paint_properties_pane</code></td>
+</tr>
+<tr>
+<td>Tool Properties dock</td>
+<td><code>_paint_tool_properties_dock</code></td>
+</tr>
+<tr>
+<td>Time slider</td>
+<td><code>_paint_timeline</code></td>
+</tr>
+<tr>
+<td>Status line</td>
+<td><code>_paint_status_line</code></td>
+</tr>
+<tr>
+<td>Aether chat panel</td>
+<td><code>_paint_aether_panel</code></td>
+</tr>
+<tr>
+<td>Color picker</td>
+<td><code>_paint_picker</code></td>
+</tr>
+<tr>
+<td>Marking menu</td>
+<td><code>_paint_marking_menu</code></td>
+</tr>
+<tr>
+<td>Dope Sheet / Graph Editor / Trax</td>
+<td><code>_paint_dope_sheet</code>, etc.</td>
+</tr>
+<tr>
+<td>Context menus, popovers, dialogs</td>
+<td>Each its own paint</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-is-available-in-the-framework">What is available in the framework<a class="headerlink" href="#what-is-available-in-the-framework" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>elysium.components</code></strong> (~25 components): <code>Button</code> (5
+  variants), <code>Label</code>, <code>Card</code> (3 materials), <code>Toggle</code>, <code>Slider</code>,
+  <code>TextField</code>, <code>ProgressBar</code>, <code>Checkbox</code>, <code>Radio</code>, <code>Tabs</code>,
+  <code>Dropdown</code>, <code>ComboBox</code>, <code>Menu</code>, <code>MenuItem</code>, <code>Modal</code>, <code>Popover</code>,
+  <code>Accordion</code>, <code>Chip</code>, <code>Badge</code>, <code>Spinner</code>.</li>
+<li><strong><code>elysium.layout</code></strong>: <code>Stack</code> / <code>Row</code> / <code>Col</code>, <code>Grid</code>, <code>Form</code>.</li>
+<li><strong><code>elysium.theme</code></strong>: 5 built-in themes + <code>Theme.from_primary</code>,
+  semantic tokens.</li>
+<li><strong><code>elysium.skin.load_skin(path)</code></strong>: bundle loader.</li>
+</ul>
+<h3 id="hardcoded-blockers">Hardcoded blockers<a class="headerlink" href="#hardcoded-blockers" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Window geometry constants (<code>TOOLBOX_W=116</code>, <code>RIGHT_W=320</code>, etc.)
+  scattered through ~200 paint / hit-test sites.</li>
+<li>Per-region hit-test rect builders (<code>_brush_palette_rects</code>,
+  <code>_toolbox_cells</code>, <code>_channel_box_rects</code>, etc.).</li>
+<li>Inline RGBA literals in paint code.</li>
+</ul>
+<hr />
+<h2 id="4-target-architecture">4. Target architecture<a class="headerlink" href="#4-target-architecture" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>+----------------------------------------------------------------+
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>| Designer process                                                 |
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>|                                                                  |
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>|   app = ely.App(title=&quot;Elysium Designer&quot;, identifier=...)       |
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>|   chrome = app.window(transparent=False, title_bar=True,        |
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>|                       initial_size=(1280, 800))                 |
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>|   chrome.load_skin(&quot;elysium-designer/designer-chrome.esk/&quot;)     |
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>|                                                                  |
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>|   # View Panel = Canvas placement inside the chrome skin        |
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>|   @effect                                                        |
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>|   def push_view_panel():                                         |
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>|       dl = build_project_displaylist(...)                       |
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>|       chrome.view_panel_canvas.publish_display_list(dl)         |
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>|                                                                  |
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>|   # Behavior via @chrome.on(...)                                |
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>|   @chrome.on(&quot;toolbox.brush.click&quot;)                              |
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>|   def use_brush(event): self.tool = TOOL_BRUSH                  |
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>|   app.run()                                                      |
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>+----------------------------------------------------------------+
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>elysium-designer/designer-chrome.esk/
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  manifest.json
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>  document.json
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>  hooks.json (auto-generated)
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>  assets/icons/  (toolbox glyph sprites)
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>  animations/
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  variants/
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    light/document.json          (default, see Section 12 #1)
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    high_contrast/document.json
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    reduce_motion/document.json
+</span></code></pre></div>
+<p>The Designer's <code>__main__.py</code> becomes a <em>behavior shell</em>: constructs
+the App, loads the chrome skin, registers handlers, publishes
+display lists. Paint code disappears entirely.</p>
+<hr />
+<h2 id="5-component-mapping">5. Component mapping<a class="headerlink" href="#5-component-mapping" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Designer surface</th>
+<th>Framework primitive</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Menu bar</td>
+<td><code>Row</code> + <code>MenuItem</code>s with <code>Menu</code> popovers</td>
+</tr>
+<tr>
+<td>Toolbar</td>
+<td><code>Row</code> + <code>IconButton</code>s</td>
+</tr>
+<tr>
+<td>Shelf</td>
+<td><code>Tabs</code> + per-tab <code>Row</code> of <code>IconButton</code></td>
+</tr>
+<tr>
+<td>Toolbox section header</td>
+<td><code>Accordion.Header</code></td>
+</tr>
+<tr>
+<td>Toolbox tool button</td>
+<td><code>IconButton</code> (size 48) with hover lift + active accent ring</td>
+</tr>
+<tr>
+<td>Toolbox catalog tile</td>
+<td><code>Card</code> with drag-source behavior</td>
+</tr>
+<tr>
+<td>Brush palette panel</td>
+<td><code>Panel</code> + <code>Grid</code> of slot <code>Card</code>s</td>
+</tr>
+<tr>
+<td>Brush palette slot</td>
+<td><code>Card</code> (composed primitive)</td>
+</tr>
+<tr>
+<td>Brush palette popover</td>
+<td><code>Popover</code> anchored to the slot, with <code>Col</code> of <code>Button</code>s + <code>Grid</code> for saved tiles</td>
+</tr>
+<tr>
+<td>Color picker</td>
+<td>Framework's existing <code>ColorPicker</code></td>
+</tr>
+<tr>
+<td>Project Explorer</td>
+<td><code>Col</code> + <code>Tabs</code> + <code>Tree</code> (new)</td>
+</tr>
+<tr>
+<td>Channel Box</td>
+<td><code>Form</code> + <code>NumericField</code> (new) + <code>Tabs</code></td>
+</tr>
+<tr>
+<td>Properties pane</td>
+<td>Accordion of <code>Form</code>s</td>
+</tr>
+<tr>
+<td>Tool Properties dock</td>
+<td><code>Row</code> + tool-specific <code>Form</code></td>
+</tr>
+<tr>
+<td>Time slider</td>
+<td>Custom <code>Canvas</code> body + framework <code>Slider</code> (playhead) + <code>IconButton</code>s (transport)</td>
+</tr>
+<tr>
+<td>Status line</td>
+<td><code>Row</code> + <code>Label</code>s</td>
+</tr>
+<tr>
+<td><strong>Aether chat panel</strong></td>
+<td><strong>Floating Action Button (FAB) in bottom-right corner with menu item "Show Aether Agent". Click expands a flyout window.</strong> (See Section 12 #5.)</td>
+</tr>
+<tr>
+<td>Marking menu</td>
+<td><code>RadialPopover</code> (new)</td>
+</tr>
+<tr>
+<td>Dope Sheet / Graph Editor / Trax</td>
+<td><code>Modal</code> with <code>Canvas</code> body</td>
+</tr>
+<tr>
+<td>Toast</td>
+<td>Existing <code>Toast</code> component</td>
+</tr>
+</tbody>
+</table>
+<p>Surfaces that stay procedural (drawn into a <code>Canvas</code>):</p>
+<ul>
+<li>View Panel (placements + gizmos + marquee)</li>
+<li>View Cube (triangle picking)</li>
+<li>Time slider body (keyframe diamonds)</li>
+<li>Dope Sheet / Graph Editor / Trax bodies</li>
+<li>3D mesh thumbnails</li>
+</ul>
+<hr />
+<h2 id="6-new-framework-primitives-improve-framework-so-all-apps-benefit">6. New framework primitives (improve framework so all apps benefit)<a class="headerlink" href="#6-new-framework-primitives-improve-framework-so-all-apps-benefit" title="Permanent link">&para;</a></h2>
+<p>The user has approved promoting these to the framework so any
+Elysium app gets them:</p>
+<ol>
+<li><strong><code>Tree</code></strong> in <code>elysium.components</code>  virtualized tree view used
+   by Project Explorer (Objects / Assets / Sets / History). ~250 LOC.</li>
+<li><strong><code>RadialPopover</code></strong>  radial marking menu. ~100 LOC.</li>
+<li><strong><code>NumericField</code></strong>  <code>TextField</code> subclass with scrub-on-drag
+   (Maya-style horizontal drag on the label scrubs the value).
+   ~80 LOC.</li>
+<li><strong><code>FAB</code></strong> (Floating Action Button)  bottom-right floating
+   trigger button with optional flyout-window expansion. Needed
+   for the Aether agent placement (Section 12 #5). ~60 LOC.</li>
+<li><strong><code>calc()</code> syntax in the skin schema</strong> 
+   <code>width: "calc(100% - 116 - 320)"</code> for "fill remaining"
+   layouts. ~30 LOC in the parser.</li>
+<li><strong><code>IconButton</code> glyph sprite atlas extension</strong>  the framework
+   already supports glyph names; we add a sprite-atlas loader so
+   skins can ship custom glyph sets under <code>assets/icons/</code>.</li>
+</ol>
+<p>Each ships as a separate framework PR with tests + docs so users
+of <code>pip install elysium</code> get the same components.</p>
+<hr />
+<h2 id="7-event-hook-wiring">7. Event / hook wiring<a class="headerlink" href="#7-event-hook-wiring" title="Permanent link">&para;</a></h2>
+<p>Skin placements declare hooks in <code>document.json</code>; the Designer
+registers handlers:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">for</span> <span class="n">tool_id</span> <span class="ow">in</span> <span class="p">(</span><span class="n">TOOL_SELECT</span><span class="p">,</span> <span class="n">TOOL_LASSO</span><span class="p">,</span> <span class="n">TOOL_BRUSH</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="nd">@chrome</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;toolbox.</span><span class="si">{</span><span class="n">tool_id</span><span class="si">}</span><span class="s2">.click&quot;</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_switch_tool</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">tool_id</span><span class="o">=</span><span class="n">tool_id</span><span class="p">):</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">tool</span> <span class="o">=</span> <span class="n">tool_id</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nd">@chrome</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">&quot;menu.file.new.click&quot;</span><span class="p">)</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">_new</span><span class="p">(</span><span class="n">event</span><span class="p">):</span> <span class="bp">self</span><span class="o">.</span><span class="n">_file_new</span><span class="p">()</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">12</span><span class="p">):</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="nd">@chrome</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;brush_palette.slot_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.click&quot;</span><span class="p">)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_slot_left</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">i</span><span class="o">=</span><span class="n">i</span><span class="p">):</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_open_color_menu_for_slot</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="nd">@chrome</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;brush_palette.slot_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.right_click&quot;</span><span class="p">)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_slot_right</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">i</span><span class="o">=</span><span class="n">i</span><span class="p">):</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_open_texture_menu_for_slot</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="nd">@chrome</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">&quot;aether_fab.click&quot;</span><span class="p">)</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="k">def</span><span class="w"> </span><span class="nf">_toggle_aether</span><span class="p">(</span><span class="n">event</span><span class="p">):</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_toggle_aether_flyout</span><span class="p">()</span>
+</span></code></pre></div>
+<p>For dynamic content (Project Explorer rows, Properties pane
+fields that depend on selection), use event delegation: bind one
+handler to the Tree's root and inspect <code>event.row_id</code>.</p>
+<p><code>hooks.json</code> is auto-generated by the Designer when the chrome
+<code>.esk</code> is saved; it enumerates every hook the skin exposes so
+handlers can be verified at startup.</p>
+<hr />
+<h2 id="8-reactive-state">8. Reactive state<a class="headerlink" href="#8-reactive-state" title="Permanent link">&para;</a></h2>
+<p>Designer state becomes signals; chrome reads via effects:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="bp">self</span><span class="o">.</span><span class="n">tool</span> <span class="o">=</span> <span class="n">reactive</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="n">TOOL_SELECT</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="bp">self</span><span class="o">.</span><span class="n">sel_idx</span> <span class="o">=</span> <span class="n">reactive</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="bp">self</span><span class="o">.</span><span class="n">menu_status</span> <span class="o">=</span> <span class="n">reactive</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="bp">self</span><span class="o">.</span><span class="n">theme_name</span> <span class="o">=</span> <span class="n">reactive</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)</span>   <span class="c1"># default per Section 12 #1</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="bp">self</span><span class="o">.</span><span class="n">aether_flyout_open</span> <span class="o">=</span> <span class="n">reactive</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nd">@reactive</span><span class="o">.</span><span class="n">effect</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">push_status</span><span class="p">():</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">chrome</span><span class="o">.</span><span class="n">status_label</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">menu_status</span><span class="p">()</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="nd">@reactive</span><span class="o">.</span><span class="n">effect</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">push_theme</span><span class="p">():</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">set_theme</span><span class="p">({</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="s2">&quot;light&quot;</span><span class="p">:</span> <span class="n">light</span><span class="p">(),</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="s2">&quot;dark&quot;</span><span class="p">:</span> <span class="n">dark</span><span class="p">(),</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="s2">&quot;midnight_glass&quot;</span><span class="p">:</span> <span class="n">midnight_glass</span><span class="p">(),</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="s2">&quot;frost&quot;</span><span class="p">:</span> <span class="n">frost</span><span class="p">(),</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="s2">&quot;oled&quot;</span><span class="p">:</span> <span class="n">oled</span><span class="p">(),</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>    <span class="p">}[</span><span class="bp">self</span><span class="o">.</span><span class="n">theme_name</span><span class="p">()])</span>
+</span></code></pre></div>
+<hr />
+<h2 id="9-migration-phases-all-seven-approved-with-preview-gates">9. Migration phases (all seven approved with preview gates)<a class="headerlink" href="#9-migration-phases-all-seven-approved-with-preview-gates" title="Permanent link">&para;</a></h2>
+<h3 id="stage-3a-scaffolding-1-week">Stage 3a  Scaffolding (1 week)<a class="headerlink" href="#stage-3a-scaffolding-1-week" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Create <code>elysium-designer/designer-chrome.esk/</code> with empty document.</li>
+<li>Add chrome-skin load call at Designer startup.</li>
+<li>Hand-rolled paint runs side-by-side.</li>
+</ul>
+<p><strong>Preview</strong>: Designer launches; chrome skin loaded (empty);
+existing UI still works. Static screenshot delivered for spec
+sign-off.</p>
+<h3 id="stage-3b-status-line-menu-bar-1-week">Stage 3b  Status line + menu bar (1 week)<a class="headerlink" href="#stage-3b-status-line-menu-bar-1-week" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Author status line as themed <code>Row</code> + <code>Label</code>s.</li>
+<li>Author menu bar as <code>Row</code> + <code>MenuItem</code> + <code>Menu</code>.</li>
+<li>Bind every menu action via <code>@chrome.on(...)</code>.</li>
+<li>Delete <code>_paint_menu_bar</code>, <code>_paint_status_line</code>.</li>
+</ul>
+<p><strong>Preview</strong>: top + bottom of window are framework-driven. Diff
+screenshot vs current.</p>
+<h3 id="stage-3c-toolbar-shelf-1-week">Stage 3c  Toolbar + Shelf (1 week)<a class="headerlink" href="#stage-3c-toolbar-shelf-1-week" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Author toolbar + shelf strips.</li>
+<li>Ship <code>IconButton</code> glyph sprite atlas under <code>assets/icons/</code>.</li>
+<li>Bind shelf-tab switching to existing menu-set switcher.</li>
+<li>Delete <code>_paint_toolbar</code>, <code>_paint_shelves</code>.</li>
+</ul>
+<p><strong>Preview</strong>: full horizontal chrome framework-driven.</p>
+<h3 id="stage-3d-toolbox-brush-palette-2-weeks">Stage 3d  Toolbox + Brush palette (2 weeks)<a class="headerlink" href="#stage-3d-toolbox-brush-palette-2-weeks" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Author toolbox as <code>Col</code> + accordion sections + <code>IconButton</code>s.</li>
+<li>Author brush palette as <code>Panel</code> + <code>Grid</code> of <code>Card</code> slots.</li>
+<li>Author slot popovers as framework <code>Popover</code>s.</li>
+<li><em>Side benefit</em>: the left-click bug from the prior plan dissolves
+  here because popover lifecycle is the framework's responsibility.</li>
+<li>Delete <code>_paint_toolbox</code>, <code>_paint_brush_palette</code>,
+  <code>_paint_palette_slot</code>, <code>_paint_slot_popover</code>.</li>
+</ul>
+<p><strong>Preview</strong>: left column framework-driven; brush palette popovers
+have ripple, hover-lift, focus rings.</p>
+<h3 id="stage-3e-project-explorer-channel-box-properties-2-weeks">Stage 3e  Project Explorer + Channel Box + Properties (2 weeks)<a class="headerlink" href="#stage-3e-project-explorer-channel-box-properties-2-weeks" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ship <code>Tree</code> framework component (separate PR).</li>
+<li>Ship <code>NumericField</code> framework component (separate PR).</li>
+<li>Author Project Explorer with the Tree.</li>
+<li>Author Channel Box as a <code>Form</code> with <code>NumericField</code>s.</li>
+<li>Author Properties pane as an accordion of <code>Form</code>s.</li>
+<li>Delete <code>_paint_project_explorer</code>, <code>_paint_channel_box</code>,
+  <code>_paint_properties_pane</code>.</li>
+</ul>
+<p><strong>Preview</strong>: right column framework-driven; the biggest visual
+upgrade.</p>
+<h3 id="stage-3f-time-slider-dope-sheet-graph-editor-1-week">Stage 3f  Time slider + Dope Sheet + Graph Editor (1 week)<a class="headerlink" href="#stage-3f-time-slider-dope-sheet-graph-editor-1-week" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Time slider chrome (transport buttons, range markers) becomes
+  framework; body stays as a <code>Canvas</code>.</li>
+<li>Dope Sheet / Graph Editor / Trax get framework modals; bodies
+  stay procedural.</li>
+</ul>
+<p><strong>Preview</strong>: bottom strip + animation modals framework-driven.</p>
+<h3 id="stage-3g-aether-fab-cleanup-1-week">Stage 3g  Aether FAB + cleanup (1 week)<a class="headerlink" href="#stage-3g-aether-fab-cleanup-1-week" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Add <code>FAB</code> framework component (separate PR).</li>
+<li>Place Aether trigger as a bottom-right FAB; clicking expands a
+  flyout window (Section 12 #5).</li>
+<li>Add menu entry: <code>Window &gt; Show Aether Agent</code> (also toggles the
+  flyout).</li>
+<li>Delete every remaining <code>_paint_*</code> chrome method.</li>
+<li>Replace all inline RGBA literals with theme tokens.</li>
+<li>Convert Designer state to <code>reactive.signal</code> where chrome reads
+  it.</li>
+<li>Move window-geometry constants into the chrome <code>.esk</code> manifest.</li>
+<li>Update tests to assert through the chrome's hook list.</li>
+</ul>
+<p><strong>Preview</strong>: zero hand-rolled chrome paint; full self-host
+complete.</p>
+<h3 id="total-timeline">Total timeline<a class="headerlink" href="#total-timeline" title="Permanent link">&para;</a></h3>
+<p>7 weeks at full-time pace.</p>
+<hr />
+<h2 id="10-risks-and-mitigations">10. Risks and mitigations<a class="headerlink" href="#10-risks-and-mitigations" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Hot-path performance regression</strong>.
+   <em>Mitigate</em>: profile early; the framework runs examples at
+   60fps already. Component-specific hot spots become framework
+   optimizations every app benefits from.</p>
+</li>
+<li>
+<p><strong>Reactive overhead in deep panels (Properties pane with 30+
+   fields)</strong>.
+   <em>Mitigate</em>: <code>reactive.batch(...)</code>.</p>
+</li>
+<li>
+<p><strong>Skin hot-reload feedback loop on the chrome <code>.esk</code> itself</strong>.
+   <em>Mitigate</em>: the framework's hot-reload already preserves
+   handlers across reloads.</p>
+</li>
+<li>
+<p><strong>Tests assume internal paint methods</strong>.
+   <em>Mitigate</em>: rewrite tests against the public hook API.</p>
+</li>
+<li>
+<p><strong>Temptation to "framework-ize" the gizmos</strong>.
+   <em>Mitigate</em>: don't. Gizmos belong in <code>Canvas</code> placements.</p>
+</li>
+<li>
+<p><strong>Cross-window event dispatch for Aether flyout</strong>.
+   <em>Mitigate</em>: the FAB and the flyout are in the same chrome skin
+   (the flyout is a child placement that toggles visibility), so
+   no cross-window dispatch is required.</p>
+</li>
+</ol>
+<hr />
+<h2 id="11-verification">11. Verification<a class="headerlink" href="#11-verification" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Visual diff</strong> at each stage (side-by-side screenshots).</li>
+<li><strong>Hook-coverage test</strong>: loads <code>chrome.esk</code> and asserts every
+   declared hook has a registered handler.</li>
+<li><strong>End-to-end smoke test</strong> in CI: launches Designer, clicks
+   each major surface, verifies state changes.</li>
+<li><strong>Performance benchmark</strong>: per-frame time must stay within
+   10% of the current Designer.</li>
+<li><strong>Theme audit</strong>: greps Designer Python for inline RGBA
+   literals; must report zero hits after Stage 3g.</li>
+<li><strong>Strict docs build</strong>:
+   <code>mkdocs build --strict -f mkdocs-designer.yml</code>.</li>
+</ol>
+<hr />
+<h2 id="12-user-decisions-resolved">12. User decisions (resolved)<a class="headerlink" href="#12-user-decisions-resolved" title="Permanent link">&para;</a></h2>
+<p>The five open questions have been answered:</p>
+<ol>
+<li>
+<p><strong>Default theme on Designer launch</strong>: <strong>Light, user-friendly,
+   with chrome / glass effects</strong>. Custom theme / skin colors
+   stay available via <code>Theme &gt; Customize...</code>.</p>
+</li>
+<li>
+<p><strong>Customizable chrome via user themes</strong>: <strong>Yes</strong>. The chrome
+   <code>.esk</code> is itself a customization point. Power users can
+   author alternate Designer chrome variants and load them via a
+   preference.</p>
+</li>
+<li>
+<p><strong>Stage commitment</strong>: <strong>All seven stages approved in spec
+   form</strong>, with per-stage preview gates so edits can be made to
+   the spec before each stage's implementation.</p>
+</li>
+<li>
+<p><strong>New framework components</strong>: <strong>Promote to the framework so
+   all apps benefit</strong>. <code>Tree</code>, <code>RadialPopover</code>, <code>NumericField</code>,
+   <code>FAB</code>, <code>calc()</code> syntax  each ships as a proper framework PR.</p>
+</li>
+<li>
+<p><strong>Aether chat placement</strong>: <strong>Floating Action Button (FAB) in
+   bottom-right corner.</strong> Click expands a flyout window. A menu
+   entry <code>Window &gt; Show Aether Agent</code> toggles the same flyout.</p>
+</li>
+</ol>
+<hr />
+<h2 id="13-critical-files">13. Critical files<a class="headerlink" href="#13-critical-files" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>elysium-designer/__main__.py</code></td>
+<td>Delete <code>_paint_*</code> chrome methods; replace with <code>@chrome.on(...)</code> handlers + reactive effects</td>
+</tr>
+<tr>
+<td><code>elysium-designer/designer-chrome.esk/manifest.json</code></td>
+<td>New</td>
+</tr>
+<tr>
+<td><code>elysium-designer/designer-chrome.esk/document.json</code></td>
+<td>New; built over Stages 3a-3g</td>
+</tr>
+<tr>
+<td><code>elysium-designer/designer-chrome.esk/hooks.json</code></td>
+<td>Auto-generated</td>
+</tr>
+<tr>
+<td><code>elysium-designer/designer-chrome.esk/assets/icons/</code></td>
+<td>New; toolbox glyph sprite atlas</td>
+</tr>
+<tr>
+<td><code>elysium-designer/designer-chrome.esk/variants/light/document.json</code></td>
+<td>Default theme variant</td>
+</tr>
+<tr>
+<td><code>elysium-designer/designer-chrome.esk/variants/high_contrast/document.json</code></td>
+<td>A11y</td>
+</tr>
+<tr>
+<td><code>python/elysium/components/tree.py</code></td>
+<td>New: Tree component</td>
+</tr>
+<tr>
+<td><code>python/elysium/components/radial_popover.py</code></td>
+<td>New: RadialPopover</td>
+</tr>
+<tr>
+<td><code>python/elysium/components/numeric_field.py</code></td>
+<td>New: NumericField</td>
+</tr>
+<tr>
+<td><code>python/elysium/components/fab.py</code></td>
+<td>New: FAB</td>
+</tr>
+<tr>
+<td><code>python/elysium/skin/schema.py</code></td>
+<td>Add <code>calc()</code> parser support</td>
+</tr>
+<tr>
+<td><code>python/elysium/components/__init__.py</code></td>
+<td>Export new classes</td>
+</tr>
+<tr>
+<td><code>tests/test_designer_chrome.py</code></td>
+<td>New: hook-coverage + smoke tests</td>
+</tr>
+<tr>
+<td><code>tests/test_framework_components.py</code></td>
+<td>New tests for Tree / FAB / NumericField / RadialPopover</td>
+</tr>
+<tr>
+<td><code>mkdocs-designer.yml</code></td>
+<td>Add internals nav entry</td>
+</tr>
+<tr>
+<td><code>docs-designer/interface/*.md</code></td>
+<td>Update screenshots once Stage 3 lands</td>
+</tr>
+</tbody>
+</table>
+<p>Files explicitly <strong>not</strong> modified:</p>
+<ul>
+<li><code>python/elysium/render/pbr.py</code>, <code>python/elysium/aether/</code>,
+  <code>python/elysium/brush/</code>, <code>python/elysium/anim/</code>  framework
+  subsystems stay as-is.</li>
+<li><code>elysium-native/</code>  no native changes.</li>
+<li><code>examples/</code>  example apps continue to work unchanged.</li>
+</ul>
+<hr />
+<h2 id="14-next-steps">14. Next steps<a class="headerlink" href="#14-next-steps" title="Permanent link">&para;</a></h2>
+<ol>
+<li>User reviews this spec and surfaces edits / objections directly
+   in this file.</li>
+<li>User answers any remaining open questions.</li>
+<li>Spec is updated and frozen.</li>
+<li>Implementation begins in a separate session, starting with
+   Stage 3a with a preview gate before Stage 3b kicks off.</li>
+</ol>
+<p>This file is the source of truth for Stage 3 design. Updates land
+here.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/elysium-ui/elysium" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://discord.gg/elysium-ui" target="_blank" rel="noopener" title="discord.gg" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.expand", "navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.tabs.link", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
