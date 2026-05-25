@@ -87,7 +87,16 @@ jobs:
             source .venv/Scripts/activate   # Windows venv layout
           fi
           python -m pip install --upgrade pip
-          pip install -e ".[build]"
+          # Install ONLY the build-time deps (maturin + pyinstaller +
+          # framework runtime deps), NOT the project itself in editable
+          # mode. The downstream Build step calls `scripts/build.py`,
+          # which runs `maturin develop --release` to compile + install
+          # the native extension in one shot. Doing an editable install
+          # here first AND then running maturin develop again races on
+          # `target/maturin/lib_native.so` (Linux trips a maturin ELF-
+          # parse error "Object is too small" when the second call
+          # finds a cache-hit cargo build).
+          pip install "maturin>=1.7,<2" "pyinstaller>=6" numpy pillow scipy scikit-image
           # Persist the venv's python on PATH for subsequent steps —
           # GitHub Actions starts each `run:` block in a fresh shell,
           # so we need to emit the activated PATH/VIRTUAL_ENV explicitly.
