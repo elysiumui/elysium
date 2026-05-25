@@ -59,9 +59,26 @@ jobs:
             libfontconfig1 libfreetype6
 
       - name: Install Python deps + maturin
+        shell: bash
         run: |
+          # `maturin develop` requires a virtualenv or conda env. The
+          # GitHub Actions Python (setup-python) is a bare system
+          # interpreter, so create a project-local .venv that maturin
+          # (and scripts/build.py downstream) will find automatically.
+          python -m venv .venv
+          if [ -f .venv/bin/activate ]; then
+            source .venv/bin/activate
+          else
+            source .venv/Scripts/activate   # Windows venv layout
+          fi
           python -m pip install --upgrade pip
           pip install -e ".[build]"
+          # Persist the venv's python on PATH for subsequent steps —
+          # GitHub Actions starts each `run:` block in a fresh shell,
+          # so we need to emit the activated PATH/VIRTUAL_ENV explicitly.
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+          echo "$VIRTUAL_ENV/bin"      >> "$GITHUB_PATH"
+          echo "$VIRTUAL_ENV/Scripts"  >> "$GITHUB_PATH"
 
       - name: Parse target
         id: parse
