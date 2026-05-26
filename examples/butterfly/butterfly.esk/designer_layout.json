@@ -68,8 +68,8 @@
           "scale": 1.0,
           "opacity": 1.0,
           "rotation": 0.0,
-          "duration": 4.0,
-          "easing": "ease_in_out",
+          "duration": 2.5,
+          "easing": "linear",
           "mesh_flap_target": null
         }
       ],
@@ -95,13 +95,13 @@
         "kind": "file:/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/_3ds/butterfly.3ds",
         "wireframe": false,
         "yaw": 0.0,
-        "pitch": -2.7448866807507573,
-        "flap": -0.6749999999999999,
+        "pitch": 0.1,
+        "flap": 0.0,
         "flap_freq": 2.5,
         "flap_amp": 0.7,
         "dist": 1.4,
-        "flip_y": true,
-        "roll": 3.546932814039998,
+        "flip_y": false,
+        "roll": 0.0,
         "part_textures": {},
         "view_mode": "lit"
       },
