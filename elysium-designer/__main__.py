@@ -45,8 +45,12 @@ IS_MAC = sys.platform == "darwin"
 IS_WIN = sys.platform == "win32"
 IS_LINUX = sys.platform.startswith("linux")
 
-# Window geometry.
-WIDTH, HEIGHT = 1360, 880
+# Window geometry. Bumped May 2026 from 1360×880 → 1680×1050 after
+# beta feedback that the canvas felt cramped — modern displays handle
+# the larger footprint cheaply, and the extra ~25% horizontal room
+# means an authored 1200-wide App Window mock fits with its sidebar
+# panels still fully open.
+WIDTH, HEIGHT = 1680, 1050
 MENU_H       = 0 if IS_MAC else 26
 TOOLBAR_H    = 36
 # G2 Phase 4 — Maya-style Shelf row beneath the toolbar.
@@ -8762,13 +8766,23 @@ class Designer:
                     self._play_clock = 0.0
                     for p in self.placements:
                         if len(p.states) > 1 and getattr(p, "cycle_states", True):
-                            p.current_state = 0
-                            s0 = p.states[0]
-                            p._t_dx       = s0.dx
-                            p._t_dy       = s0.dy
-                            p._t_scale    = s0.scale
-                            p._t_opacity  = s0.opacity
-                            p._t_rotation = s0.rotation
+                            # Settle at the placement's authored
+                            # `current_state` (the user-declared resting
+                            # pose) rather than always state 0. This
+                            # lets a "fly-in" animation (states[0] =
+                            # off-screen, states[1] = centered,
+                            # current_state = 1) end gracefully at the
+                            # centered pose instead of snapping back
+                            # off-screen.
+                            rest = max(0, min(p.current_state,
+                                               len(p.states) - 1))
+                            sN = p.states[rest]
+                            p.current_state = rest
+                            p._t_dx       = sN.dx
+                            p._t_dy       = sN.dy
+                            p._t_scale    = sN.scale
+                            p._t_opacity  = sN.opacity
+                            p._t_rotation = sN.rotation
                             # Resume flap if scene 0 has no override.
                             if getattr(s0, "mesh_flap_target", None) is None:
                                 # Don't touch mesh_flap_freq; the user-set
@@ -11205,48 +11219,93 @@ class Designer:
                 # overlay.
                 dl.draw_image_bytes(rgba_p, pw, ph, ax, ay, p.w, p.h)
 
+    def _compare_slider_bar_rect(self) -> tuple[float, float, float, float] | None:
+        """Geometry of the floating slider bar — a thin horizontal
+        scrubber centred along the bottom of the form area (canvas),
+        slightly above the status bar. Returns (x, y, w, h) of the
+        bar's clickable extent, or None if there's no compare-target
+        Mesh3D in scope. The bar is wider than the mesh placement so
+        the user always has room to drag without crowding the model."""
+        tgt = self._camera_target()
+        if tgt is None or tgt.kind != "Mesh3D":
+            return None
+        fx, fy, fw, fh = self._form_rect()
+        bar_w = max(360.0, min(fw - 120.0, 720.0))
+        bar_x = fx + (fw - bar_w) / 2.0
+        bar_y = fy + fh - 48.0          # 48 px above the form-area bottom
+        bar_h = 6.0
+        return (bar_x, bar_y, bar_w, bar_h)
+
     def _paint_compare_slider_ui(self, dl, t) -> None:
-        """Vertical line + circular thumb at the active slider X.
-        Drawn over the form area AFTER all placements + selection
-        rings so it always reads as the topmost UI element."""
+        """Floating slider bar at the bottom of the canvas — a thin
+        horizontal track + circular thumb that the user drags left /
+        right to adjust the rigging-vs-production wipe on the active
+        Mesh3D. Replaces the earlier through-the-model vertical line,
+        which obstructed the view of the very thing it was meant to
+        compare."""
         if not (getattr(self, "compare_slider_active", False)
                 and getattr(self, "playing", False)):
             return
-        # Locate the Mesh3D this slider is wiping — same logic as
-        # `_camera_target` so the slider follows the active selection.
-        tgt = self._camera_target()
-        if tgt is None:
+        bar = self._compare_slider_bar_rect()
+        if bar is None:
             return
-        sx = float(getattr(self, "compare_slider_x", tgt.x + tgt.w / 2.0))
-        # Clamp to the placement's horizontal extent.
-        sx = max(tgt.x, min(tgt.x + tgt.w, sx))
-        self.compare_slider_x = sx
-        y0 = tgt.y
-        y1 = tgt.y + tgt.h
-        # Vertical divider line — bright white, semi-transparent.
-        dl.stroke_path(f"M {sx} {y0} L {sx} {y1}",
-                        themes.with_alpha((255, 255, 255, 255), 0.85), 2.0)
-        # Thumb — circular handle at the vertical midpoint.
-        cy = (y0 + y1) / 2.0
-        # Drop shadow.
-        dl.filled_circle(sx, cy + 1.5, 16.0,
-                          themes.with_alpha((0, 0, 0, 255), 0.25))
-        dl.filled_circle(sx, cy, 14.0, (255, 255, 255, 235))
-        dl.stroke_path(_ellipse_d(sx, cy, 14.0, 14.0),
-                        themes.with_alpha(t.primary, 0.7), 1.5)
-        # Two arrow chevrons inside the thumb so the wipe affordance
-        # reads at a glance (◀ ▶).
-        chev = themes.with_alpha((0, 0, 0, 255), 0.65)
-        dl.stroke_path(f"M {sx - 4} {cy - 3} L {sx - 7} {cy} L {sx - 4} {cy + 3}",
-                        chev, 1.6)
-        dl.stroke_path(f"M {sx + 4} {cy - 3} L {sx + 7} {cy} L {sx + 4} {cy + 3}",
-                        chev, 1.6)
+        bx, by, bw, bh = bar
+        tgt = self._camera_target()
+        # Map the placement-coord `compare_slider_x` to a fraction of
+        # the placement's width, and from there to the bar's pixel x.
+        if tgt is None or tgt.w <= 0:
+            return
+        frac = (float(getattr(self, "compare_slider_x",
+                                  tgt.x + tgt.w / 2.0)) - tgt.x) / tgt.w
+        frac = max(0.0, min(1.0, frac))
+        thumb_x = bx + frac * bw
+        # Track — rounded pill with a subtle drop shadow so it floats
+        # over whatever's painted underneath.
+        dl.fill_path(_round(bx + 1, by + 2, bw, bh, bh / 2.0),
+                      themes.with_alpha((0, 0, 0, 255), 0.22))
+        dl.fill_path(_round(bx, by, bw, bh, bh / 2.0),
+                      themes.with_alpha((255, 255, 255, 255), 0.20))
+        # Filled portion left of the thumb (production-visible region),
+        # tinted in the theme's accent so the "before/after" balance
+        # reads at a glance.
+        if frac > 0.001:
+            dl.fill_path(_round(bx, by, max(2.0, frac * bw), bh, bh / 2.0),
+                          themes.with_alpha(t.primary, 0.85))
+        # Thumb — slightly larger than the previous through-the-model
+        # version since it now stands alone.
+        cy_t = by + bh / 2.0
+        dl.filled_circle(thumb_x, cy_t + 1.5, 13.0,
+                          themes.with_alpha((0, 0, 0, 255), 0.30))
+        dl.filled_circle(thumb_x, cy_t, 11.0, (255, 255, 255, 245))
+        dl.stroke_path(_ellipse_d(thumb_x, cy_t, 11.0, 11.0),
+                        themes.with_alpha(t.primary, 0.8), 1.6)
+        # ◀ ▶ chevrons inside the thumb.
+        chev = themes.with_alpha((0, 0, 0, 255), 0.7)
+        dl.stroke_path(f"M {thumb_x - 3} {cy_t - 2.5} L {thumb_x - 5.5} {cy_t} L {thumb_x - 3} {cy_t + 2.5}",
+                        chev, 1.5)
+        dl.stroke_path(f"M {thumb_x + 3} {cy_t - 2.5} L {thumb_x + 5.5} {cy_t} L {thumb_x + 3} {cy_t + 2.5}",
+                        chev, 1.5)
+        # Caption above the bar, centred. Hidden when the bar is too
+        # narrow to fit it cleanly.
+        if bw > 280.0:
+            label = "← rigging          final →"
+            dl.draw_text(label,
+                          bx + bw / 2.0 - len(label) * 3.0,
+                          by - 8.0, 11.0,
+                          themes.with_alpha((255, 255, 255, 255), 0.85))
 
     def _maybe_handle_compare_slider(self, cur, press_just, pressed,
                                        release_just) -> bool:
-        """Mouse-press / drag dispatcher for the compare slider thumb.
+        """Mouse dispatcher for the floating compare-slider bar.
         Returns True if the event was consumed (caller should skip
-        downstream placement-click dispatch)."""
+        downstream placement-click dispatch).
+
+        Two click affordances:
+          * Press on the thumb (±18-px circle) → start dragging.
+          * Press anywhere else on the track → jump the thumb there
+            AND start dragging, so the user can scrub to a position
+            without first chasing the thumb (matches every modern
+            video-scrubber / image-compare slider)."""
         if not (getattr(self, "compare_slider_active", False)
                 and getattr(self, "playing", False)):
             self.compare_slider_drag = False
@@ -11254,21 +11313,30 @@ class Designer:
         tgt = self._camera_target()
         if tgt is None:
             return False
-        sx = float(getattr(self, "compare_slider_x", tgt.x + tgt.w / 2.0))
-        cy = tgt.y + tgt.h / 2.0
-        # Thumb hit-test — ±20-px circle (generous so the user can
-        # grab it even mid-flap).
-        hit_thumb = (cur is not None
-                      and (cur[0] - sx) ** 2 + (cur[1] - cy) ** 2 <= 20 * 20)
+        bar = self._compare_slider_bar_rect()
+        if bar is None:
+            return False
+        bx, by, bw, bh = bar
+        cy_t = by + bh / 2.0
         if release_just:
             self.compare_slider_drag = False
             return False
-        if press_just and hit_thumb:
-            self.compare_slider_drag = True
-            return True
+        if press_just and cur is not None:
+            # Generous hit zone — anywhere within 16 px of the track,
+            # vertically. Matches Maya's "hit the scrubber anywhere"
+            # forgiveness.
+            if (bx - 6 <= cur[0] <= bx + bw + 6
+                    and cy_t - 16 <= cur[1] <= cy_t + 16):
+                # Map click X back into placement coords.
+                frac = (float(cur[0]) - bx) / max(1.0, bw)
+                frac = max(0.0, min(1.0, frac))
+                self.compare_slider_x = tgt.x + frac * tgt.w
+                self.compare_slider_drag = True
+                return True
         if self.compare_slider_drag and pressed and cur is not None:
-            new_x = max(tgt.x, min(tgt.x + tgt.w, float(cur[0])))
-            self.compare_slider_x = new_x
+            frac = (float(cur[0]) - bx) / max(1.0, bw)
+            frac = max(0.0, min(1.0, frac))
+            self.compare_slider_x = tgt.x + frac * tgt.w
             return True
         return False
 
@@ -14050,6 +14118,23 @@ class Designer:
         self.playing = not self.playing
         if self.playing:
             self._play_clock = 0.0
+            # Snap every multi-state cycling placement to its FIRST
+            # state's pose so the subsequent tween reads as
+            # "starts at scene 0, animates over scene 1's duration"
+            # rather than "starts wherever the idle pose left it and
+            # makes a half-second hop". Crucial for the butterfly
+            # skin's fly-from-off-screen entrance — the resting pose
+            # (current_state=1) is centered, but Play kicks the
+            # butterfly off-screen first so it can fly back in.
+            for p in self.placements:
+                if (len(p.states) > 1
+                        and getattr(p, "cycle_states", True)):
+                    s0 = p.states[0]
+                    p._t_dx       = s0.dx
+                    p._t_dy       = s0.dy
+                    p._t_scale    = s0.scale
+                    p._t_opacity  = s0.opacity
+                    p._t_rotation = s0.rotation
             # Activate the play-time before/after compare slider if
             # the scene contains a Mesh3D to wipe between. Initial
             # thumb position = the placement's horizontal centre.
