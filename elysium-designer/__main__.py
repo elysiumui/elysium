@@ -8437,8 +8437,15 @@ class Designer:
                 with self._mesh_bytes_lock:
                     cache[key] = (bytes(rgba), size, size)
                     self._mesh_bytes_pending.discard(key)
-                    if len(cache) > 32:
-                        for k in list(cache.keys())[:16]:
+                    # Bumped May 2026 from 32 → 192 to stop cache
+                    # thrashing during Play. A flap cycle with the
+                    # compare slider active produces ~32 unique entries
+                    # (16 quantised flap poses × 2 wireframe states);
+                    # capping at 32 dropped them every cycle and forced
+                    # constant re-renders, which pegged the GIL and
+                    # made the UI feel locked-up.
+                    if len(cache) > 192:
+                        for k in list(cache.keys())[:96]:
                             cache.pop(k, None)
             except Exception as e:
                 print(f"_mesh_render_bytes.worker failed: {e}",
@@ -8783,12 +8790,12 @@ class Designer:
                             p._t_scale    = sN.scale
                             p._t_opacity  = sN.opacity
                             p._t_rotation = sN.rotation
-                            # Resume flap if scene 0 has no override.
-                            if getattr(s0, "mesh_flap_target", None) is None:
+                            # Resume flap if the resting scene has no override.
+                            if getattr(sN, "mesh_flap_target", None) is None:
                                 # Don't touch mesh_flap_freq; the user-set
                                 # value resumes oscillation next play.
                                 pass
-                    self.menu_status = "Animation finished — rewound to scene 0"
+                    self.menu_status = "Animation finished — settled at resting scene"
         # Smooth tween toward target state, shaped by the state's
         # `easing` curve (ease_out / ease_in / ease_in_out / linear /
         # spring). Approximate by re-shaping the convergence rate ``k``.
@@ -11169,15 +11176,25 @@ class Designer:
         # Production layer — what _mesh_render_bytes already would
         # have produced.
         prod_blob = self._mesh_render_bytes(p)
+        # Resolve the slider X up-front so we can skip the wireframe
+        # render entirely when production covers ~all of the mesh
+        # (cheap win — wireframe is a separate cache entry and the
+        # extra render doubles the GIL pressure during Play).
+        sx_canvas = float(getattr(self, "compare_slider_x", ax + p.w / 2.0))
+        frac_pre = max(0.0, min(1.0, (sx_canvas - ax) / max(1.0, p.w)))
         # Wireframe layer — flip the flag, fetch (or kick off the
         # render), then restore. The cache key includes mesh_wireframe
         # so this stays cached independently of the production blob.
-        was_wf = p.mesh_wireframe
-        try:
-            p.mesh_wireframe = True
-            wire_blob = self._mesh_render_bytes(p)
-        finally:
-            p.mesh_wireframe = was_wf
+        # Skip entirely when production is at >=98 % cover — the
+        # underlying rigging would be invisible anyway.
+        wire_blob = None
+        if frac_pre < 0.98:
+            was_wf = p.mesh_wireframe
+            try:
+                p.mesh_wireframe = True
+                wire_blob = self._mesh_render_bytes(p)
+            finally:
+                p.mesh_wireframe = was_wf
         # If either layer isn't ready yet, fall back to a placeholder.
         if prod_blob is None and wire_blob is None:
             dl.fill_path(_round(ax, ay, p.w, p.h, 4),

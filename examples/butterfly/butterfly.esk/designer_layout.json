@@ -6,7 +6,12 @@
     "h": 800,
     "shape": "rect",
     "path_d": "",
-    "bg_color": [0, 0, 0, 0],
+    "bg_color": [
+      0,
+      0,
+      0,
+      0
+    ],
     "gradient_end": null,
     "gradient_angle": 90.0,
     "border_radius": 8,
@@ -22,7 +27,7 @@
     {
       "kind": "Mesh3D",
       "x": 350,
-      "y": 200,
+      "y": 250,
       "w": 500,
       "h": 400,
       "name": "BlueMorpho",
@@ -30,18 +35,27 @@
       "shape": "",
       "points": [],
       "path_d": "",
-      "fill": [40, 90, 220, 255],
-      "stroke": [0, 0, 0, 0],
+      "fill": [
+        40,
+        90,
+        220,
+        255
+      ],
+      "stroke": [
+        0,
+        0,
+        0,
+        0
+      ],
       "stroke_w": 1.5,
-      "color_fill": [40, 90, 220, 255],
       "image_path": "",
       "states": [
         {
-          "name": "off-screen",
-          "dx": -700.0,
-          "dy": -150.0,
-          "scale": 0.7,
-          "opacity": 0.0,
+          "name": "top-right",
+          "dx": 450.0,
+          "dy": -250.0,
+          "scale": 0.55,
+          "opacity": 1.0,
           "rotation": 0.0,
           "duration": 0.05,
           "easing": "ease_in_out",
@@ -54,7 +68,7 @@
           "scale": 1.0,
           "opacity": 1.0,
           "rotation": 0.0,
-          "duration": 3.0,
+          "duration": 4.0,
           "easing": "ease_in_out",
           "mesh_flap_target": null
         }
@@ -63,6 +77,12 @@
       "on_click_target": "",
       "on_click_state": 1,
       "is_hotspot": false,
+      "color_fill": [
+        40,
+        90,
+        220,
+        255
+      ],
       "pbr": {
         "metallic": 0.25,
         "roughness": 0.35,
@@ -72,29 +92,20 @@
         "use_color_fill": true
       },
       "mesh": {
-        "kind": "file:_3ds/butterfly.3ds",
+        "kind": "file:/Users/KenleyJacquesLamaute/ElysiumUI/examples/butterfly/_3ds/butterfly.3ds",
         "wireframe": false,
         "yaw": 0.0,
-        "pitch": 0.1,
-        "flap": 0.0,
+        "pitch": -2.7448866807507573,
+        "flap": -0.6749999999999999,
         "flap_freq": 2.5,
         "flap_amp": 0.7,
         "dist": 1.4,
         "flip_y": true,
-        "roll": 0.0,
+        "roll": 3.546932814039998,
         "part_textures": {},
         "view_mode": "lit"
       },
       "cycle_states": true,
-      "texture": {
-        "path": "",
-        "scale": 1.0,
-        "offset_x": 0.0,
-        "offset_y": 0.0,
-        "rotation": 0.0,
-        "blend": "normal"
-      },
-      "pbr_use_color_fill": true,
       "gradient_angle": 90.0
     }
   ]
