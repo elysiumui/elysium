@@ -892,22 +892,27 @@ def _rect_d(x, y, w, h) -> str:
     return f"M {x} {y} L {x+w} {y} L {x+w} {y+h} L {x} {y+h} Z"
 
 
+# Keep the historical path (~/.elysium/designer-prefs.json) so existing
+# installs are picked up, but route I/O through the framework Settings API
+# (atomic writes, shared abstraction) instead of hand-rolled JSON.
 _DESIGNER_PREFS_PATH = (Path.home() / ".elysium" / "designer-prefs.json")
 
 
+def _designer_settings():
+    from elysium.settings import Settings
+    return Settings("designer", path=_DESIGNER_PREFS_PATH)
+
+
 def _load_designer_prefs() -> dict:
-    try:
-        if _DESIGNER_PREFS_PATH.is_file():
-            return json.loads(_DESIGNER_PREFS_PATH.read_text())
-    except Exception: pass
-    return {}
+    # The Designer mutates a plain dict then calls save, so hand back the raw
+    # contents; persistence + atomic write live in Settings.
+    return dict(_designer_settings()._data)
 
 
 def _save_designer_prefs(prefs: dict) -> None:
-    try:
-        _DESIGNER_PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _DESIGNER_PREFS_PATH.write_text(json.dumps(prefs, indent=2))
-    except Exception: pass
+    s = _designer_settings()
+    s._data = dict(prefs)
+    s.save()
 
 
 def _hit(rect: tuple[float, float, float, float], mx: float, my: float) -> bool:
