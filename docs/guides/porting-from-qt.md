@@ -77,6 +77,30 @@ host = D.DialogHost(win)
 See `examples/qt-parity-demo/` for a complete borderless CRUD app (validated
 form + sortable/editable table + dialogs) that exercises every Tier-1 feature.
 
+## Class map — Tier 2 (scale, services, native)
+
+| Qt | Elysium | Notes |
+| --- | --- | --- |
+| `QScrollArea` | `elysium.components.scroll.ScrollView` | clips + translates content, momentum |
+| `QScrollBar` | `elysium.components.scroll.ScrollBar` | standalone, drag + page |
+| `QAbstractItemView` virtualization | `elysium.components.virtual.VirtualList` / `VirtualForm` | paint only visible items |
+| dirty-region repaint | automatic (render-thread damage diff) | `ELYSIUM_DIRTY_RECT=0` to disable |
+| `QMetaObject::invokeMethod` / queued slots | `elysium.concurrency.call_on_ui_thread` / `post` / `@ui_thread` | |
+| `QThread` + signals | `FrameLoop` + `UiDispatcher` + `run_async` | asyncio bridge included |
+| modal `QDialog.exec()` / owned windows | `elysium.windowing.WindowManager.open(owner=…, modal=True)` | blocks owner, cascades close |
+| `QSystemTrayIcon` | `elysium.native.Tray` | macOS/Windows |
+| `QShortcut` (global) | `elysium.native.HotKeys` | macOS/Windows |
+| OS notifications | `elysium.native.notify` | native mac/win, notify-send Linux |
+| single-instance (`QtSingleApplication`) | `elysium.native.single_instance` | all platforms |
+| `QTranslator` / `tr()` | `elysium.i18n.tr` / `tr_n` (gettext `.mo`) | |
+| `QLocale` | `elysium.locale.format_*` | Babel-backed when installed |
+| RTL `setLayoutDirection` | `elysium.i18n` `is_rtl` / `flip_align` / `mirror_x` + `draw_paragraph(rtl=True)` | |
+| `QSettings` | `elysium.settings.Settings` | dotted groups, atomic writes |
+| `QTest` | `elysium.testing.UiHarness` | headless click/key/scroll/find |
+
+See [Scale, scrolling & virtualization](scale-and-scroll.md) and
+[Threading, multi-window, native integration, i18n, settings & testing](threading-and-services.md).
+
 ## What's intentionally different
 
 * **Dialogs are borderless + themed**, not native chrome (except file dialogs,
