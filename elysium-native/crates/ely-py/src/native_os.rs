@@ -153,17 +153,14 @@ pub fn tray_poll() -> Option<String> {
 mod hotkey_impl {
     use global_hotkey::hotkey::{Code, HotKey, Modifiers};
     use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager};
-    use std::sync::OnceLock;
+    use std::cell::RefCell;
 
-    static MANAGER: OnceLock<GlobalHotKeyManager> = OnceLock::new();
-
-    fn manager() -> Option<&'static GlobalHotKeyManager> {
-        if MANAGER.get().is_none() {
-            if let Ok(m) = GlobalHotKeyManager::new() {
-                let _ = MANAGER.set(m);
-            }
-        }
-        MANAGER.get()
+    // The manager holds OS handles that are !Send/!Sync on Windows, so it
+    // can't live in a `static`. It must be created + used on the same
+    // (main) thread that calls `register`; a thread_local satisfies both.
+    // `poll` never touches it — it reads the library's global event channel.
+    thread_local! {
+        static MANAGER: RefCell<Option<GlobalHotKeyManager>> = const { RefCell::new(None) };
     }
 
     fn code_from(name: &str) -> Option<Code> {
@@ -177,7 +174,6 @@ mod hotkey_impl {
     }
 
     pub fn register(mods_bits: u8, key: &str) -> u32 {
-        let Some(mgr) = manager() else { return 0; };
         let Some(code) = code_from(key) else { return 0; };
         let mut mods = Modifiers::empty();
         if mods_bits & 1 != 0 { mods |= Modifiers::SHIFT; }
@@ -186,7 +182,19 @@ mod hotkey_impl {
         if mods_bits & 8 != 0 { mods |= Modifiers::META; }
         let hk = HotKey::new(Some(mods), code);
         let id = hk.id();
-        if mgr.register(hk).is_ok() { id } else { 0 }
+        MANAGER.with(|cell| {
+            let mut slot = cell.borrow_mut();
+            if slot.is_none() {
+                match GlobalHotKeyManager::new() {
+                    Ok(m) => *slot = Some(m),
+                    Err(_) => return 0,
+                }
+            }
+            match slot.as_ref().unwrap().register(hk) {
+                Ok(()) => id,
+                Err(_) => 0,
+            }
+        })
     }
 
     pub fn poll() -> Option<u32> {
