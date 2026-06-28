@@ -69,13 +69,26 @@ jobs:
             libvulkan-dev mesa-vulkan-drivers
 
       - name: Install maturin & dev deps
-        run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pillow numpy
+        run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pytest-cov pillow numpy
 
       - name: Build wheel & install in develop mode
         run: maturin develop --release
 
-      - name: Run pytest (unit)
-        run: pytest -q --ignore=tests/snapshots
+      - name: Run pytest (unit) with coverage
+        run: pytest -q --ignore=tests/snapshots --cov=elysium --cov-report=term-missing --cov-report=xml
+
+      # Coverage is reported, not gated (see docs/guides/api-stability.md).
+      - name: Coverage summary
+        if: runner.os == 'Linux'
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          try:
+              rate = float(ET.parse("coverage.xml").getroot().get("line-rate", 0))
+              print(f"### Coverage: {rate*100:.1f}% lines\n")
+          except Exception as e:
+              print(f"Coverage summary unavailable: {e}\n")
+          PY
 
       # Per-platform screenshot diff. Goldens are checked in under
       # tests/snapshots/<platform>/ and the diff job picks the right

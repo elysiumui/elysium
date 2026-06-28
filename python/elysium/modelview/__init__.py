@@ -93,6 +93,11 @@ class ItemModel:
     def set_rows(self, rows: Sequence[Any]) -> None:
         self._rows = list(rows); self._bump()
 
+    def rows(self) -> list[Any]:
+        """The source rows in insertion order (unsorted, unfiltered). Use
+        :meth:`view` for the sorted/filtered display order."""
+        return list(self._rows)
+
     def append(self, row: Any) -> None:
         self._rows.append(row); self._bump()
 
@@ -176,13 +181,16 @@ class ItemModel:
 
 
 def _sort_key_val(v: Any) -> Any:
-    """Make heterogeneous values orderable: None sinks, numbers compare
-    numerically, everything else by str."""
+    """Make heterogeneous values *totally* orderable by returning a
+    ``(type_rank, value)`` tuple, so a column mixing numbers, strings, and
+    None never raises ``TypeError`` on comparison. Numbers (rank 1) sort
+    numerically and before strings (rank 2); None (handled by the caller's
+    is-None flag) ranks lowest."""
     if v is None:
-        return ""
+        return (0, 0.0)
     if isinstance(v, (int, float, bool)):
-        return v
-    return str(v).lower()
+        return (1, float(v))
+    return (2, str(v).lower())
 
 
 class QtItemModelAdapter:
