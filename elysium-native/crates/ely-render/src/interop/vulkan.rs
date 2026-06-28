@@ -19,8 +19,16 @@
 //! in `crate::surface::SurfaceRenderer::allocate_shared`) and into Skia
 //! via `VK_KHR_external_memory_fd` when its Vulkan backend is enabled.
 
-#![cfg(target_os = "linux")]
-#![allow(non_camel_case_types, non_snake_case, dead_code)]
+// Gated to Linux by the `pub mod vulkan` declaration. FFI types mirror the
+// Vulkan headers verbatim (acronym names, unsafe fns, unused struct fields).
+#![allow(
+    non_camel_case_types,
+    non_snake_case,
+    dead_code,
+    clippy::upper_case_acronyms,
+    clippy::missing_safety_doc,
+    clippy::manual_find
+)]
 
 use std::ffi::{c_char, c_void, CString};
 use std::ptr;

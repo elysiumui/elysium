@@ -1,16 +1,28 @@
 # Changelog
 
 Per-version release notes. The authoritative source is
-[`CHANGELOG.md`](https://github.com/elysium-ui/elysium/blob/main/CHANGELOG.md)
+[`CHANGELOG.md`](https://github.com/klamaute/Elysium/blob/main/CHANGELOG.md)
 at the repo root; this page mirrors it for searchability.
 
-Major versions follow semver:
+From **1.0.0**, Elysium follows strict semver — see the
+[API stability policy](../guides/api-stability.md):
 
 - **Major** bumps signal breaking changes to the public API or
-  `.esk` schema_version.
+  `.esk` schema_version (only after a deprecation window).
 - **Minor** bumps add features or new components without breaking
   existing code.
 - **Patch** bumps fix bugs and ship polish.
+
+## v1.0.0
+
+First stable release — strict-semver public API. Consolidates the Qt-parity
+work (Tiers 1–3): robust text input + IME + clipboard, standard dialogs,
+Model/View, data-entry widgets, dirty-rect compositing + virtualization, a
+scroll system, threading→UI marshalling, multi-window depth, native OS
+integration, i18n/RTL/locale, a settings API, and a UI-test harness — plus the
+API-stability policy, deprecation mechanism, and an explicit
+[scope statement](scope-and-batteries.md). Full notes in the root
+`CHANGELOG.md`.
 
 ## v0.1.0 (development)
 

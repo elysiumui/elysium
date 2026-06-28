@@ -26,7 +26,7 @@ try:
     _NATIVE_AVAILABLE = True
 except ImportError as _e:
     _NATIVE_AVAILABLE = False
-    __version__ = "0.1.0.dev0"
+    __version__ = "1.0.0"
     _import_error = _e
 
     class _NotBuiltYet:
@@ -44,6 +44,7 @@ except ImportError as _e:
     ElysiumError = SkinError = HookNotFound = ShaderValidationError = CanvasExpired = RuntimeError  # type: ignore
 
 from elysium import layout, theme, components, anim, reactive  # re-export
+from elysium._deprecation import deprecated, deprecated_alias
 
 __all__ = [
     "App", "Window", "HookProxy", "Canvas", "Path", "SkiaLayer", "DisplayList",
@@ -53,6 +54,7 @@ __all__ = [
     "ShaderValidationError", "CanvasExpired",
     "__version__",
     "layout", "theme", "components", "anim", "reactive",
+    "deprecated", "deprecated_alias",
 ]
 
 

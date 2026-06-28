@@ -16,8 +16,15 @@
 //! order matches the published headers (`d3d11.h`, `dxgi1_2.h`,
 //! `dxgi1_3.h`) and is what every Windows runtime ABI guarantees.
 
-#![cfg(target_os = "windows")]
-#![allow(non_camel_case_types, non_snake_case, dead_code)]
+// Gated to Windows by the `pub mod d3d12` declaration. FFI types mirror the
+// Win32 / COM headers verbatim (acronym names, unsafe fns, unused vtable slots).
+#![allow(
+    non_camel_case_types,
+    non_snake_case,
+    dead_code,
+    clippy::upper_case_acronyms,
+    clippy::missing_safety_doc
+)]
 
 use std::ffi::c_void;
 use std::ptr;
