@@ -17,7 +17,9 @@ pub struct PySkiaLayer {
 impl PySkiaLayer {
     #[new]
     fn new(width: u32, height: u32) -> Self {
-        Self { inner: SkiaLayer::new(width, height) }
+        Self {
+            inner: SkiaLayer::new(width, height),
+        }
     }
 
     fn clear(&mut self, r: f32, g: f32, b: f32, a: f32) {
@@ -27,7 +29,10 @@ impl PySkiaLayer {
     #[pyo3(signature = (x, y, w, h, corner_radius, start_color, end_color, shadow_blur=20.0, shadow_offset=(0.0, 12.0), shadow_color=(0, 0, 0, 127)))]
     fn draw_gradient_card(
         &mut self,
-        x: f32, y: f32, w: f32, h: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
         corner_radius: f32,
         start_color: (u8, u8, u8, u8),
         end_color: (u8, u8, u8, u8),
@@ -39,23 +44,35 @@ impl PySkiaLayer {
             (x, y, w, h),
             corner_radius,
             [
-                (0.0, [start_color.0, start_color.1, start_color.2, start_color.3]),
-                (1.0, [end_color.0,   end_color.1,   end_color.2,   end_color.3]),
+                (
+                    0.0,
+                    [start_color.0, start_color.1, start_color.2, start_color.3],
+                ),
+                (1.0, [end_color.0, end_color.1, end_color.2, end_color.3]),
             ],
             shadow_blur,
             shadow_offset,
-            [shadow_color.0, shadow_color.1, shadow_color.2, shadow_color.3],
+            [
+                shadow_color.0,
+                shadow_color.1,
+                shadow_color.2,
+                shadow_color.3,
+            ],
         );
     }
 
     fn draw_filled_circle(&mut self, cx: f32, cy: f32, r: f32, color: (u8, u8, u8, u8)) {
-        self.inner.draw_filled_circle(cx, cy, r, [color.0, color.1, color.2, color.3]);
+        self.inner
+            .draw_filled_circle(cx, cy, r, [color.0, color.1, color.2, color.3]);
     }
 
     #[pyo3(signature = (x, y, w, h, corner_radius, blur_sigma, tint, border=None))]
     fn draw_frosted_panel(
         &mut self,
-        x: f32, y: f32, w: f32, h: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
         corner_radius: f32,
         blur_sigma: f32,
         tint: (u8, u8, u8, u8),
@@ -71,9 +88,11 @@ impl PySkiaLayer {
     }
 
     fn encode_png<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = self.inner.encode_png()
+        let bytes = self
+            .inner
+            .encode_png()
             .ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("PNG encode failed"))?;
-        Ok(PyBytes::new_bound(py, &bytes))
+        Ok(PyBytes::new(py, &bytes))
     }
 
     /// Execute a DisplayList against this layer — exactly what the live
@@ -83,7 +102,8 @@ impl PySkiaLayer {
     }
 
     fn fill_path(&mut self, svg_d: &str, color: (u8, u8, u8, u8)) {
-        self.inner.fill_path_solid(svg_d, [color.0, color.1, color.2, color.3]);
+        self.inner
+            .fill_path_solid(svg_d, [color.0, color.1, color.2, color.3]);
     }
 
     fn fill_path_linear_gradient(
@@ -92,12 +112,14 @@ impl PySkiaLayer {
         p1: (f32, f32),
         p2: (f32, f32),
         start_color: (u8, u8, u8, u8),
-        end_color:   (u8, u8, u8, u8),
+        end_color: (u8, u8, u8, u8),
     ) {
         self.inner.fill_path_linear_gradient(
-            svg_d, p1, p2,
+            svg_d,
+            p1,
+            p2,
             [start_color.0, start_color.1, start_color.2, start_color.3],
-            [end_color.0,   end_color.1,   end_color.2,   end_color.3],
+            [end_color.0, end_color.1, end_color.2, end_color.3],
         );
     }
 
@@ -107,17 +129,20 @@ impl PySkiaLayer {
         center: (f32, f32),
         radius: f32,
         start_color: (u8, u8, u8, u8),
-        end_color:   (u8, u8, u8, u8),
+        end_color: (u8, u8, u8, u8),
     ) {
         self.inner.fill_path_radial_gradient(
-            svg_d, center, radius,
+            svg_d,
+            center,
+            radius,
             [start_color.0, start_color.1, start_color.2, start_color.3],
-            [end_color.0,   end_color.1,   end_color.2,   end_color.3],
+            [end_color.0, end_color.1, end_color.2, end_color.3],
         );
     }
 
     fn stroke_path(&mut self, svg_d: &str, color: (u8, u8, u8, u8), width: f32) {
-        self.inner.stroke_path(svg_d, [color.0, color.1, color.2, color.3], width);
+        self.inner
+            .stroke_path(svg_d, [color.0, color.1, color.2, color.3], width);
     }
 
     /// Decode the file at `path` (PNG / JPEG / etc.) and draw it into the
@@ -146,7 +171,8 @@ impl PySkiaLayer {
 
     /// Draw a text string. `y` is the baseline.
     fn draw_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: (u8, u8, u8, u8)) {
-        self.inner.draw_text(text, x, y, size, [color.0, color.1, color.2, color.3]);
+        self.inner
+            .draw_text(text, x, y, size, [color.0, color.1, color.2, color.3]);
     }
 
     /// Measure a text run: (width, ascent, descent).
@@ -160,15 +186,31 @@ impl PySkiaLayer {
     #[pyo3(signature = (text, x, y, max_width, size, color, align=0,
                         font_family="", weight=0, variation_axes=Vec::new(), rtl=false))]
     fn draw_paragraph(
-        &mut self, text: &str, x: f32, y: f32, max_width: f32,
-        size: f32, color: (u8, u8, u8, u8), align: i32,
-        font_family: &str, weight: i32,
-        variation_axes: Vec<(String, f32)>, rtl: bool,
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        max_width: f32,
+        size: f32,
+        color: (u8, u8, u8, u8),
+        align: i32,
+        font_family: &str,
+        weight: i32,
+        variation_axes: Vec<(String, f32)>,
+        rtl: bool,
     ) -> f32 {
         self.inner.draw_paragraph(
-            text, x, y, max_width, size,
-            [color.0, color.1, color.2, color.3], align,
-            font_family, weight, &variation_axes, rtl,
+            text,
+            x,
+            y,
+            max_width,
+            size,
+            [color.0, color.1, color.2, color.3],
+            align,
+            font_family,
+            weight,
+            &variation_axes,
+            rtl,
         )
     }
 
@@ -182,11 +224,15 @@ impl PySkiaLayer {
     fn apply_skia_effect(
         &mut self,
         sksl_src: &str,
-        x: f32, y: f32, w: f32, h: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
         corner_radius: f32,
         uniforms: &[u8],
     ) -> bool {
-        self.inner.apply_skia_effect(sksl_src, (x, y, w, h), corner_radius, uniforms)
+        self.inner
+            .apply_skia_effect(sksl_src, (x, y, w, h), corner_radius, uniforms)
     }
 
     #[pyo3(signature = (tx, ty, sx=1.0, sy=1.0, rotation=0.0))]
@@ -207,5 +253,7 @@ impl PySkiaLayer {
     }
 
     #[getter]
-    fn size(&self) -> (u32, u32) { self.inner.size() }
+    fn size(&self) -> (u32, u32) {
+        self.inner.size()
+    }
 }

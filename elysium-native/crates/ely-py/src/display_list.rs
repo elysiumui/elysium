@@ -13,18 +13,25 @@ pub struct PyDisplayList {
 impl PyDisplayList {
     #[new]
     fn new() -> Self {
-        Self { inner: DisplayList::default() }
+        Self {
+            inner: DisplayList::default(),
+        }
     }
 
     fn clear(&mut self, r: f32, g: f32, b: f32, a: f32) {
-        self.inner.commands.push(DrawCommand::Clear { color: [r, g, b, a] });
+        self.inner.commands.push(DrawCommand::Clear {
+            color: [r, g, b, a],
+        });
     }
 
     #[pyo3(signature = (x, y, w, h, corner_radius, start_color, end_color,
                         shadow_blur=20.0, shadow_offset=(0.0, 12.0), shadow_color=(0,0,0,127)))]
     fn gradient_card(
         &mut self,
-        x: f32, y: f32, w: f32, h: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
         corner_radius: f32,
         start_color: (u8, u8, u8, u8),
         end_color: (u8, u8, u8, u8),
@@ -36,17 +43,25 @@ impl PyDisplayList {
             bounds: [x, y, w, h],
             corner_radius,
             start_color: [start_color.0, start_color.1, start_color.2, start_color.3],
-            end_color:   [end_color.0,   end_color.1,   end_color.2,   end_color.3],
+            end_color: [end_color.0, end_color.1, end_color.2, end_color.3],
             shadow_blur,
             shadow_offset: [shadow_offset.0, shadow_offset.1],
-            shadow_color: [shadow_color.0, shadow_color.1, shadow_color.2, shadow_color.3],
+            shadow_color: [
+                shadow_color.0,
+                shadow_color.1,
+                shadow_color.2,
+                shadow_color.3,
+            ],
         });
     }
 
     #[pyo3(signature = (x, y, w, h, corner_radius, blur_sigma, tint, border=None))]
     fn frosted_panel(
         &mut self,
-        x: f32, y: f32, w: f32, h: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
         corner_radius: f32,
         blur_sigma: f32,
         tint: (u8, u8, u8, u8),
@@ -63,7 +78,9 @@ impl PyDisplayList {
 
     fn filled_circle(&mut self, cx: f32, cy: f32, r: f32, color: (u8, u8, u8, u8)) {
         self.inner.commands.push(DrawCommand::FilledCircle {
-            cx, cy, r,
+            cx,
+            cy,
+            r,
             color: [color.0, color.1, color.2, color.3],
         });
     }
@@ -81,15 +98,17 @@ impl PyDisplayList {
         p1: (f32, f32),
         p2: (f32, f32),
         start_color: (u8, u8, u8, u8),
-        end_color:   (u8, u8, u8, u8),
+        end_color: (u8, u8, u8, u8),
     ) {
-        self.inner.commands.push(DrawCommand::FillPathLinearGradient {
-            d: d.to_string(),
-            p1: [p1.0, p1.1],
-            p2: [p2.0, p2.1],
-            start_color: [start_color.0, start_color.1, start_color.2, start_color.3],
-            end_color:   [end_color.0,   end_color.1,   end_color.2,   end_color.3],
-        });
+        self.inner
+            .commands
+            .push(DrawCommand::FillPathLinearGradient {
+                d: d.to_string(),
+                p1: [p1.0, p1.1],
+                p2: [p2.0, p2.1],
+                start_color: [start_color.0, start_color.1, start_color.2, start_color.3],
+                end_color: [end_color.0, end_color.1, end_color.2, end_color.3],
+            });
     }
 
     fn fill_path_radial_gradient(
@@ -98,15 +117,17 @@ impl PyDisplayList {
         center: (f32, f32),
         radius: f32,
         start_color: (u8, u8, u8, u8),
-        end_color:   (u8, u8, u8, u8),
+        end_color: (u8, u8, u8, u8),
     ) {
-        self.inner.commands.push(DrawCommand::FillPathRadialGradient {
-            d: d.to_string(),
-            center: [center.0, center.1],
-            radius,
-            start_color: [start_color.0, start_color.1, start_color.2, start_color.3],
-            end_color:   [end_color.0,   end_color.1,   end_color.2,   end_color.3],
-        });
+        self.inner
+            .commands
+            .push(DrawCommand::FillPathRadialGradient {
+                d: d.to_string(),
+                center: [center.0, center.1],
+                radius,
+                start_color: [start_color.0, start_color.1, start_color.2, start_color.3],
+                end_color: [end_color.0, end_color.1, end_color.2, end_color.3],
+            });
     }
 
     fn stroke_path(&mut self, d: &str, color: (u8, u8, u8, u8), width: f32) {
@@ -132,12 +153,20 @@ impl PyDisplayList {
     /// Bytes are copied into the command — caller can reuse / mutate
     /// the source buffer after the call. Used by WebView snapshots and
     /// any in-memory pixel producer.
-    fn draw_image_bytes(&mut self, rgba: &[u8],
-                          width: u32, height: u32,
-                          x: f32, y: f32, w: f32, h: f32) {
+    fn draw_image_bytes(
+        &mut self,
+        rgba: &[u8],
+        width: u32,
+        height: u32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+    ) {
         self.inner.commands.push(DrawCommand::DrawImageBytes {
             rgba: rgba.to_vec(),
-            width, height,
+            width,
+            height,
             dst: [x, y, w, h],
         });
     }
@@ -155,30 +184,44 @@ impl PyDisplayList {
     fn draw_image_file_transformed(
         &mut self,
         path: &str,
-        x: f32, y: f32, w: f32, h: f32,
-        anchor_x: f32, anchor_y: f32,
-        translate_x: f32, translate_y: f32,
-        scale_x: f32, scale_y: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        anchor_x: f32,
+        anchor_y: f32,
+        translate_x: f32,
+        translate_y: f32,
+        scale_x: f32,
+        scale_y: f32,
         rotation_rad: f32,
     ) {
         // anchor expressed as a fraction of the dst rect.
         let anchor = [x + anchor_x * w, y + anchor_y * h];
-        self.inner.commands.push(DrawCommand::DrawImageFileTransformed {
-            path: path.to_string(),
-            dst: [x, y, w, h],
-            anchor,
-            translate: [translate_x, translate_y],
-            scale: [scale_x, scale_y],
-            rotation_rad,
-        });
+        self.inner
+            .commands
+            .push(DrawCommand::DrawImageFileTransformed {
+                path: path.to_string(),
+                dst: [x, y, w, h],
+                anchor,
+                translate: [translate_x, translate_y],
+                scale: [scale_x, scale_y],
+                rotation_rad,
+            });
     }
 
     /// Draw a sub-rectangle of a cached image (texture-atlas style).
     fn draw_image_file_region(
         &mut self,
         path: &str,
-        sx: f32, sy: f32, sw: f32, sh: f32,
-        dx: f32, dy: f32, dw: f32, dh: f32,
+        sx: f32,
+        sy: f32,
+        sw: f32,
+        sh: f32,
+        dx: f32,
+        dy: f32,
+        dw: f32,
+        dh: f32,
     ) {
         self.inner.commands.push(DrawCommand::DrawImageFileRegion {
             path: path.to_string(),
@@ -191,7 +234,9 @@ impl PyDisplayList {
     fn draw_text(&mut self, text: &str, x: f32, y: f32, size: f32, color: (u8, u8, u8, u8)) {
         self.inner.commands.push(DrawCommand::DrawText {
             text: text.to_string(),
-            x, y, size,
+            x,
+            y,
+            size,
             color: [color.0, color.1, color.2, color.3],
         });
     }
@@ -200,14 +245,25 @@ impl PyDisplayList {
     #[pyo3(signature = (text, x, y, max_width, size, color, align=0,
                         font_family="", weight=0, variation_axes=Vec::new(), rtl=false))]
     fn draw_paragraph(
-        &mut self, text: &str, x: f32, y: f32, max_width: f32,
-        size: f32, color: (u8, u8, u8, u8), align: i32,
-        font_family: &str, weight: i32,
-        variation_axes: Vec<(String, f32)>, rtl: bool,
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        max_width: f32,
+        size: f32,
+        color: (u8, u8, u8, u8),
+        align: i32,
+        font_family: &str,
+        weight: i32,
+        variation_axes: Vec<(String, f32)>,
+        rtl: bool,
     ) {
         self.inner.commands.push(DrawCommand::DrawParagraph {
             text: text.to_string(),
-            x, y, max_width, size,
+            x,
+            y,
+            max_width,
+            size,
             color: [color.0, color.1, color.2, color.3],
             align,
             font_family: font_family.to_string(),
@@ -219,9 +275,14 @@ impl PyDisplayList {
 
     /// Apply a custom SkSL shader to a rounded-rect region.
     fn skia_effect(
-        &mut self, sksl_src: &str,
-        x: f32, y: f32, w: f32, h: f32,
-        corner_radius: f32, uniforms: &[u8],
+        &mut self,
+        sksl_src: &str,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        corner_radius: f32,
+        uniforms: &[u8],
     ) {
         self.inner.commands.push(DrawCommand::SkslEffect {
             src: sksl_src.to_string(),
@@ -232,10 +293,22 @@ impl PyDisplayList {
     }
 
     #[pyo3(signature = (tx, ty, sx=1.0, sy=1.0, rotation=0.0, anim_slot=None))]
-    fn push_transform(&mut self, tx: f32, ty: f32, sx: f32, sy: f32,
-                       rotation: f32, anim_slot: Option<u32>) {
+    fn push_transform(
+        &mut self,
+        tx: f32,
+        ty: f32,
+        sx: f32,
+        sy: f32,
+        rotation: f32,
+        anim_slot: Option<u32>,
+    ) {
         self.inner.commands.push(DrawCommand::PushTransform {
-            tx, ty, sx, sy, rotation, anim_slot,
+            tx,
+            ty,
+            sx,
+            sy,
+            rotation,
+            anim_slot,
         });
     }
 
@@ -247,7 +320,9 @@ impl PyDisplayList {
     /// the matching `pop_clip()`. Used by ScrollView to keep scrolled
     /// content inside its viewport.
     fn push_clip(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.inner.commands.push(DrawCommand::PushClip { x, y, w, h });
+        self.inner
+            .commands
+            .push(DrawCommand::PushClip { x, y, w, h });
     }
 
     fn pop_clip(&mut self) {
@@ -260,16 +335,22 @@ impl PyDisplayList {
     fn save_with_transform(&mut self, tx: f32, ty: f32, sx: f32, sy: f32, rotation: f32) {
         self.push_transform(tx, ty, sx, sy, rotation, None);
     }
-    fn restore(&mut self) { self.pop_transform(); }
+    fn restore(&mut self) {
+        self.pop_transform();
+    }
 
     fn clear_color(&mut self, r: f32, g: f32, b: f32, a: f32) {
         self.clear(r, g, b, a);
     }
 
     #[getter]
-    fn len(&self) -> usize { self.inner.commands.len() }
+    fn len(&self) -> usize {
+        self.inner.commands.len()
+    }
 
-    fn __len__(&self) -> usize { self.inner.commands.len() }
+    fn __len__(&self) -> usize {
+        self.inner.commands.len()
+    }
 
     fn __repr__(&self) -> String {
         format!("DisplayList(commands={})", self.inner.commands.len())
@@ -283,5 +364,7 @@ impl PyDisplayList {
     }
 
     /// Same as `extend` but returns self for fluent chaining.
-    fn extend_(&mut self, other: &PyDisplayList) { self.extend(other) }
+    fn extend_(&mut self, other: &PyDisplayList) {
+        self.extend(other)
+    }
 }

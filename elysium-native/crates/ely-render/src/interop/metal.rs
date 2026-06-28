@@ -7,14 +7,20 @@
 //! memory barrier (`IOSurfaceUnlock`) after Skia paints so Metal sees
 //! the latest pixels.
 
-#![cfg(target_os = "macos")]
+// FFI interop module (gated to macOS by the `pub mod metal` declaration).
+// Some IOSurface accessors are declared for completeness but unused; the
+// `unsafe fn` wrappers are inherently unsafe FFI with documented contracts.
+#![allow(dead_code, clippy::missing_safety_doc)]
 
 use std::ffi::c_void;
 use std::os::raw::c_int;
-use std::sync::Arc;
 
-#[repr(C)] #[derive(Copy, Clone)]
-struct CGSize { width: f64, height: f64 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct CGSize {
+    width: f64,
+    height: f64,
+}
 
 #[link(name = "IOSurface", kind = "framework")]
 extern "C" {
@@ -47,11 +53,19 @@ impl SharedSurface {
     /// device-resource pressure issue).
     pub fn new(width: u32, height: u32) -> Option<Self> {
         let handle = unsafe { create_iosurface(width, height)? };
-        Some(Self { handle, width, height })
+        Some(Self {
+            handle,
+            width,
+            height,
+        })
     }
 
-    pub fn width(&self)  -> u32 { self.width }
-    pub fn height(&self) -> u32 { self.height }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
 
     /// Borrow the CPU-mapped pixel buffer. The returned slice is valid
     /// until `unlock` is called. BGRA8 layout, row-stride is
@@ -71,19 +85,29 @@ impl SharedSurface {
 
     /// Raw IOSurface handle, suitable to pass to
     /// `MTLDevice newTextureWithDescriptor:iosurface:plane:`.
-    pub fn raw(&self) -> *mut c_void { self.handle }
+    pub fn raw(&self) -> *mut c_void {
+        self.handle
+    }
 }
 
 impl Drop for SharedSurface {
     fn drop(&mut self) {
-        unsafe { CFRelease(self.handle); }
+        unsafe {
+            CFRelease(self.handle);
+        }
     }
 }
 
 impl Clone for SharedSurface {
     fn clone(&self) -> Self {
-        unsafe { CFRetain(self.handle); }
-        Self { handle: self.handle, width: self.width, height: self.height }
+        unsafe {
+            CFRetain(self.handle);
+        }
+        Self {
+            handle: self.handle,
+            width: self.width,
+            height: self.height,
+        }
     }
 }
 
@@ -95,12 +119,18 @@ unsafe fn create_iosurface(width: u32, height: u32) -> Option<*mut c_void> {
 
     #[link(name = "CoreFoundation", kind = "framework")]
     extern "C" {
-        fn CFDictionaryCreateMutable(allocator: *mut c_void, capacity: isize,
-                                     key_cbs: *const c_void, val_cbs: *const c_void)
-            -> *mut c_void;
+        fn CFDictionaryCreateMutable(
+            allocator: *mut c_void,
+            capacity: isize,
+            key_cbs: *const c_void,
+            val_cbs: *const c_void,
+        ) -> *mut c_void;
         fn CFDictionaryAddValue(dict: *mut c_void, key: *const c_void, value: *const c_void);
-        fn CFStringCreateWithCString(allocator: *mut c_void, cstr: *const i8,
-                                     encoding: u32) -> *mut c_void;
+        fn CFStringCreateWithCString(
+            allocator: *mut c_void,
+            cstr: *const i8,
+            encoding: u32,
+        ) -> *mut c_void;
         fn CFNumberCreate(allocator: *mut c_void, type_: i64, ptr: *const c_void) -> *mut c_void;
     }
     const KCFSTRING_ENCODING_UTF8: u32 = 0x08000100;
@@ -116,20 +146,42 @@ unsafe fn create_iosurface(width: u32, height: u32) -> Option<*mut c_void> {
         CFNumberCreate(std::ptr::null_mut(), KCFNUMBER_INT32, n_ptr)
     };
 
-    let dict = CFDictionaryCreateMutable(std::ptr::null_mut(), 0,
-                                         std::ptr::null(), std::ptr::null());
-    if dict.is_null() { return None; }
+    let dict =
+        CFDictionaryCreateMutable(std::ptr::null_mut(), 0, std::ptr::null(), std::ptr::null());
+    if dict.is_null() {
+        return None;
+    }
 
     // BGRA8 → 0x42475241  ('BGRA')
     let bgra: u32 = u32::from_be_bytes([b'B', b'G', b'R', b'A']);
-    CFDictionaryAddValue(dict, mk_str("IOSurfaceWidth")           as *const _, mk_num(width  as i32) as *const _);
-    CFDictionaryAddValue(dict, mk_str("IOSurfaceHeight")          as *const _, mk_num(height as i32) as *const _);
-    CFDictionaryAddValue(dict, mk_str("IOSurfaceBytesPerElement") as *const _, mk_num(4)             as *const _);
-    CFDictionaryAddValue(dict, mk_str("IOSurfacePixelFormat")     as *const _, mk_num(bgra as i32)   as *const _);
+    CFDictionaryAddValue(
+        dict,
+        mk_str("IOSurfaceWidth") as *const _,
+        mk_num(width as i32) as *const _,
+    );
+    CFDictionaryAddValue(
+        dict,
+        mk_str("IOSurfaceHeight") as *const _,
+        mk_num(height as i32) as *const _,
+    );
+    CFDictionaryAddValue(
+        dict,
+        mk_str("IOSurfaceBytesPerElement") as *const _,
+        mk_num(4) as *const _,
+    );
+    CFDictionaryAddValue(
+        dict,
+        mk_str("IOSurfacePixelFormat") as *const _,
+        mk_num(bgra as i32) as *const _,
+    );
 
     let surface = IOSurfaceCreate(dict);
     CFRelease(dict);
-    if surface.is_null() { None } else { Some(surface) }
+    if surface.is_null() {
+        None
+    } else {
+        Some(surface)
+    }
 }
 
 /// Wrap the IOSurface as a Skia raster surface that paints into the
@@ -139,7 +191,9 @@ unsafe fn create_iosurface(width: u32, height: u32) -> Option<*mut c_void> {
 /// sees the latest writes.
 pub unsafe fn skia_surface_for(shared: &SharedSurface) -> Option<skia_safe::Surface> {
     let (base, stride) = shared.lock_mut();
-    if base.is_null() { return None; }
+    if base.is_null() {
+        return None;
+    }
     let info = skia_safe::ImageInfo::new(
         (shared.width as i32, shared.height as i32),
         skia_safe::ColorType::BGRA8888,
@@ -148,9 +202,7 @@ pub unsafe fn skia_surface_for(shared: &SharedSurface) -> Option<skia_safe::Surf
     );
     let len = stride * shared.height as usize;
     let slice = std::slice::from_raw_parts_mut(base, len);
-    let surf = skia_safe::surfaces::wrap_pixels(
-        &info, slice, Some(stride), None,
-    )?;
+    let surf = skia_safe::surfaces::wrap_pixels(&info, slice, Some(stride), None)?;
     // skia-safe returns `Borrows<'_, Surface>`; we need to coerce. Pull
     // out the inner Surface via the Borrows API.
     use std::ops::Deref;
@@ -163,4 +215,6 @@ pub unsafe fn skia_surface_for(shared: &SharedSurface) -> Option<skia_safe::Surf
 /// from the IOSurface. The wiring lives in `crate::surface` once the
 /// SurfaceRenderer gains an `attach_shared_surface` method; this module
 /// owns the IOSurface lifecycle alone.
-pub fn is_supported() -> bool { true }
+pub fn is_supported() -> bool {
+    true
+}

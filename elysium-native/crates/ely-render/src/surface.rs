@@ -26,27 +26,29 @@ pub enum SurfaceError {
 pub trait SurfaceTarget: HasWindowHandle + HasDisplayHandle + Send + Sync + 'static {
     fn surface_size(&self) -> (u32, u32);
     /// Device pixel ratio. Default 1.0; macOS retina = 2.0.
-    fn scale_factor(&self) -> f64 { 1.0 }
+    fn scale_factor(&self) -> f64 {
+        1.0
+    }
 }
 
 pub struct BlitPipeline {
-    pub pipeline:   wgpu::RenderPipeline,
+    pub pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    pub sampler:    wgpu::Sampler,
+    pub sampler: wgpu::Sampler,
 }
 
 /// Send-able wgpu state. The render thread takes ownership and pumps
 /// the swapchain from there.
 pub struct SurfaceRenderer {
     pub _instance: wgpu::Instance,
-    pub surface:   wgpu::Surface<'static>,
-    pub device:    Arc<wgpu::Device>,
-    pub queue:     Arc<wgpu::Queue>,
-    pub config:    wgpu::SurfaceConfiguration,
+    pub surface: wgpu::Surface<'static>,
+    pub device: Arc<wgpu::Device>,
+    pub queue: Arc<wgpu::Queue>,
+    pub config: wgpu::SurfaceConfiguration,
     /// Held purely for liveness — the surface borrows the window's
     /// raw_window_handle inside its CAMetalLayer / D3D / wl_surface.
-    pub _target:   Arc<dyn SurfaceTarget>,
-    pub blit:      BlitPipeline,
+    pub _target: Arc<dyn SurfaceTarget>,
+    pub blit: BlitPipeline,
     /// Device pixel ratio. Python publishes display lists in logical
     /// pixels; the render thread auto-scales by this factor so the
     /// painted output covers the full physical surface.
@@ -92,9 +94,9 @@ impl SurfaceRenderer {
     pub fn new(target: Arc<dyn SurfaceTarget>) -> Result<Self, SurfaceError> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
-            flags:    wgpu::InstanceFlags::default(),
-            dx12_shader_compiler:  wgpu::Dx12Compiler::default(),
-            gles_minor_version:    wgpu::Gles3MinorVersion::default(),
+            flags: wgpu::InstanceFlags::default(),
+            dx12_shader_compiler: wgpu::Dx12Compiler::default(),
+            gles_minor_version: wgpu::Gles3MinorVersion::default(),
         });
 
         let surface: wgpu::Surface<'static> = unsafe {
@@ -110,7 +112,7 @@ impl SurfaceRenderer {
             instance
                 .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
                     raw_display_handle: raw_display,
-                    raw_window_handle:  raw_window,
+                    raw_window_handle: raw_window,
                 })
                 .map_err(|e| SurfaceError::CreateSurface(e.to_string()))?
         };
@@ -126,12 +128,13 @@ impl SurfaceRenderer {
             &wgpu::DeviceDescriptor {
                 label: Some("elysium-device"),
                 required_features: wgpu::Features::empty(),
-                required_limits:   wgpu::Limits::downlevel_webgl2_defaults()
-                    .using_resolution(adapter.limits()),
+                required_limits:
+                    wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
                 memory_hints: wgpu::MemoryHints::default(),
             },
             None,
-        )).map_err(|e| SurfaceError::Device(e.to_string()))?;
+        ))
+        .map_err(|e| SurfaceError::Device(e.to_string()))?;
 
         let (w, h) = target.surface_size();
         let caps = surface.get_capabilities(&adapter);
@@ -142,9 +145,15 @@ impl SurfaceRenderer {
             .find(|f| f.is_srgb())
             .unwrap_or_else(|| caps.formats[0]);
 
-        let alpha_mode = if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PreMultiplied) {
+        let alpha_mode = if caps
+            .alpha_modes
+            .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+        {
             wgpu::CompositeAlphaMode::PreMultiplied
-        } else if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PostMultiplied) {
+        } else if caps
+            .alpha_modes
+            .contains(&wgpu::CompositeAlphaMode::PostMultiplied)
+        {
             wgpu::CompositeAlphaMode::PostMultiplied
         } else {
             caps.alpha_modes[0]
@@ -153,7 +162,7 @@ impl SurfaceRenderer {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
-            width:  w.max(1),
+            width: w.max(1),
             height: h.max(1),
             present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode,
@@ -169,7 +178,7 @@ impl SurfaceRenderer {
             _instance: instance,
             surface,
             device: Arc::new(device),
-            queue:  Arc::new(queue),
+            queue: Arc::new(queue),
             config,
             _target: target,
             blit,
@@ -177,10 +186,12 @@ impl SurfaceRenderer {
         })
     }
 
-    pub fn size(&self) -> (u32, u32) { (self.config.width, self.config.height) }
+    pub fn size(&self) -> (u32, u32) {
+        (self.config.width, self.config.height)
+    }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.config.width  = width.max(1);
+        self.config.width = width.max(1);
         self.config.height = height.max(1);
         self.surface.configure(&self.device, &self.config);
     }
@@ -196,11 +207,15 @@ impl SurfaceRenderer {
             .surface
             .get_current_texture()
             .map_err(|e| SurfaceError::Present(e.to_string()))?;
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("elysium-frame") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("elysium-frame"),
+            });
         {
             let mut rp = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("clear+blit"),
@@ -243,7 +258,8 @@ fn build_blit_pipeline(device: &wgpu::Device, target_format: wgpu::TextureFormat
         label: Some("skia-blit-bgl"),
         entries: &[
             wgpu::BindGroupLayoutEntry {
-                binding: 0, visibility: wgpu::ShaderStages::FRAGMENT,
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Texture {
                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     view_dimension: wgpu::TextureViewDimension::D2,
@@ -252,7 +268,8 @@ fn build_blit_pipeline(device: &wgpu::Device, target_format: wgpu::TextureFormat
                 count: None,
             },
             wgpu::BindGroupLayoutEntry {
-                binding: 1, visibility: wgpu::ShaderStages::FRAGMENT,
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
             },
@@ -294,5 +311,9 @@ fn build_blit_pipeline(device: &wgpu::Device, target_format: wgpu::TextureFormat
         min_filter: wgpu::FilterMode::Linear,
         ..Default::default()
     });
-    BlitPipeline { pipeline, bind_group_layout, sampler }
+    BlitPipeline {
+        pipeline,
+        bind_group_layout,
+        sampler,
+    }
 }

@@ -16,9 +16,12 @@ pub mod surface;
 pub mod texture_cache;
 
 pub mod interop {
-    #[cfg(target_os = "macos")]   pub mod metal;
-    #[cfg(target_os = "windows")] pub mod d3d12;
-    #[cfg(target_os = "linux")]   pub mod vulkan;
+    #[cfg(target_os = "windows")]
+    pub mod d3d12;
+    #[cfg(target_os = "macos")]
+    pub mod metal;
+    #[cfg(target_os = "linux")]
+    pub mod vulkan;
 }
 
 pub use compositor::Compositor;

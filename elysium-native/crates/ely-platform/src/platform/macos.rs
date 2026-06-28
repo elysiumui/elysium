@@ -11,8 +11,8 @@
 //!   mouse events here." Backed by `NSWindow.ignoresMouseEvents` modulated
 //!   per-pixel through a sampling callback. Lower-fi than a true
 //!   `hitTest:` override but works without subclassing NSWindow.
-
-#![cfg(target_os = "macos")]
+//!
+//! Gated to macOS by the `pub mod macos` declaration.
 
 use objc2::msg_send;
 use objc2::runtime::AnyObject;
@@ -21,28 +21,31 @@ use std::ffi::c_void;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct NSPoint { pub x: f64, pub y: f64 }
+pub struct NSPoint {
+    pub x: f64,
+    pub y: f64,
+}
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct NSSize { pub width: f64, pub height: f64 }
+pub struct NSSize {
+    pub width: f64,
+    pub height: f64,
+}
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
-pub struct NSRect { pub origin: NSPoint, pub size: NSSize }
+pub struct NSRect {
+    pub origin: NSPoint,
+    pub size: NSSize,
+}
 
 unsafe impl Encode for NSPoint {
-    const ENCODING: Encoding = Encoding::Struct(
-        "CGPoint", &[Encoding::Double, Encoding::Double],
-    );
+    const ENCODING: Encoding = Encoding::Struct("CGPoint", &[Encoding::Double, Encoding::Double]);
 }
 unsafe impl Encode for NSSize {
-    const ENCODING: Encoding = Encoding::Struct(
-        "CGSize", &[Encoding::Double, Encoding::Double],
-    );
+    const ENCODING: Encoding = Encoding::Struct("CGSize", &[Encoding::Double, Encoding::Double]);
 }
 unsafe impl Encode for NSRect {
-    const ENCODING: Encoding = Encoding::Struct(
-        "CGRect", &[NSPoint::ENCODING, NSSize::ENCODING],
-    );
+    const ENCODING: Encoding = Encoding::Struct("CGRect", &[NSPoint::ENCODING, NSSize::ENCODING]);
 }
 unsafe impl RefEncode for NSRect {
     const ENCODING_REF: Encoding = Encoding::Pointer(&NSRect::ENCODING);
@@ -52,19 +55,19 @@ unsafe impl RefEncode for NSRect {
 #[allow(dead_code)]
 #[repr(i64)]
 pub enum Material {
-    TitleBar         = 3,
-    HudWindow        = 12,   // The popover-style strong frosted look
-    FullScreenUI     = 15,
-    UnderWindowBg    = 21,
-    Sidebar          = 7,
-    HeaderView       = 10,
-    Menu             = 11,
+    TitleBar = 3,
+    HudWindow = 12, // The popover-style strong frosted look
+    FullScreenUI = 15,
+    UnderWindowBg = 21,
+    Sidebar = 7,
+    HeaderView = 10,
+    Menu = 11,
 }
 
 const BLENDING_BEHIND_WINDOW: i64 = 0;
 const STATE_ACTIVE: i64 = 1;
 const NS_WINDOW_BELOW: i64 = -1;
-const NS_VIEW_WIDTH_SIZABLE:  u64 = 2;
+const NS_VIEW_WIDTH_SIZABLE: u64 = 2;
 const NS_VIEW_HEIGHT_SIZABLE: u64 = 16;
 
 /// Attach an `NSVisualEffectView` to the content view as a backdrop.
@@ -75,25 +78,33 @@ const NS_VIEW_HEIGHT_SIZABLE: u64 = 16;
 /// `ns_view_ptr` must be a live `NSView*` (typically from winit's
 /// `WindowExtMacOS::ns_view()`). The view's window must be active.
 pub unsafe fn enable_blur_behind(ns_view_ptr: *mut c_void, enabled: bool, material: Material) {
-    if ns_view_ptr.is_null() { return; }
+    if ns_view_ptr.is_null() {
+        return;
+    }
     let content: *mut AnyObject = ns_view_ptr as *mut AnyObject;
 
     // First, remove any previous effect-view we added (tagged for identification).
-    let tag: isize = 0x0_E_15A1;
+    let tag: isize = 0x0E15A1;
     let existing: *mut AnyObject = msg_send![content, viewWithTag: tag];
     if !existing.is_null() {
         let _: () = msg_send![existing, removeFromSuperview];
     }
 
-    if !enabled { return; }
+    if !enabled {
+        return;
+    }
 
     let bounds: NSRect = msg_send![content, bounds];
 
     let cls = objc2::runtime::AnyClass::get("NSVisualEffectView");
-    let Some(cls) = cls else { return; };
+    let Some(cls) = cls else {
+        return;
+    };
     let fx: *mut AnyObject = msg_send![cls, alloc];
     let fx: *mut AnyObject = msg_send![fx, initWithFrame: bounds];
-    if fx.is_null() { return; }
+    if fx.is_null() {
+        return;
+    }
 
     let _: () = msg_send![fx, setBlendingMode: BLENDING_BEHIND_WINDOW];
     let _: () = msg_send![fx, setMaterial: material as i64];
@@ -119,29 +130,41 @@ pub unsafe fn enable_blur_behind(ns_view_ptr: *mut c_void, enabled: bool, materi
 /// `ns_view_ptr` must be a live `NSView*`. Its parent window receives
 /// the message.
 pub unsafe fn set_window_ignores_mouse(ns_view_ptr: *mut c_void, ignores: bool) {
-    if ns_view_ptr.is_null() { return; }
+    if ns_view_ptr.is_null() {
+        return;
+    }
     let view: *mut AnyObject = ns_view_ptr as *mut AnyObject;
     let window: *mut AnyObject = msg_send![view, window];
-    if window.is_null() { return; }
+    if window.is_null() {
+        return;
+    }
     let _: () = msg_send![window, setIgnoresMouseEvents: ignores];
 }
 
 /// Toggle NSWindow.hasShadow — useful to suppress the OS shadow on a
 /// fully-transparent shaped window (we paint our own).
 pub unsafe fn set_window_has_shadow(ns_view_ptr: *mut c_void, has_shadow: bool) {
-    if ns_view_ptr.is_null() { return; }
+    if ns_view_ptr.is_null() {
+        return;
+    }
     let view: *mut AnyObject = ns_view_ptr as *mut AnyObject;
     let window: *mut AnyObject = msg_send![view, window];
-    if window.is_null() { return; }
+    if window.is_null() {
+        return;
+    }
     let _: () = msg_send![window, setHasShadow: has_shadow];
 }
 
 /// Set the window's level — useful for "always on top" or "stay below."
 /// Common levels: 0 (normal), 3 (floating), 5 (modal panel), 25 (popup menu).
 pub unsafe fn set_window_level(ns_view_ptr: *mut c_void, level: i64) {
-    if ns_view_ptr.is_null() { return; }
+    if ns_view_ptr.is_null() {
+        return;
+    }
     let view: *mut AnyObject = ns_view_ptr as *mut AnyObject;
     let window: *mut AnyObject = msg_send![view, window];
-    if window.is_null() { return; }
+    if window.is_null() {
+        return;
+    }
     let _: () = msg_send![window, setLevel: level];
 }

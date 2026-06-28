@@ -25,7 +25,10 @@ pub fn poll_menu_action() -> Option<i64> {
 
 #[pyfunction]
 #[pyo3(signature = (spec, app_name="Elysium Designer"))]
-pub fn set_application_menu(spec: Vec<(String, Vec<(String, i64)>)>, app_name: &str) -> PyResult<()> {
+pub fn set_application_menu(
+    spec: Vec<(String, Vec<(String, i64)>)>,
+    app_name: &str,
+) -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
         unsafe { install_native_menu(spec, app_name) }
@@ -49,7 +52,7 @@ mod cocoa {
     use std::sync::OnceLock;
 
     static TRAMP_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
-    static TRAMP_INSTANCE: OnceLock<usize> = OnceLock::new();   // *mut AnyObject as usize
+    static TRAMP_INSTANCE: OnceLock<usize> = OnceLock::new(); // *mut AnyObject as usize
 
     extern "C" fn fired(_this: *mut AnyObject, _cmd: Sel, sender: *mut AnyObject) {
         unsafe {
@@ -64,8 +67,8 @@ mod cocoa {
                 return c;
             }
             let ns = class!(NSObject);
-            let mut b = ClassBuilder::new("ElysiumMenuTramp", ns)
-                .expect("declare ElysiumMenuTramp");
+            let mut b =
+                ClassBuilder::new("ElysiumMenuTramp", ns).expect("declare ElysiumMenuTramp");
             b.add_method(
                 sel!(menuItemFired:),
                 fired as extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
@@ -95,7 +98,8 @@ mod cocoa {
         let t = ns_string(title);
         let empty = ns_string("");
         let sel = sel!(menuItemFired:);
-        let item: *mut AnyObject = msg_send![item, initWithTitle: t action: sel keyEquivalent: empty];
+        let item: *mut AnyObject =
+            msg_send![item, initWithTitle: t action: sel keyEquivalent: empty];
         let _: () = msg_send![item, setTarget: target];
         let _: () = msg_send![item, setTag: tag];
         item

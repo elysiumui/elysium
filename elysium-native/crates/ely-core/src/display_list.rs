@@ -53,7 +53,11 @@ pub enum DrawCommand {
         color: [u8; 4],
     },
     PushTransform {
-        tx: f32, ty: f32, sx: f32, sy: f32, rotation: f32,
+        tx: f32,
+        ty: f32,
+        sx: f32,
+        sy: f32,
+        rotation: f32,
         /// Render-thread animation slot. When `Some(id)`, the live tween
         /// for that slot is composed on top of the static values before
         /// the matrix is applied. See `ely_core::AnimRegistry`.
@@ -66,7 +70,10 @@ pub enum DrawCommand {
     /// `PopClip` restores both the clip and any nested transforms. Used by
     /// `ScrollView` to keep scrolled content inside its viewport.
     PushClip {
-        x: f32, y: f32, w: f32, h: f32,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
     },
     PopClip,
 
@@ -81,14 +88,14 @@ pub enum DrawCommand {
         p1: [f32; 2],
         p2: [f32; 2],
         start_color: [u8; 4],
-        end_color:   [u8; 4],
+        end_color: [u8; 4],
     },
     FillPathRadialGradient {
         d: String,
         center: [f32; 2],
         radius: f32,
         start_color: [u8; 4],
-        end_color:   [u8; 4],
+        end_color: [u8; 4],
     },
     StrokePath {
         d: String,
@@ -107,19 +114,19 @@ pub enum DrawCommand {
     /// pixels each frame and don't have a stable on-disk filename.
     DrawImageBytes {
         rgba: Vec<u8>,
-        width:  u32,
+        width: u32,
         height: u32,
-        dst:    [f32; 4],
+        dst: [f32; 4],
     },
     /// Draw a cached image with a per-instance affine transform: rotate
-    /// + scale around `anchor`, then translate. Drives per-wing flap
+    /// and scale around `anchor`, then translate. Drives per-wing flap
     /// animation in the butterfly demo.
     DrawImageFileTransformed {
         path: String,
         dst: [f32; 4],
-        anchor:    [f32; 2],
+        anchor: [f32; 2],
         translate: [f32; 2],
-        scale:     [f32; 2],
+        scale: [f32; 2],
         rotation_rad: f32,
     },
     /// Draw a sub-rectangle of a cached image (texture-atlas style).
@@ -181,15 +188,25 @@ pub struct TripleBuffer<T> {
     state: AtomicU8,
 }
 
-const READY_MASK: u8     = 0b0000_0011;
-const NEW_FLAG: u8       = 0b0000_0100;
-const PRODUCER_MASK: u8  = 0b0001_1000;
+const READY_MASK: u8 = 0b0000_0011;
+const NEW_FLAG: u8 = 0b0000_0100;
+const PRODUCER_MASK: u8 = 0b0001_1000;
 const PRODUCER_SHIFT: u8 = 3;
+
+impl<T: Default> Default for TripleBuffer<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T: Default> TripleBuffer<T> {
     pub fn new() -> Self {
         Self {
-            slots: [Mutex::new(T::default()), Mutex::new(T::default()), Mutex::new(T::default())],
+            slots: [
+                Mutex::new(T::default()),
+                Mutex::new(T::default()),
+                Mutex::new(T::default()),
+            ],
             // Producer starts at slot 0, ready=1 (stale), no-new.
             state: AtomicU8::new((0 << PRODUCER_SHIFT) | 1),
         }
@@ -211,11 +228,15 @@ impl<T> TripleBuffer<T> {
         loop {
             let s = self.state.load(Ordering::Acquire);
             let producer = (s & PRODUCER_MASK) >> PRODUCER_SHIFT;
-            let ready    = s & READY_MASK;
+            let ready = s & READY_MASK;
             // The remaining (non-producer, non-ready) slot becomes the new producer slot.
             let back = 3 - producer - ready;
             let next = (back << PRODUCER_SHIFT) | NEW_FLAG | producer;
-            if self.state.compare_exchange(s, next, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+            if self
+                .state
+                .compare_exchange(s, next, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
                 return;
             }
         }
@@ -226,9 +247,15 @@ impl<T> TripleBuffer<T> {
     pub fn try_acquire(&self) -> Option<ConsumerGuard<'_, T>> {
         loop {
             let s = self.state.load(Ordering::Acquire);
-            if s & NEW_FLAG == 0 { return None; }
+            if s & NEW_FLAG == 0 {
+                return None;
+            }
             let next = s & !NEW_FLAG;
-            if self.state.compare_exchange(s, next, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+            if self
+                .state
+                .compare_exchange(s, next, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
                 let idx = (s & READY_MASK) as usize;
                 return Some(ConsumerGuard { buffer: self, idx });
             }
@@ -236,8 +263,14 @@ impl<T> TripleBuffer<T> {
     }
 }
 
-pub struct ProducerGuard<'a, T> { buffer: &'a TripleBuffer<T>, idx: usize }
-pub struct ConsumerGuard<'a, T> { buffer: &'a TripleBuffer<T>, idx: usize }
+pub struct ProducerGuard<'a, T> {
+    buffer: &'a TripleBuffer<T>,
+    idx: usize,
+}
+pub struct ConsumerGuard<'a, T> {
+    buffer: &'a TripleBuffer<T>,
+    idx: usize,
+}
 
 impl<'a, T> ProducerGuard<'a, T> {
     pub fn with_mut<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {

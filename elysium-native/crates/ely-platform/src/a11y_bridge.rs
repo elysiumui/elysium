@@ -11,9 +11,7 @@
 //! the same way through `update_focus`.
 
 use crate::a11y::{A11yNode, A11yState, A11yTree};
-use accesskit::{
-    Action, Node, NodeBuilder, NodeId, Rect, Role, Tree, TreeUpdate,
-};
+use accesskit::{Action, Node, NodeBuilder, NodeId, Rect, Role, Tree, TreeUpdate};
 // Used only by `attach_linux` and the noop handler impls below; gated
 // to avoid an "unused import" warning (which is a hard error under
 // our `-D warnings` lint level in CI) on macOS / Windows.
@@ -22,7 +20,7 @@ use accesskit::{ActivationHandler, DeactivationHandler};
 use std::sync::Arc;
 
 pub struct A11yBridge {
-    state:   Arc<A11yState>,
+    state: Arc<A11yState>,
     #[cfg(target_os = "macos")]
     adapter: Option<accesskit_macos::Adapter>,
     #[cfg(target_os = "windows")]
@@ -41,13 +39,22 @@ impl A11yBridge {
 
     /// macOS: attach to the live NSView. Pass the raw pointer the
     /// winit window gave us (the same one `enable_blur_behind` consumes).
+    // Safe to take a raw pointer here: we null-check before use and the
+    // caller contract (a live NSView from winit) is documented; keeping a
+    // safe signature avoids forcing `unsafe` blocks on every call site.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[cfg(target_os = "macos")]
     pub fn attach_macos(&mut self, ns_view: *mut std::ffi::c_void) {
-        if ns_view.is_null() { return; }
+        if ns_view.is_null() {
+            return;
+        }
         let adapter = unsafe {
             accesskit_macos::Adapter::new(
-                ns_view, false,
-                StateActionHandler { state: self.state.clone() },
+                ns_view,
+                false,
+                StateActionHandler {
+                    state: self.state.clone(),
+                },
             )
         };
         self.adapter = Some(adapter);
@@ -67,8 +74,11 @@ impl A11yBridge {
         let hwnd = HWND(hwnd);
         let adapter = unsafe {
             accesskit_windows::Adapter::new(
-                hwnd, false,
-                StateActionHandler { state: self.state.clone() },
+                hwnd,
+                false,
+                StateActionHandler {
+                    state: self.state.clone(),
+                },
             )
         };
         self.adapter = Some(adapter);
@@ -85,7 +95,9 @@ impl A11yBridge {
         // The bus connection is no longer fallible at construction
         // time; AT-SPI activation is deferred until a screen reader
         // actually asks for the tree (via the `ActivationHandler`).
-        let action = StateActionHandler { state: self.state.clone() };
+        let action = StateActionHandler {
+            state: self.state.clone(),
+        };
         let activate = NoopActivationHandler;
         let deactivate = NoopDeactivationHandler;
         let adapter = accesskit_unix::Adapter::new(activate, action, deactivate);
@@ -125,12 +137,22 @@ fn build_tree_update(tree: &A11yTree) -> TreeUpdate {
 
 fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
     let mut b = NodeBuilder::new(role_for(&n.role));
-    if let Some(label) = &n.label  { b.set_name(label.as_str()); }
-    if let Some(desc)  = &n.description { b.set_description(desc.as_str()); }
-    if let Some(short) = &n.shortcut { b.set_keyboard_shortcut(short.as_str()); }
+    if let Some(label) = &n.label {
+        b.set_name(label.as_str());
+    }
+    if let Some(desc) = &n.description {
+        b.set_description(desc.as_str());
+    }
+    if let Some(short) = &n.shortcut {
+        b.set_keyboard_shortcut(short.as_str());
+    }
     let (x, y, w, h) = n.bounds;
-    b.set_bounds(Rect { x0: x as f64, y0: y as f64,
-                        x1: (x + w) as f64, y1: (y + h) as f64 });
+    b.set_bounds(Rect {
+        x0: x as f64,
+        y0: y as f64,
+        x1: (x + w) as f64,
+        y1: (y + h) as f64,
+    });
     if !n.children.is_empty() {
         let kids: Vec<NodeId> = n.children.iter().map(node_id_for).collect();
         b.set_children(kids);
@@ -139,40 +161,44 @@ fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
     // readers offer "press this button" to the user.
     b.add_action(Action::Default);
     out.push((node_id_for(n), b.build()));
-    for c in &n.children { push_node(out, c); }
+    for c in &n.children {
+        push_node(out, c);
+    }
 }
 
 fn node_id_for(n: &A11yNode) -> NodeId {
     // accesskit IDs must be non-zero — bias by 1 so our root id 0 still
     // becomes a valid NodeId.
-    NodeId((n.id.saturating_add(1)) as u64)
+    NodeId(n.id.saturating_add(1))
 }
 
 fn role_for(role: &str) -> Role {
     match role {
-        "button"    => Role::Button,
-        "checkbox"  => Role::CheckBox,
-        "radio"     => Role::RadioButton,
-        "slider"    => Role::Slider,
+        "button" => Role::Button,
+        "checkbox" => Role::CheckBox,
+        "radio" => Role::RadioButton,
+        "slider" => Role::Slider,
         "textfield" => Role::TextInput,
-        "textarea"  => Role::MultilineTextInput,
-        "list"      => Role::List,
-        "menu"      => Role::Menu,
-        "menuitem"  => Role::MenuItem,
-        "tab"       => Role::Tab,
-        "image"     => Role::Image,
-        "link"      => Role::Link,
-        "label"     => Role::Label,
-        "group"     => Role::Group,
-        "window"    => Role::Window,
-        _           => Role::GenericContainer,
+        "textarea" => Role::MultilineTextInput,
+        "list" => Role::List,
+        "menu" => Role::Menu,
+        "menuitem" => Role::MenuItem,
+        "tab" => Role::Tab,
+        "image" => Role::Image,
+        "link" => Role::Link,
+        "label" => Role::Label,
+        "group" => Role::Group,
+        "window" => Role::Window,
+        _ => Role::GenericContainer,
     }
 }
 
 /// Pushes incoming AT actions onto the shared `A11yState::action_queue`
 /// so the Python side can drain + dispatch them on the next frame.
 /// VoiceOver / JAWS / Orca clicking "press this button" hits here.
-struct StateActionHandler { state: Arc<A11yState> }
+struct StateActionHandler {
+    state: Arc<A11yState>,
+}
 
 impl accesskit::ActionHandler for StateActionHandler {
     fn do_action(&mut self, req: accesskit::ActionRequest) {
@@ -192,7 +218,9 @@ impl accesskit::ActionHandler for StateActionHandler {
 struct NoopActivationHandler;
 #[cfg(target_os = "linux")]
 impl ActivationHandler for NoopActivationHandler {
-    fn request_initial_tree(&mut self) -> Option<accesskit::TreeUpdate> { None }
+    fn request_initial_tree(&mut self) -> Option<accesskit::TreeUpdate> {
+        None
+    }
 }
 
 /// No-op deactivation handler — we don't carry any AT-SPI-specific

@@ -1,7 +1,7 @@
 use ely_core::{geometry::Path as ElyPath, DisplayList, TripleBuffer};
 use parking_lot::{Mutex, RwLock};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct WindowConfig {
@@ -51,10 +51,18 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn set_text(&mut self, _node_id: NodeId, _text: &str) { self.dirty = true; }
-    pub fn get_text(&self, _node_id: NodeId) -> String { String::new() }
-    pub fn set_value(&mut self, _node_id: NodeId, _v: f64) { self.dirty = true; }
-    pub fn transition_state(&mut self, _node_id: NodeId, _state: &str) { self.dirty = true; }
+    pub fn set_text(&mut self, _node_id: NodeId, _text: &str) {
+        self.dirty = true;
+    }
+    pub fn get_text(&self, _node_id: NodeId) -> String {
+        String::new()
+    }
+    pub fn set_value(&mut self, _node_id: NodeId, _v: f64) {
+        self.dirty = true;
+    }
+    pub fn transition_state(&mut self, _node_id: NodeId, _state: &str) {
+        self.dirty = true;
+    }
 }
 
 pub type NodeId = u32;
@@ -190,7 +198,7 @@ pub struct KeyEvent {
 #[derive(Debug, Default)]
 pub struct KeyboardState {
     pub events: Mutex<std::collections::VecDeque<KeyEvent>>,
-    pub held:   Mutex<std::collections::HashSet<String>>,
+    pub held: Mutex<std::collections::HashSet<String>>,
     pub modifiers: std::sync::atomic::AtomicU8,
     /// Active IME composition (pre-edit) string. Updated on
     /// `WindowEvent::Ime(Ime::Preedit)`; cleared on commit / disable.
@@ -228,51 +236,80 @@ pub enum CursorKind {
 
 #[derive(Debug, Clone, Copy)]
 pub enum WindowRequest {
-    SetOuterPosition { x: i32, y: i32 },
+    SetOuterPosition {
+        x: i32,
+        y: i32,
+    },
     /// macOS-only — attach (or remove) an `NSVisualEffectView` backdrop.
     /// Material is the raw `NSVisualEffectMaterial` constant; 12 = HUD,
     /// 21 = under-window background, 3 = title-bar.
-    SetBlurBehind { enabled: bool, material: i64 },
+    SetBlurBehind {
+        enabled: bool,
+        material: i64,
+    },
     /// macOS-only — toggle `NSWindow.ignoresMouseEvents`. Used by the
     /// render loop to make transparent corners click through to the
     /// desktop without subclassing NSWindow.
-    SetIgnoresMouse { ignores: bool },
+    SetIgnoresMouse {
+        ignores: bool,
+    },
     /// macOS-only — toggle `NSWindow.hasShadow`.
-    SetHasShadow { has_shadow: bool },
+    SetHasShadow {
+        has_shadow: bool,
+    },
     /// macOS-only — set `NSWindow.level`. 3 = floating, 5 = modal panel.
-    SetWindowLevel { level: i64 },
+    SetWindowLevel {
+        level: i64,
+    },
     /// Cross-platform — change the OS mouse cursor icon. Python drives
     /// this from on_frame based on hover state (e.g. corner handle →
     /// nwse-resize). Coalescing happens naturally because the main
     /// thread sees only the latest request per frame.
-    SetCursor { kind: CursorKind },
+    SetCursor {
+        kind: CursorKind,
+    },
     /// Cross-platform — toggle the OS minimised state. Hooked up to
     /// the custom borderless title strip in apps that paint their
     /// own traffic-light buttons (the OS handles the minimise
     /// animation when title_bar=True).
-    SetMinimized { minimized: bool },
+    SetMinimized {
+        minimized: bool,
+    },
     /// Cross-platform — toggle the OS maximised state.
-    SetMaximized { maximized: bool },
+    SetMaximized {
+        maximized: bool,
+    },
     /// Cross-platform — toggle borderless fullscreen. The "green
     /// maximise" traffic light on a custom title bar typically wants
     /// fullscreen rather than zoom; `Some(Fullscreen::Borderless)`
     /// stretches the window over the active monitor.
-    SetFullscreen { fullscreen: bool },
+    SetFullscreen {
+        fullscreen: bool,
+    },
     /// Cross-platform — start an OS-driven interactive resize from
     /// one of the eight directional edges. Used by the Designer's
     /// borderless-window edge-resize band: on press inside the band
     /// the Designer fires this; the OS takes over until the user
     /// releases the mouse. Mirrors winit's
     /// `Window::drag_resize_window(ResizeDirection)`.
-    DragResize { direction: ResizeDirection },
+    DragResize {
+        direction: ResizeDirection,
+    },
     /// Cross-platform — enable/disable OS input-method composition.
     /// Required for CJK / dead-key text input. Mirrors
     /// `Window::set_ime_allowed(bool)`.
-    SetImeAllowed { allowed: bool },
+    SetImeAllowed {
+        allowed: bool,
+    },
     /// Cross-platform — position the IME candidate popup next to the
     /// focused caret (logical px in window coords). Mirrors
     /// `Window::set_ime_cursor_area(position, size)`.
-    SetImeCursorArea { x: f32, y: f32, w: f32, h: f32 },
+    SetImeCursorArea {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+    },
 }
 
 /// Edge/corner the user wants to resize from.  Maps 1:1 to
@@ -292,49 +329,71 @@ pub enum ResizeDirection {
 
 impl WindowHandle {
     pub fn request_blur_behind(&self, enabled: bool, material: i64) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetBlurBehind { enabled, material });
     }
     pub fn request_set_ignores_mouse(&self, ignores: bool) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetIgnoresMouse { ignores });
     }
     pub fn request_set_has_shadow(&self, has_shadow: bool) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetHasShadow { has_shadow });
     }
     pub fn request_set_window_level(&self, level: i64) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetWindowLevel { level });
     }
     pub fn request_set_minimized(&self, minimized: bool) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetMinimized { minimized });
     }
     pub fn request_drag_resize(&self, direction: ResizeDirection) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::DragResize { direction });
     }
     pub fn request_set_ime_allowed(&self, allowed: bool) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetImeAllowed { allowed });
     }
     pub fn request_set_ime_cursor_area(&self, x: f32, y: f32, w: f32, h: f32) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetImeCursorArea { x, y, w, h });
     }
     pub fn request_set_maximized(&self, maximized: bool) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetMaximized { maximized });
     }
     pub fn request_set_fullscreen(&self, fullscreen: bool) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetFullscreen { fullscreen });
     }
     /// Queue an OS cursor-icon swap. Applied by the winit main thread on
     /// its next iteration via `WinitWindow::set_cursor`.
     pub fn request_set_cursor(&self, kind: CursorKind) {
-        self.inner.window_requests.lock()
+        self.inner
+            .window_requests
+            .lock()
             .push(WindowRequest::SetCursor { kind });
     }
 }
@@ -344,8 +403,8 @@ impl WindowHandle {
         let mouse = MouseState::default();
         mouse.x.store(-1, Ordering::Relaxed);
         mouse.y.store(-1, Ordering::Relaxed);
-        let init_w = config.initial_size.0 as u32;
-        let init_h = config.initial_size.1 as u32;
+        let init_w = config.initial_size.0;
+        let init_h = config.initial_size.1;
         Self {
             inner: Arc::new(WindowInner {
                 config,
@@ -387,7 +446,9 @@ impl WindowHandle {
     /// Internal — accumulate a pinch-gesture delta seen on the event loop.
     pub fn accumulate_pinch_delta(&self, delta: f32) {
         let inc = (delta * 1000.0).round() as i32;
-        self.inner.pinch_delta_milli.fetch_add(inc, Ordering::AcqRel);
+        self.inner
+            .pinch_delta_milli
+            .fetch_add(inc, Ordering::AcqRel);
     }
 
     /// Read + reset the scroll accumulator in one shot. Returns
@@ -396,7 +457,11 @@ impl WindowHandle {
     pub fn drain_scroll(&self) -> (f32, f32, bool) {
         let dx = self.inner.mouse.scroll_x_milli.swap(0, Ordering::AcqRel) as f32 / 1000.0;
         let dy = self.inner.mouse.scroll_y_milli.swap(0, Ordering::AcqRel) as f32 / 1000.0;
-        let precise = self.inner.mouse.scroll_precise.swap(false, Ordering::AcqRel);
+        let precise = self
+            .inner
+            .mouse
+            .scroll_precise
+            .swap(false, Ordering::AcqRel);
         (dx, dy, precise)
     }
 
@@ -404,17 +469,26 @@ impl WindowHandle {
     /// event loop. `precise` distinguishes trackpad pixel deltas from
     /// normalised mouse-wheel line deltas.
     pub fn accumulate_scroll(&self, dx: f32, dy: f32, precise: bool) {
-        self.inner.mouse.scroll_x_milli
+        self.inner
+            .mouse
+            .scroll_x_milli
             .fetch_add((dx * 1000.0).round() as i32, Ordering::AcqRel);
-        self.inner.mouse.scroll_y_milli
+        self.inner
+            .mouse
+            .scroll_y_milli
             .fetch_add((dy * 1000.0).round() as i32, Ordering::AcqRel);
         if precise {
-            self.inner.mouse.scroll_precise.store(true, Ordering::Release);
+            self.inner
+                .mouse
+                .scroll_precise
+                .store(true, Ordering::Release);
         }
     }
 
     /// Process-unique window id (stable for the handle's life).
-    pub fn id(&self) -> u64 { self.inner.id }
+    pub fn id(&self) -> u64 {
+        self.inner.id
+    }
 
     /// Whether input dispatch to this window is currently suppressed (modal
     /// owner). Checked by the event loop before applying button/key/scroll.
@@ -437,8 +511,10 @@ impl WindowHandle {
 
     /// Latest logical surface size (set by the event loop on Resized).
     pub fn surface_size(&self) -> (u32, u32) {
-        (self.inner.surface_w.load(Ordering::Acquire),
-         self.inner.surface_h.load(Ordering::Acquire))
+        (
+            self.inner.surface_w.load(Ordering::Acquire),
+            self.inner.surface_h.load(Ordering::Acquire),
+        )
     }
     pub fn set_surface_size(&self, w: u32, h: u32) {
         self.inner.surface_w.store(w, Ordering::Release);
@@ -446,8 +522,10 @@ impl WindowHandle {
     }
     /// Latest outer (top-left) screen position in logical pixels.
     pub fn outer_position(&self) -> (i32, i32) {
-        (self.inner.outer_x.load(Ordering::Acquire),
-         self.inner.outer_y.load(Ordering::Acquire))
+        (
+            self.inner.outer_x.load(Ordering::Acquire),
+            self.inner.outer_y.load(Ordering::Acquire),
+        )
     }
     /// Internal — called by the event loop on `Moved`. Don't confuse
     /// with `request_set_position` which asks the OS to move the
@@ -470,8 +548,13 @@ impl WindowHandle {
         &self.inner.cursor_inside_path
     }
 
-    pub fn mouse(&self) -> &MouseState { &self.inner.mouse }
-    pub fn keyboard(&self) -> &KeyboardState { &self.inner.keyboard }
+    pub fn mouse(&self) -> &MouseState {
+        &self.inner.mouse
+    }
+    pub fn keyboard(&self) -> &KeyboardState {
+        &self.inner.keyboard
+    }
+    #[allow(clippy::type_complexity)] // queue of (path, x, y) file drops
     pub fn file_drops(&self) -> &Arc<Mutex<std::collections::VecDeque<(String, f64, f64)>>> {
         &self.inner.file_drops
     }
@@ -482,16 +565,27 @@ impl WindowHandle {
         self.inner.file_drops.lock().pop_front()
     }
     pub fn set_file_hover(&self, hovering: bool) {
-        self.inner.file_hover.store(hovering, std::sync::atomic::Ordering::Release);
+        self.inner
+            .file_hover
+            .store(hovering, std::sync::atomic::Ordering::Release);
     }
     pub fn is_file_hovering(&self) -> bool {
-        self.inner.file_hover.load(std::sync::atomic::Ordering::Acquire)
+        self.inner
+            .file_hover
+            .load(std::sync::atomic::Ordering::Acquire)
     }
-    pub fn a11y(&self) -> &Arc<crate::a11y::A11yState> { &self.inner.a11y }
-    pub fn anim(&self) -> &Arc<ely_core::AnimRegistry> { &self.inner.anim }
+    pub fn a11y(&self) -> &Arc<crate::a11y::A11yState> {
+        &self.inner.a11y
+    }
+    pub fn anim(&self) -> &Arc<ely_core::AnimRegistry> {
+        &self.inner.anim
+    }
 
     pub fn request_set_position(&self, x: i32, y: i32) {
-        self.inner.window_requests.lock().push(WindowRequest::SetOuterPosition { x, y });
+        self.inner
+            .window_requests
+            .lock()
+            .push(WindowRequest::SetOuterPosition { x, y });
     }
 
     pub fn drain_window_requests(&self) -> Vec<WindowRequest> {
@@ -509,7 +603,9 @@ impl WindowHandle {
             *slot = list;
         });
         self.inner.display_list.publish();
-        self.inner.has_published.store(true, std::sync::atomic::Ordering::Release);
+        self.inner
+            .has_published
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 
     /// True when any caller has published into the triple buffer at
@@ -517,14 +613,22 @@ impl WindowHandle {
     /// placeholder so a Python `load_skin()` that ran before the
     /// window was actually created isn't silently overwritten.
     pub fn has_published(&self) -> bool {
-        self.inner.has_published.load(std::sync::atomic::Ordering::Acquire)
+        self.inner
+            .has_published
+            .load(std::sync::atomic::Ordering::Acquire)
     }
-    pub fn config(&self) -> &WindowConfig { &self.inner.config }
+    pub fn config(&self) -> &WindowConfig {
+        &self.inner.config
+    }
     pub fn hook_registry(&self) -> Arc<RwLock<ely_core_hook_stub::HookRegistry>> {
         self.inner.hooks.clone()
     }
-    pub fn scene(&self) -> parking_lot::RwLockReadGuard<'_, Scene> { self.inner.scene.read() }
-    pub fn scene_mut(&self) -> parking_lot::RwLockWriteGuard<'_, Scene> { self.inner.scene.write() }
+    pub fn scene(&self) -> parking_lot::RwLockReadGuard<'_, Scene> {
+        self.inner.scene.read()
+    }
+    pub fn scene_mut(&self) -> parking_lot::RwLockWriteGuard<'_, Scene> {
+        self.inner.scene.write()
+    }
 
     pub fn subscribe(
         &self,
@@ -535,7 +639,9 @@ impl WindowHandle {
     }
     pub fn unsubscribe(&self, _id: SubscriptionId) {}
     pub fn close(&self) {
-        self.inner.closed.store(true, std::sync::atomic::Ordering::Release);
+        self.inner
+            .closed
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 }
 
@@ -551,12 +657,24 @@ pub mod ely_core_hook_stub {
         map: HashMap<String, Hook>,
     }
     impl HookRegistry {
-        pub fn insert(&mut self, h: Hook) { self.map.insert(h.name.clone(), h); }
-        pub fn get(&self, key: &str) -> Option<&Hook> { self.map.get(key) }
-        pub fn iter(&self) -> impl Iterator<Item = (&String, &Hook)> { self.map.iter() }
-        pub fn len(&self) -> usize { self.map.len() }
-        pub fn is_empty(&self) -> bool { self.map.is_empty() }
-        pub fn clear(&mut self) { self.map.clear(); }
+        pub fn insert(&mut self, h: Hook) {
+            self.map.insert(h.name.clone(), h);
+        }
+        pub fn get(&self, key: &str) -> Option<&Hook> {
+            self.map.get(key)
+        }
+        pub fn iter(&self) -> impl Iterator<Item = (&String, &Hook)> {
+            self.map.iter()
+        }
+        pub fn len(&self) -> usize {
+            self.map.len()
+        }
+        pub fn is_empty(&self) -> bool {
+            self.map.is_empty()
+        }
+        pub fn clear(&mut self) {
+            self.map.clear();
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -566,7 +684,9 @@ pub mod ely_core_hook_stub {
         pub kind: HookKind,
     }
     impl Hook {
-        pub fn id(&self) -> u32 { self.node_id }
+        pub fn id(&self) -> u32 {
+            self.node_id
+        }
     }
 
     #[derive(Debug, Clone)]

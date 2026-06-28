@@ -14,8 +14,9 @@ use std::sync::OnceLock;
 // Holds the bound loopback listeners (one per app id) for the process
 // lifetime; while a port is occupied, other processes' bind() fails — a
 // dependency-free single-instance lock that auto-releases on process exit.
-static INSTANCE_LOCKS: OnceLock<parking_lot::Mutex<
-    std::collections::HashMap<String, std::net::TcpListener>>> = OnceLock::new();
+static INSTANCE_LOCKS: OnceLock<
+    parking_lot::Mutex<std::collections::HashMap<String, std::net::TcpListener>>,
+> = OnceLock::new();
 
 /// Try to become the single instance for `app_id`. Returns true if this
 /// process acquired the lock (or already holds it for this id), false if
@@ -93,7 +94,10 @@ mod tray_impl {
         // own later; this keeps the tray visible without an asset.
         let mut rgba = vec![0u8; 16 * 16 * 4];
         for px in rgba.chunks_mut(4) {
-            px[0] = 90; px[1] = 120; px[2] = 240; px[3] = 255;
+            px[0] = 90;
+            px[1] = 120;
+            px[2] = 240;
+            px[3] = 255;
         }
         let icon = match Icon::from_rgba(rgba, 16, 16) {
             Ok(i) => i,
@@ -174,12 +178,22 @@ mod hotkey_impl {
     }
 
     pub fn register(mods_bits: u8, key: &str) -> u32 {
-        let Some(code) = code_from(key) else { return 0; };
+        let Some(code) = code_from(key) else {
+            return 0;
+        };
         let mut mods = Modifiers::empty();
-        if mods_bits & 1 != 0 { mods |= Modifiers::SHIFT; }
-        if mods_bits & 2 != 0 { mods |= Modifiers::CONTROL; }
-        if mods_bits & 4 != 0 { mods |= Modifiers::ALT; }
-        if mods_bits & 8 != 0 { mods |= Modifiers::META; }
+        if mods_bits & 1 != 0 {
+            mods |= Modifiers::SHIFT;
+        }
+        if mods_bits & 2 != 0 {
+            mods |= Modifiers::CONTROL;
+        }
+        if mods_bits & 4 != 0 {
+            mods |= Modifiers::ALT;
+        }
+        if mods_bits & 8 != 0 {
+            mods |= Modifiers::META;
+        }
         let hk = HotKey::new(Some(mods), code);
         let id = hk.id();
         MANAGER.with(|cell| {

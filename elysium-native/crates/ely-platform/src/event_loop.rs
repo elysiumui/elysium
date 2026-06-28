@@ -3,8 +3,10 @@ use crossbeam_channel::Sender;
 use ely_core::{Color, DisplayList, DrawCommand};
 use ely_render::{spawn_render_thread, RenderControl, SurfaceRenderer, SurfaceTarget};
 use parking_lot::Mutex;
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle as RawWindowHandle,
+};
 use std::sync::atomic::Ordering;
-use raw_window_handle::{DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle as RawWindowHandle};
 use std::sync::Arc;
 use thiserror::Error;
 use winit::application::ApplicationHandler;
@@ -86,7 +88,8 @@ pub struct AppHandle {
 
 impl AppHandle {
     pub fn quit(&self) {
-        self.quit_flag.store(true, std::sync::atomic::Ordering::Release);
+        self.quit_flag
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 }
 
@@ -106,12 +109,19 @@ impl AppLoop {
         })
     }
 
-    pub fn config(&self) -> &Config { &self.config }
-    pub fn handle(&self) -> AppHandle { self.handle.clone() }
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+    pub fn handle(&self) -> AppHandle {
+        self.handle.clone()
+    }
 
     pub fn create_window(&mut self, cfg: WindowConfig) -> Result<WindowHandle, AppError> {
         let handle = WindowHandle::stub(cfg.clone());
-        self.handle.pending.lock().push(PendingWindow { cfg, handle: handle.clone() });
+        self.handle.pending.lock().push(PendingWindow {
+            cfg,
+            handle: handle.clone(),
+        });
         Ok(handle)
     }
 
@@ -130,7 +140,9 @@ impl AppLoop {
         event_loop
             .run_app(&mut handler)
             .map_err(|e| AppError::Winit(e.to_string()))?;
-        if let Some(e) = handler.init_error.take() { return Err(e); }
+        if let Some(e) = handler.init_error.take() {
+            return Err(e);
+        }
         Ok(())
     }
 
@@ -188,8 +200,11 @@ impl AppHandler {
         win.set_ime_allowed(true);
         let win = Arc::new(win);
 
-        let target = Arc::new(WinitTarget { window: win.clone() });
-        let renderer = SurfaceRenderer::new(target).map_err(|e| AppError::Renderer(e.to_string()))?;
+        let target = Arc::new(WinitTarget {
+            window: win.clone(),
+        });
+        let renderer =
+            SurfaceRenderer::new(target).map_err(|e| AppError::Renderer(e.to_string()))?;
 
         let clear = if cfg.transparent {
             Color::TRANSPARENT
@@ -268,43 +283,51 @@ fn apply_window_request(win: &WinitWindow, req: WindowRequest) {
         WindowRequest::SetBlurBehind { enabled, material } => {
             use crate::platform::macos::{enable_blur_behind, Material};
             let mat = match material {
-                3  => Material::TitleBar,
+                3 => Material::TitleBar,
                 4 | 12 => Material::HudWindow,
                 15 => Material::FullScreenUI,
                 21 => Material::UnderWindowBg,
-                7  => Material::Sidebar,
+                7 => Material::Sidebar,
                 10 => Material::HeaderView,
                 11 => Material::Menu,
-                _  => Material::HudWindow,
+                _ => Material::HudWindow,
             };
             if let Some(ns_view) = ns_view_ptr(win) {
-                unsafe { enable_blur_behind(ns_view, enabled, mat); }
+                unsafe {
+                    enable_blur_behind(ns_view, enabled, mat);
+                }
             }
         }
         #[cfg(target_os = "macos")]
         WindowRequest::SetIgnoresMouse { ignores } => {
             if let Some(ns_view) = ns_view_ptr(win) {
-                unsafe { crate::platform::macos::set_window_ignores_mouse(ns_view, ignores); }
+                unsafe {
+                    crate::platform::macos::set_window_ignores_mouse(ns_view, ignores);
+                }
             }
         }
         #[cfg(target_os = "macos")]
         WindowRequest::SetHasShadow { has_shadow } => {
             if let Some(ns_view) = ns_view_ptr(win) {
-                unsafe { crate::platform::macos::set_window_has_shadow(ns_view, has_shadow); }
+                unsafe {
+                    crate::platform::macos::set_window_has_shadow(ns_view, has_shadow);
+                }
             }
         }
         #[cfg(target_os = "macos")]
         WindowRequest::SetWindowLevel { level } => {
             if let Some(ns_view) = ns_view_ptr(win) {
-                unsafe { crate::platform::macos::set_window_level(ns_view, level); }
+                unsafe {
+                    crate::platform::macos::set_window_level(ns_view, level);
+                }
             }
         }
         // Non-macOS catch-alls so the build is clean on other platforms.
         #[cfg(not(target_os = "macos"))]
-        WindowRequest::SetBlurBehind { .. } |
-        WindowRequest::SetIgnoresMouse { .. } |
-        WindowRequest::SetHasShadow { .. } |
-        WindowRequest::SetWindowLevel { .. } => {
+        WindowRequest::SetBlurBehind { .. }
+        | WindowRequest::SetIgnoresMouse { .. }
+        | WindowRequest::SetHasShadow { .. }
+        | WindowRequest::SetWindowLevel { .. } => {
             tracing::debug!("window request ignored on non-macOS");
         }
         // Cross-platform — change the mouse cursor icon. winit handles
@@ -313,20 +336,20 @@ fn apply_window_request(win: &WinitWindow, req: WindowRequest) {
         WindowRequest::SetCursor { kind } => {
             use winit::window::CursorIcon;
             let icon = match kind {
-                CursorKind::Default     => CursorIcon::Default,
-                CursorKind::Pointer     => CursorIcon::Pointer,
-                CursorKind::Text        => CursorIcon::Text,
-                CursorKind::Crosshair   => CursorIcon::Crosshair,
-                CursorKind::Move        => CursorIcon::Move,
-                CursorKind::Grab        => CursorIcon::Grab,
-                CursorKind::Grabbing    => CursorIcon::Grabbing,
-                CursorKind::NotAllowed  => CursorIcon::NotAllowed,
-                CursorKind::EwResize    => CursorIcon::EwResize,
-                CursorKind::NsResize    => CursorIcon::NsResize,
-                CursorKind::NwseResize  => CursorIcon::NwseResize,
-                CursorKind::NeswResize  => CursorIcon::NeswResize,
-                CursorKind::ZoomIn      => CursorIcon::ZoomIn,
-                CursorKind::ZoomOut     => CursorIcon::ZoomOut,
+                CursorKind::Default => CursorIcon::Default,
+                CursorKind::Pointer => CursorIcon::Pointer,
+                CursorKind::Text => CursorIcon::Text,
+                CursorKind::Crosshair => CursorIcon::Crosshair,
+                CursorKind::Move => CursorIcon::Move,
+                CursorKind::Grab => CursorIcon::Grab,
+                CursorKind::Grabbing => CursorIcon::Grabbing,
+                CursorKind::NotAllowed => CursorIcon::NotAllowed,
+                CursorKind::EwResize => CursorIcon::EwResize,
+                CursorKind::NsResize => CursorIcon::NsResize,
+                CursorKind::NwseResize => CursorIcon::NwseResize,
+                CursorKind::NeswResize => CursorIcon::NeswResize,
+                CursorKind::ZoomIn => CursorIcon::ZoomIn,
+                CursorKind::ZoomOut => CursorIcon::ZoomOut,
             };
             win.set_cursor(icon);
         }
@@ -360,14 +383,14 @@ fn apply_window_request(win: &WinitWindow, req: WindowRequest) {
         WindowRequest::DragResize { direction } => {
             use winit::window::ResizeDirection as WD;
             let dir = match direction {
-                ResizeDirection::East       => WD::East,
-                ResizeDirection::North      => WD::North,
-                ResizeDirection::NorthEast  => WD::NorthEast,
-                ResizeDirection::NorthWest  => WD::NorthWest,
-                ResizeDirection::South      => WD::South,
-                ResizeDirection::SouthEast  => WD::SouthEast,
-                ResizeDirection::SouthWest  => WD::SouthWest,
-                ResizeDirection::West       => WD::West,
+                ResizeDirection::East => WD::East,
+                ResizeDirection::North => WD::North,
+                ResizeDirection::NorthEast => WD::NorthEast,
+                ResizeDirection::NorthWest => WD::NorthWest,
+                ResizeDirection::South => WD::South,
+                ResizeDirection::SouthEast => WD::SouthEast,
+                ResizeDirection::SouthWest => WD::SouthWest,
+                ResizeDirection::West => WD::West,
             };
             // Best-effort: some platforms may refuse mid-event (e.g.
             // when there's no active mouse button); swallow the error
@@ -403,18 +426,21 @@ fn default_hero_card(w: u32, h: u32) -> DisplayList {
     DisplayList {
         frame_index: 0,
         commands: vec![
-            DrawCommand::Clear { color: [0.0, 0.0, 0.0, 0.0] },
+            DrawCommand::Clear {
+                color: [0.0, 0.0, 0.0, 0.0],
+            },
             DrawCommand::GradientCard {
                 bounds: [pad, pad, card_w, card_h],
                 corner_radius: 24.0,
                 start_color: [0x5B, 0x3F, 0xF5, 0xFF],
-                end_color:   [0xFF, 0x5C, 0x8A, 0xFF],
+                end_color: [0xFF, 0x5C, 0x8A, 0xFF],
                 shadow_blur: 40.0,
                 shadow_offset: [0.0, 12.0],
                 shadow_color: [0, 0, 0, 0x7F],
             },
             DrawCommand::FilledCircle {
-                cx, cy,
+                cx,
+                cy,
                 r: card_w.min(card_h) * 0.05,
                 color: [0xFA, 0xF7, 0xFF, 0xFF],
             },
@@ -423,7 +449,6 @@ fn default_hero_card(w: u32, h: u32) -> DisplayList {
 }
 
 impl ApplicationHandler for AppHandler {
-
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // `resumed` fires both on first launch and on a real OS resume
         // (e.g. app foregrounded after suspend). Only surface a lifecycle
@@ -457,16 +482,25 @@ impl ApplicationHandler for AppHandler {
         window_id: WindowId,
         event: WindowEvent,
     ) {
-        let idx = self.live.iter().position(|w| w.winit_window.id() == window_id);
-        let Some(idx) = idx else { return; };
+        let idx = self
+            .live
+            .iter()
+            .position(|w| w.winit_window.id() == window_id);
+        let Some(idx) = idx else {
+            return;
+        };
 
         match event {
             WindowEvent::CloseRequested => {
                 let mut lw = self.live.swap_remove(idx);
                 lw.handle.close();
                 let _ = lw.render_tx.send(RenderControl::Stop);
-                if let Some(jh) = lw.render_thread.take() { let _ = jh.join(); }
-                if self.live.is_empty() { event_loop.exit(); }
+                if let Some(jh) = lw.render_thread.take() {
+                    let _ = jh.join();
+                }
+                if self.live.is_empty() {
+                    event_loop.exit();
+                }
             }
             WindowEvent::Resized(size) => {
                 let lw = &self.live[idx];
@@ -474,7 +508,7 @@ impl ApplicationHandler for AppHandler {
                 // math (which always uses logical units) sees the right
                 // numbers across DPI.
                 let scale = lw.winit_window.scale_factor();
-                let lw_w = (size.width  as f64 / scale).round() as u32;
+                let lw_w = (size.width as f64 / scale).round() as u32;
                 let lw_h = (size.height as f64 / scale).round() as u32;
                 lw.handle.set_surface_size(lw_w, lw_h);
                 let _ = lw.render_tx.send(RenderControl::Resize {
@@ -487,7 +521,9 @@ impl ApplicationHandler for AppHandler {
                 // Accumulate into the window handle; Python drains it
                 // once per frame and applies it to canvas zoom.
                 let lw = &self.live[idx];
-                if lw.handle.is_input_blocked() { return; }
+                if lw.handle.is_input_blocked() {
+                    return;
+                }
                 lw.handle.accumulate_pinch_delta(delta as f32);
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -495,17 +531,22 @@ impl ApplicationHandler for AppHandler {
                 // Normalise line deltas to logical pixels; accumulate for
                 // Python to drain via `poll_scroll_delta()` once per frame.
                 let lw = &self.live[idx];
-                if lw.handle.is_input_blocked() { return; }
+                if lw.handle.is_input_blocked() {
+                    return;
+                }
                 use crate::window::WHEEL_LINE_PX;
                 match delta {
                     winit::event::MouseScrollDelta::LineDelta(x, y) => {
-                        lw.handle.accumulate_scroll(
-                            x * WHEEL_LINE_PX, y * WHEEL_LINE_PX, false);
+                        lw.handle
+                            .accumulate_scroll(x * WHEEL_LINE_PX, y * WHEEL_LINE_PX, false);
                     }
                     winit::event::MouseScrollDelta::PixelDelta(p) => {
                         let scale = lw.winit_window.scale_factor();
                         lw.handle.accumulate_scroll(
-                            (p.x / scale) as f32, (p.y / scale) as f32, true);
+                            (p.x / scale) as f32,
+                            (p.y / scale) as f32,
+                            true,
+                        );
                     }
                 }
             }
@@ -537,7 +578,9 @@ impl ApplicationHandler for AppHandler {
                 if let Some(p) = guard.as_ref() {
                     use ely_core::geometry::Point as ElyPoint;
                     let inside = p.contains(ElyPoint::new(x as f32, y as f32));
-                    let was = lw.handle.cursor_inside_path()
+                    let was = lw
+                        .handle
+                        .cursor_inside_path()
                         .swap(inside, Ordering::AcqRel);
                     if inside != was {
                         // Inside → don't ignore; outside → ignore (pass-through).
@@ -546,13 +589,18 @@ impl ApplicationHandler for AppHandler {
                 }
             }
             WindowEvent::CursorEntered { .. } => {
-                self.live[idx].handle.mouse().inside.store(true, Ordering::Release);
+                self.live[idx]
+                    .handle
+                    .mouse()
+                    .inside
+                    .store(true, Ordering::Release);
             }
             WindowEvent::DroppedFile(path) => {
                 let lw = &self.live[idx];
                 let x = lw.handle.mouse().x.load(Ordering::Acquire) as f64;
                 let y = lw.handle.mouse().y.load(Ordering::Acquire) as f64;
-                lw.handle.push_file_drop(path.to_string_lossy().into_owned(), x, y);
+                lw.handle
+                    .push_file_drop(path.to_string_lossy().into_owned(), x, y);
                 lw.handle.set_file_hover(false);
             }
             WindowEvent::HoveredFile(_) => {
@@ -569,19 +617,32 @@ impl ApplicationHandler for AppHandler {
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let lw = &self.live[idx];
-                if lw.handle.is_input_blocked() { return; }
+                if lw.handle.is_input_blocked() {
+                    return;
+                }
                 let pressed = state == winit::event::ElementState::Pressed;
                 match button {
                     winit::event::MouseButton::Left => {
-                        let was = lw.handle.mouse().pressed_left.swap(pressed, Ordering::AcqRel);
+                        let was = lw
+                            .handle
+                            .mouse()
+                            .pressed_left
+                            .swap(pressed, Ordering::AcqRel);
                         if pressed && !was {
                             lw.handle.mouse().press_count.fetch_add(1, Ordering::AcqRel);
                         }
                     }
                     winit::event::MouseButton::Right => {
-                        let was = lw.handle.mouse().pressed_right.swap(pressed, Ordering::AcqRel);
+                        let was = lw
+                            .handle
+                            .mouse()
+                            .pressed_right
+                            .swap(pressed, Ordering::AcqRel);
                         if pressed && !was {
-                            lw.handle.mouse().right_press_count.fetch_add(1, Ordering::AcqRel);
+                            lw.handle
+                                .mouse()
+                                .right_press_count
+                                .fetch_add(1, Ordering::AcqRel);
                         }
                     }
                     _ => {}
@@ -594,30 +655,52 @@ impl ApplicationHandler for AppHandler {
                 let lw = &self.live[idx];
                 let m = mods.state();
                 let mut bits: u8 = 0;
-                if m.shift_key()   { bits |= 1; }
-                if m.control_key() { bits |= 2; }
-                if m.alt_key()     { bits |= 4; }
-                if m.super_key()   { bits |= 8; }
-                lw.handle.keyboard().modifiers.store(bits, Ordering::Release);
+                if m.shift_key() {
+                    bits |= 1;
+                }
+                if m.control_key() {
+                    bits |= 2;
+                }
+                if m.alt_key() {
+                    bits |= 4;
+                }
+                if m.super_key() {
+                    bits |= 8;
+                }
+                lw.handle
+                    .keyboard()
+                    .modifiers
+                    .store(bits, Ordering::Release);
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 let lw = &self.live[idx];
-                if lw.handle.is_input_blocked() { return; }
+                if lw.handle.is_input_blocked() {
+                    return;
+                }
                 let code = format!("{:?}", event.physical_key)
-                    .replace("Code(", "").replace(')', "");
+                    .replace("Code(", "")
+                    .replace(')', "");
                 let pressed = event.state == winit::event::ElementState::Pressed;
                 let text = event.text.as_deref().unwrap_or("").to_string();
                 let mods = lw.handle.keyboard().modifiers.load(Ordering::Acquire);
                 {
                     let mut held = lw.handle.keyboard().held.lock();
-                    if pressed { held.insert(code.clone()); }
-                    else       { held.remove(&code); }
+                    if pressed {
+                        held.insert(code.clone());
+                    } else {
+                        held.remove(&code);
+                    }
                 }
                 let ev = crate::window::KeyEvent {
-                    code, pressed, modifiers: mods, text,
+                    code,
+                    pressed,
+                    modifiers: mods,
+                    text,
                 };
                 let mut q = lw.handle.keyboard().events.lock();
-                if q.len() >= 256 { q.pop_front(); }
+                if q.len() >= 256 {
+                    q.pop_front();
+                }
                 q.push_back(ev);
             }
             // Input-method (IME) composition. Preedit text is the in-flight
@@ -643,7 +726,9 @@ impl ApplicationHandler for AppHandler {
                             text,
                         };
                         let mut q = lw.handle.keyboard().events.lock();
-                        if q.len() >= 256 { q.pop_front(); }
+                        if q.len() >= 256 {
+                            q.pop_front();
+                        }
                         q.push_back(ev);
                     }
                     Ime::Enabled | Ime::Disabled => {
@@ -673,7 +758,9 @@ impl ApplicationHandler for AppHandler {
             // the OS loop, so wgpu surface teardown happens in a known order.
             for lw in self.live.drain(..) {
                 let _ = lw.render_tx.send(RenderControl::Stop);
-                if let Some(jh) = lw.render_thread { let _ = jh.join(); }
+                if let Some(jh) = lw.render_thread {
+                    let _ = jh.join();
+                }
             }
             event_loop.exit();
         }
@@ -689,9 +776,7 @@ impl ApplicationHandler for AppHandler {
             // The bridge then publishes the (already-shared) A11yState
             // to NSAccessibility / UIA / AT-SPI2 on every refresh.
             if lw.a11y_bridge.is_none() {
-                let mut bridge = crate::a11y_bridge::A11yBridge::new(
-                    lw.handle.a11y().clone(),
-                );
+                let mut bridge = crate::a11y_bridge::A11yBridge::new(lw.handle.a11y().clone());
                 #[cfg(target_os = "macos")]
                 if let Some(view) = ns_view_ptr(&lw.winit_window) {
                     bridge.attach_macos(view);
@@ -709,8 +794,12 @@ impl ApplicationHandler for AppHandler {
                 // Cheap: refresh forwards the latest tree to the adapter
                 // only when its `tree_dirty` flag is set; we tick that
                 // bit inside `A11yState::publish`.
-                if lw.handle.a11y().tree_dirty.swap(false,
-                        std::sync::atomic::Ordering::AcqRel) {
+                if lw
+                    .handle
+                    .a11y()
+                    .tree_dirty
+                    .swap(false, std::sync::atomic::Ordering::AcqRel)
+                {
                     b.refresh();
                 }
             }

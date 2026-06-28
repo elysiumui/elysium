@@ -3,11 +3,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Message {
-    Hello { client: String, token: String, protocol_version: u32 },
-    SkinChanged { path: String, sha256: String },
-    NodePatch { node_id: u32, patch: serde_json::Value },
-    HookRenamed { old: String, new: String },
-    PythonModuleReloaded { module: String },
+    Hello {
+        client: String,
+        token: String,
+        protocol_version: u32,
+    },
+    SkinChanged {
+        path: String,
+        sha256: String,
+    },
+    NodePatch {
+        node_id: u32,
+        patch: serde_json::Value,
+    },
+    HookRenamed {
+        old: String,
+        new: String,
+    },
+    PythonModuleReloaded {
+        module: String,
+    },
     SubscribeScene,
     Disconnect,
 }

@@ -150,25 +150,37 @@ pub enum NodeKind {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Size { pub w: f32, pub h: f32 }
+pub struct Size {
+    pub w: f32,
+    pub h: f32,
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct Transform {
-    #[serde(default)] pub x: f32,
-    #[serde(default)] pub y: f32,
-    #[serde(default)] pub rotation: f32,
-    #[serde(default = "default_scale")] pub scale: [f32; 2],
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub y: f32,
+    #[serde(default)]
+    pub rotation: f32,
+    #[serde(default = "default_scale")]
+    pub scale: [f32; 2],
 }
-fn default_scale() -> [f32; 2] { [1.0, 1.0] }
+fn default_scale() -> [f32; 2] {
+    [1.0, 1.0]
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HookSpec {
     pub name: String,
     #[serde(rename = "type")]
     pub kind_str: String,
-    #[serde(default)] pub events: Vec<String>,
-    #[serde(default)] pub states: Vec<String>,
-    #[serde(default)] pub range:  Option<[f64; 2]>,
+    #[serde(default)]
+    pub events: Vec<String>,
+    #[serde(default)]
+    pub states: Vec<String>,
+    #[serde(default)]
+    pub range: Option<[f64; 2]>,
 }
 
 #[derive(Debug, Clone)]
@@ -200,7 +212,11 @@ fn resolve_relative_src(node: &mut Node, root: &StdPath) {
 /// * `Lenient` — verify when `signature.json` is present, accept when it's not.
 /// * `Required` — reject any skin without a valid `signature.json`.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SignaturePolicy { Off, Lenient, Required }
+pub enum SignaturePolicy {
+    Off,
+    Lenient,
+    Required,
+}
 
 impl Default for SignaturePolicy {
     fn default() -> Self {
@@ -208,11 +224,12 @@ impl Default for SignaturePolicy {
         // signed (the marketplace client enforces this on its side too),
         // local skins are accepted without a signature.
         match std::env::var("ELYSIUM_SIGNATURE_POLICY")
-            .as_deref().unwrap_or("lenient")
+            .as_deref()
+            .unwrap_or("lenient")
         {
-            "off"      => SignaturePolicy::Off,
+            "off" => SignaturePolicy::Off,
             "required" => SignaturePolicy::Required,
-            _          => SignaturePolicy::Lenient,
+            _ => SignaturePolicy::Lenient,
         }
     }
 }
@@ -222,9 +239,10 @@ pub fn load(path: impl AsRef<StdPath>) -> Result<Skin, SkinError> {
     load_with_policy(path, SignaturePolicy::default())
 }
 
-pub fn load_with_policy(path: impl AsRef<StdPath>, policy: SignaturePolicy)
-    -> Result<Skin, SkinError>
-{
+pub fn load_with_policy(
+    path: impl AsRef<StdPath>,
+    policy: SignaturePolicy,
+) -> Result<Skin, SkinError> {
     let path = path.as_ref();
     let skin = if path.is_dir() {
         load_from_dir(path)?
@@ -235,10 +253,10 @@ pub fn load_with_policy(path: impl AsRef<StdPath>, policy: SignaturePolicy)
     Ok(skin)
 }
 
-fn verify_signature_if_present(path: &StdPath, policy: SignaturePolicy)
-    -> Result<(), SkinError>
-{
-    if policy == SignaturePolicy::Off { return Ok(()); }
+fn verify_signature_if_present(path: &StdPath, policy: SignaturePolicy) -> Result<(), SkinError> {
+    if policy == SignaturePolicy::Off {
+        return Ok(());
+    }
     if path.is_dir() {
         verify_dir(path, policy)
     } else {
@@ -251,7 +269,8 @@ fn verify_dir(path: &StdPath, policy: SignaturePolicy) -> Result<(), SkinError> 
     if !sig_path.is_file() {
         if policy == SignaturePolicy::Required {
             return Err(SkinError::Signature(
-                "signature.json missing (policy=required)".into()));
+                "signature.json missing (policy=required)".into(),
+            ));
         }
         return Ok(());
     }
@@ -276,7 +295,8 @@ fn verify_zip(path: &StdPath, policy: SignaturePolicy) -> Result<(), SkinError> 
         None => {
             if policy == SignaturePolicy::Required {
                 return Err(SkinError::Signature(
-                    "signature.json missing from .esk archive".into()));
+                    "signature.json missing from .esk archive".into(),
+                ));
             }
             return Ok(());
         }
@@ -290,14 +310,16 @@ fn verify_zip(path: &StdPath, policy: SignaturePolicy) -> Result<(), SkinError> 
     verify_payload(&sig_raw, &manifest, &document)
 }
 
-fn verify_payload(sig_raw: &str, manifest: &[u8], document: &[u8])
-    -> Result<(), SkinError>
-{
-    let sig_doc: serde_json::Value = serde_json::from_str(sig_raw)
-        .map_err(|e| SkinError::Signature(e.to_string()))?;
-    let pubkey_hex = sig_doc.get("publisher_pubkey").and_then(|v| v.as_str())
+fn verify_payload(sig_raw: &str, manifest: &[u8], document: &[u8]) -> Result<(), SkinError> {
+    let sig_doc: serde_json::Value =
+        serde_json::from_str(sig_raw).map_err(|e| SkinError::Signature(e.to_string()))?;
+    let pubkey_hex = sig_doc
+        .get("publisher_pubkey")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| SkinError::Signature("missing publisher_pubkey".into()))?;
-    let sig_hex = sig_doc.get("signature").and_then(|v| v.as_str())
+    let sig_hex = sig_doc
+        .get("signature")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| SkinError::Signature("missing signature".into()))?;
     let pubkey = hex_decode_32(pubkey_hex)
         .ok_or_else(|| SkinError::Signature("publisher_pubkey not 32 hex bytes".into()))?;
@@ -313,15 +335,27 @@ fn verify_payload(sig_raw: &str, manifest: &[u8], document: &[u8])
 }
 
 fn hex_decode_32(s: &str) -> Option<[u8; 32]> {
-    let v = hex_decode(s)?; if v.len() != 32 { return None; }
-    let mut a = [0u8; 32]; a.copy_from_slice(&v); Some(a)
+    let v = hex_decode(s)?;
+    if v.len() != 32 {
+        return None;
+    }
+    let mut a = [0u8; 32];
+    a.copy_from_slice(&v);
+    Some(a)
 }
 fn hex_decode_64(s: &str) -> Option<[u8; 64]> {
-    let v = hex_decode(s)?; if v.len() != 64 { return None; }
-    let mut a = [0u8; 64]; a.copy_from_slice(&v); Some(a)
+    let v = hex_decode(s)?;
+    if v.len() != 64 {
+        return None;
+    }
+    let mut a = [0u8; 64];
+    a.copy_from_slice(&v);
+    Some(a)
 }
 fn hex_decode(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 { return None; }
+    if !s.len().is_multiple_of(2) {
+        return None;
+    }
     let mut out = Vec::with_capacity(s.len() / 2);
     for i in (0..s.len()).step_by(2) {
         out.push(u8::from_str_radix(&s[i..i + 2], 16).ok()?);
@@ -332,15 +366,15 @@ fn hex_decode(s: &str) -> Option<Vec<u8>> {
 fn load_from_dir(root: &StdPath) -> Result<Skin, SkinError> {
     let manifest_bytes = std::fs::read(root.join("manifest.json"))
         .map_err(|_| SkinError::MissingFile("manifest.json".into()))?;
-    let manifest: Manifest = serde_json::from_slice(&manifest_bytes)
-        .map_err(|e| SkinError::Manifest(e.to_string()))?;
+    let manifest: Manifest =
+        serde_json::from_slice(&manifest_bytes).map_err(|e| SkinError::Manifest(e.to_string()))?;
 
     let doc_bytes = std::fs::read(root.join("document.json"))
         .map_err(|_| SkinError::MissingFile("document.json".into()))?;
     let doc_value: serde_json::Value = serde_json::from_slice(&doc_bytes)?;
     validate_document(&doc_value).map_err(|e| SkinError::Validation(e.to_string()))?;
-    let mut document: Document = serde_json::from_value(doc_value)
-        .map_err(|e| SkinError::Document(e.to_string()))?;
+    let mut document: Document =
+        serde_json::from_value(doc_value).map_err(|e| SkinError::Document(e.to_string()))?;
     resolve_relative_src(&mut document.root, root);
 
     // hooks.json is the *generated* flat index; if present we trust it,
@@ -352,27 +386,34 @@ fn load_from_dir(root: &StdPath) -> Result<Skin, SkinError> {
         collect_hooks(&document.root)?
     };
 
-    Ok(Skin { manifest, document, hooks })
+    Ok(Skin {
+        manifest,
+        document,
+        hooks,
+    })
 }
 
 fn load_from_zip(path: &StdPath) -> Result<Skin, SkinError> {
     let file = std::fs::File::open(path)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
-    let read_to_string = |archive: &mut zip::ZipArchive<std::fs::File>, name: &str| -> Result<String, SkinError> {
-        let mut entry = archive.by_name(name).map_err(|_| SkinError::MissingFile(name.into()))?;
-        let mut s = String::new();
-        entry.read_to_string(&mut s)?;
-        Ok(s)
-    };
+    let read_to_string =
+        |archive: &mut zip::ZipArchive<std::fs::File>, name: &str| -> Result<String, SkinError> {
+            let mut entry = archive
+                .by_name(name)
+                .map_err(|_| SkinError::MissingFile(name.into()))?;
+            let mut s = String::new();
+            entry.read_to_string(&mut s)?;
+            Ok(s)
+        };
 
     let manifest: Manifest = serde_json::from_str(&read_to_string(&mut archive, "manifest.json")?)
         .map_err(|e| SkinError::Manifest(e.to_string()))?;
     let doc_str = read_to_string(&mut archive, "document.json")?;
     let doc_value: serde_json::Value = serde_json::from_str(&doc_str)?;
     validate_document(&doc_value).map_err(|e| SkinError::Validation(e.to_string()))?;
-    let document: Document = serde_json::from_value(doc_value)
-        .map_err(|e| SkinError::Document(e.to_string()))?;
+    let document: Document =
+        serde_json::from_value(doc_value).map_err(|e| SkinError::Document(e.to_string()))?;
 
     let hooks = if let Ok(raw) = read_to_string(&mut archive, "hooks.json") {
         super::parser::parse_hooks(&raw)?
@@ -380,7 +421,11 @@ fn load_from_zip(path: &StdPath) -> Result<Skin, SkinError> {
         collect_hooks(&document.root)?
     };
 
-    Ok(Skin { manifest, document, hooks })
+    Ok(Skin {
+        manifest,
+        document,
+        hooks,
+    })
 }
 
 /// Walk a node tree and emit a flat HookRegistry. The Designer normally
@@ -398,24 +443,41 @@ fn walk(node: &Node, reg: &mut HookRegistry) -> Result<(), SkinError> {
             return Err(SkinError::HookCollision(spec.name.clone()));
         }
         let kind = match spec.kind_str.as_str() {
-            "event" => HookKind::Event { events: spec.events.clone() },
-            "text"  => HookKind::Text,
+            "event" => HookKind::Event {
+                events: spec.events.clone(),
+            },
+            "text" => HookKind::Text,
             "image" => HookKind::Image,
             "value" => HookKind::Value { range: spec.range },
-            "state" => HookKind::State { states: spec.states.clone() },
-            "slot"  => HookKind::Slot,
+            "state" => HookKind::State {
+                states: spec.states.clone(),
+            },
+            "slot" => HookKind::Slot,
             "style" => HookKind::Style,
-            other => return Err(SkinError::Document(
-                format!("unknown hook kind '{other}' on hook '{}'", spec.name),
-            )),
+            other => {
+                return Err(SkinError::Document(format!(
+                    "unknown hook kind '{other}' on hook '{}'",
+                    spec.name
+                )))
+            }
         };
-        reg.insert(Hook { name: spec.name.clone(), node_id: 0, kind });
+        reg.insert(Hook {
+            name: spec.name.clone(),
+            node_id: 0,
+            kind,
+        });
         Ok(())
     };
 
-    if let Some(spec) = &node.hook { collect_from(reg, spec)?; }
-    for spec in &node.hooks { collect_from(reg, spec)?; }
-    for child in &node.children { walk(child, reg)?; }
+    if let Some(spec) = &node.hook {
+        collect_from(reg, spec)?;
+    }
+    for spec in &node.hooks {
+        collect_from(reg, spec)?;
+    }
+    for child in &node.children {
+        walk(child, reg)?;
+    }
     Ok(())
 }
 
@@ -437,8 +499,12 @@ pub fn _test_hello_skin_path() -> Option<PathBuf> {
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for _ in 0..6 {
         let candidate = dir.join("examples/hello/hello.esk");
-        if candidate.is_dir() { return Some(candidate); }
-        if !dir.pop() { break; }
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            break;
+        }
     }
     None
 }
@@ -478,27 +544,33 @@ mod tests {
 
     #[test]
     fn collects_hooks_from_document_when_no_sidecar() {
-        let doc: Node = serde_json::from_str(r#"{
+        let doc: Node = serde_json::from_str(
+            r#"{
           "type": "scene",
           "children": [
             { "type": "path", "id": "btn", "hooks": [
               { "name": "btn.click", "type": "event", "events": ["click"] }
             ]}
           ]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         let reg = collect_hooks(&doc).unwrap();
         assert!(reg.get("btn.click").is_some());
     }
 
     #[test]
     fn rejects_hook_collision() {
-        let doc: Node = serde_json::from_str(r#"{
+        let doc: Node = serde_json::from_str(
+            r#"{
           "type": "scene",
           "children": [
             { "type": "path", "hooks": [{"name": "x", "type": "text"}] },
             { "type": "path", "hooks": [{"name": "x", "type": "text"}] }
           ]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         let err = collect_hooks(&doc).err().unwrap();
         assert!(matches!(err, SkinError::HookCollision(_)));
     }

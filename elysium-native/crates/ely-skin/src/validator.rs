@@ -10,4 +10,6 @@ pub enum ValidationError {
     Schema(String),
 }
 
-pub fn validate_document(_doc: &serde_json::Value) -> Result<(), ValidationError> { Ok(()) }
+pub fn validate_document(_doc: &serde_json::Value) -> Result<(), ValidationError> {
+    Ok(())
+}

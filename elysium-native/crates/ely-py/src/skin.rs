@@ -16,13 +16,21 @@ pub struct PySkin {
 #[pymethods]
 impl PySkin {
     #[getter]
-    fn id(&self) -> &str { &self.inner.manifest.id }
+    fn id(&self) -> &str {
+        &self.inner.manifest.id
+    }
     #[getter]
-    fn name(&self) -> &str { &self.inner.manifest.name }
+    fn name(&self) -> &str {
+        &self.inner.manifest.name
+    }
     #[getter]
-    fn version(&self) -> &str { &self.inner.manifest.version }
+    fn version(&self) -> &str {
+        &self.inner.manifest.version
+    }
     #[getter]
-    fn schema_version(&self) -> &str { &self.inner.manifest.schema_version }
+    fn schema_version(&self) -> &str {
+        &self.inner.manifest.schema_version
+    }
     /// "application" or "component". Application skins own a window;
     /// component skins are designed to be composed into another skin's
     /// DisplayList. The Designer uses this to suppress App-Window
@@ -32,15 +40,15 @@ impl PySkin {
     fn kind(&self) -> &'static str {
         match self.inner.manifest.kind {
             ely_skin::SkinKind::Application => "application",
-            ely_skin::SkinKind::Component   => "component",
+            ely_skin::SkinKind::Component => "component",
         }
     }
 
     /// `hooks` returns a {hook_name: {type, ...}} dict for introspection.
     fn hooks<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         for (name, hook) in self.inner.hooks.iter() {
-            let entry = PyDict::new_bound(py);
+            let entry = PyDict::new(py);
             let kind_label = match &hook.kind {
                 ely_skin::HookKind::Event { .. } => "event",
                 ely_skin::HookKind::Text => "text",
@@ -64,14 +72,18 @@ impl PySkin {
 
     /// Compile the skin's document tree to a DisplayList at the given size.
     fn to_display_list(&self, surface_w: u32, surface_h: u32) -> PyDisplayList {
-        PyDisplayList { inner: compile(&self.inner.document, surface_w, surface_h) }
+        PyDisplayList {
+            inner: compile(&self.inner.document, surface_w, surface_h),
+        }
     }
 
     fn __repr__(&self) -> String {
         format!(
             "Skin(id='{}', name='{}', version='{}', hooks={})",
-            self.inner.manifest.id, self.inner.manifest.name,
-            self.inner.manifest.version, self.inner.hooks.len(),
+            self.inner.manifest.id,
+            self.inner.manifest.name,
+            self.inner.manifest.version,
+            self.inner.hooks.len(),
         )
     }
 }

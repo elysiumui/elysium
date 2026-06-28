@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::{Duration, Instant};
 
 use winit::application::ApplicationHandler;
@@ -15,9 +14,12 @@ struct App {
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         eprintln!("[winit-smoke] resumed at {:?}", self.started.elapsed());
-        let w = event_loop.create_window(WindowAttributes::default()
-            .with_title("winit smoke")
-            .with_inner_size(winit::dpi::LogicalSize::new(400.0, 300.0)))
+        let w = event_loop
+            .create_window(
+                WindowAttributes::default()
+                    .with_title("winit smoke")
+                    .with_inner_size(winit::dpi::LogicalSize::new(400.0, 300.0)),
+            )
             .expect("create_window");
         self.window = Some(w);
     }
@@ -30,7 +32,10 @@ impl ApplicationHandler for App {
 
     fn about_to_wait(&mut self, el: &ActiveEventLoop) {
         if Instant::now() >= self.deadline {
-            eprintln!("[winit-smoke] deadline reached at {:?}", self.started.elapsed());
+            eprintln!(
+                "[winit-smoke] deadline reached at {:?}",
+                self.started.elapsed()
+            );
             el.exit();
         }
     }

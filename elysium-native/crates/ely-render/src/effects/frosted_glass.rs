@@ -22,6 +22,11 @@ pub struct FrostedGlassUniforms {
 
 impl Default for FrostedGlassUniforms {
     fn default() -> Self {
-        Self { radius: 16.0, tint: [1.0, 1.0, 1.0, 0.1], noise_intensity: 0.03, _pad: [0.0; 2] }
+        Self {
+            radius: 16.0,
+            tint: [1.0, 1.0, 1.0, 0.1],
+            noise_intensity: 0.03,
+            _pad: [0.0; 2],
+        }
     }
 }

@@ -12,7 +12,10 @@ pub fn register_exceptions(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<
     m.add("ElysiumError", py.get_type::<ElysiumError>())?;
     m.add("SkinError", py.get_type::<SkinError>())?;
     m.add("HookNotFound", py.get_type::<HookNotFound>())?;
-    m.add("ShaderValidationError", py.get_type::<ShaderValidationError>())?;
+    m.add(
+        "ShaderValidationError",
+        py.get_type::<ShaderValidationError>(),
+    )?;
     m.add("CanvasExpired", py.get_type::<CanvasExpired>())?;
     Ok(())
 }

@@ -1,34 +1,59 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
-pub struct Point { pub x: f32, pub y: f32 }
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+}
 
 impl Point {
-    pub const fn new(x: f32, y: f32) -> Self { Self { x, y } }
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
-pub struct Rect { pub x: f32, pub y: f32, pub w: f32, pub h: f32 }
+pub struct Rect {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+}
 
 impl Rect {
-    pub const fn new(x: f32, y: f32, w: f32, h: f32) -> Self { Self { x, y, w, h } }
-    pub fn center_x(&self) -> f32 { self.x + self.w * 0.5 }
-    pub fn center_y(&self) -> f32 { self.y + self.h * 0.5 }
+    pub const fn new(x: f32, y: f32, w: f32, h: f32) -> Self {
+        Self { x, y, w, h }
+    }
+    pub fn center_x(&self) -> f32 {
+        self.x + self.w * 0.5
+    }
+    pub fn center_y(&self) -> f32 {
+        self.y + self.h * 0.5
+    }
     pub fn contains(&self, p: Point) -> bool {
-        p.x >= self.x && p.x <= self.x + self.w &&
-        p.y >= self.y && p.y <= self.y + self.h
+        p.x >= self.x && p.x <= self.x + self.w && p.y >= self.y && p.y <= self.y + self.h
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Transform {
-    pub tx: f32, pub ty: f32,
-    pub sx: f32, pub sy: f32,
+    pub tx: f32,
+    pub ty: f32,
+    pub sx: f32,
+    pub sy: f32,
     pub rotation: f32,
 }
 
 impl Default for Transform {
-    fn default() -> Self { Self { tx: 0.0, ty: 0.0, sx: 1.0, sy: 1.0, rotation: 0.0 } }
+    fn default() -> Self {
+        Self {
+            tx: 0.0,
+            ty: 0.0,
+            sx: 1.0,
+            sy: 1.0,
+            rotation: 0.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -49,7 +74,10 @@ pub enum PathVerb {
 impl Path {
     pub fn from_svg(d: &str) -> Self {
         let commands = parse_svg_path(d).unwrap_or_default();
-        Self { source: d.to_string(), commands }
+        Self {
+            source: d.to_string(),
+            commands,
+        }
     }
 
     pub fn is_closed(&self) -> bool {
@@ -120,14 +148,20 @@ impl Path {
         let polylines = self.flatten(16);
         let mut inside = false;
         for poly in &polylines {
-            if poly.len() < 2 { continue; }
+            if poly.len() < 2 {
+                continue;
+            }
             let mut j = poly.len() - 1;
             for i in 0..poly.len() {
                 let (vi, vj) = (poly[i], poly[j]);
-                let crosses =
-                    ((vi.y > p.y) != (vj.y > p.y))
-                    && (p.x < (vj.x - vi.x) * (p.y - vi.y) / (vj.y - vi.y).max(1e-9).copysign(vj.y - vi.y) + vi.x);
-                if crosses { inside = !inside; }
+                let crosses = ((vi.y > p.y) != (vj.y > p.y))
+                    && (p.x
+                        < (vj.x - vi.x) * (p.y - vi.y)
+                            / (vj.y - vi.y).max(1e-9).copysign(vj.y - vi.y)
+                            + vi.x);
+                if crosses {
+                    inside = !inside;
+                }
                 j = i;
             }
         }
@@ -146,10 +180,18 @@ impl Path {
         let mut min = first;
         let mut max = first;
         for p in iter {
-            if p.x < min.x { min.x = p.x; }
-            if p.y < min.y { min.y = p.y; }
-            if p.x > max.x { max.x = p.x; }
-            if p.y > max.y { max.y = p.y; }
+            if p.x < min.x {
+                min.x = p.x;
+            }
+            if p.y < min.y {
+                min.y = p.y;
+            }
+            if p.x > max.x {
+                max.x = p.x;
+            }
+            if p.y > max.y {
+                max.y = p.y;
+            }
         }
         Some(Rect::new(min.x, min.y, max.x - min.x, max.y - min.y))
     }
@@ -176,10 +218,16 @@ fn parse_svg_path(input: &str) -> Result<Vec<PathVerb>, PathError> {
             b'M' => {
                 let mut first = true;
                 loop {
-                    if !p.peek_number() { break; }
+                    if !p.peek_number() {
+                        break;
+                    }
                     let x = p.read_number()?;
                     let y = p.read_number()?;
-                    let pt = if relative { Point::new(current.x + x, current.y + y) } else { Point::new(x, y) };
+                    let pt = if relative {
+                        Point::new(current.x + x, current.y + y)
+                    } else {
+                        Point::new(x, y)
+                    };
                     if first {
                         verbs.push(PathVerb::MoveTo(pt));
                         subpath_start = pt;
@@ -192,40 +240,63 @@ fn parse_svg_path(input: &str) -> Result<Vec<PathVerb>, PathError> {
                 last_control = None;
             }
             b'L' => loop {
-                if !p.peek_number() { break; }
+                if !p.peek_number() {
+                    break;
+                }
                 let x = p.read_number()?;
                 let y = p.read_number()?;
-                let pt = if relative { Point::new(current.x + x, current.y + y) } else { Point::new(x, y) };
+                let pt = if relative {
+                    Point::new(current.x + x, current.y + y)
+                } else {
+                    Point::new(x, y)
+                };
                 verbs.push(PathVerb::LineTo(pt));
                 current = pt;
                 last_control = None;
             },
             b'H' => loop {
-                if !p.peek_number() { break; }
+                if !p.peek_number() {
+                    break;
+                }
                 let x = p.read_number()?;
-                let pt = if relative { Point::new(current.x + x, current.y) } else { Point::new(x, current.y) };
+                let pt = if relative {
+                    Point::new(current.x + x, current.y)
+                } else {
+                    Point::new(x, current.y)
+                };
                 verbs.push(PathVerb::LineTo(pt));
                 current = pt;
                 last_control = None;
             },
             b'V' => loop {
-                if !p.peek_number() { break; }
+                if !p.peek_number() {
+                    break;
+                }
                 let y = p.read_number()?;
-                let pt = if relative { Point::new(current.x, current.y + y) } else { Point::new(current.x, y) };
+                let pt = if relative {
+                    Point::new(current.x, current.y + y)
+                } else {
+                    Point::new(current.x, y)
+                };
                 verbs.push(PathVerb::LineTo(pt));
                 current = pt;
                 last_control = None;
             },
             b'C' => loop {
-                if !p.peek_number() { break; }
-                let x1 = p.read_number()?; let y1 = p.read_number()?;
-                let x2 = p.read_number()?; let y2 = p.read_number()?;
-                let x  = p.read_number()?; let y  = p.read_number()?;
+                if !p.peek_number() {
+                    break;
+                }
+                let x1 = p.read_number()?;
+                let y1 = p.read_number()?;
+                let x2 = p.read_number()?;
+                let y2 = p.read_number()?;
+                let x = p.read_number()?;
+                let y = p.read_number()?;
                 let (c1, c2, end) = if relative {
                     (
                         Point::new(current.x + x1, current.y + y1),
                         Point::new(current.x + x2, current.y + y2),
-                        Point::new(current.x + x,  current.y + y),
+                        Point::new(current.x + x, current.y + y),
                     )
                 } else {
                     (Point::new(x1, y1), Point::new(x2, y2), Point::new(x, y))
@@ -235,9 +306,13 @@ fn parse_svg_path(input: &str) -> Result<Vec<PathVerb>, PathError> {
                 current = end;
             },
             b'S' => loop {
-                if !p.peek_number() { break; }
-                let x2 = p.read_number()?; let y2 = p.read_number()?;
-                let x  = p.read_number()?; let y  = p.read_number()?;
+                if !p.peek_number() {
+                    break;
+                }
+                let x2 = p.read_number()?;
+                let y2 = p.read_number()?;
+                let x = p.read_number()?;
+                let y = p.read_number()?;
                 // S's first control = reflection of previous C/S's last control
                 // (or current point if previous wasn't C/S).
                 let c1 = match last_control {
@@ -247,8 +322,10 @@ fn parse_svg_path(input: &str) -> Result<Vec<PathVerb>, PathError> {
                     _ => current,
                 };
                 let (c2, end) = if relative {
-                    (Point::new(current.x + x2, current.y + y2),
-                     Point::new(current.x + x,  current.y + y))
+                    (
+                        Point::new(current.x + x2, current.y + y2),
+                        Point::new(current.x + x, current.y + y),
+                    )
                 } else {
                     (Point::new(x2, y2), Point::new(x, y))
                 };
@@ -257,12 +334,18 @@ fn parse_svg_path(input: &str) -> Result<Vec<PathVerb>, PathError> {
                 current = end;
             },
             b'Q' => loop {
-                if !p.peek_number() { break; }
-                let x1 = p.read_number()?; let y1 = p.read_number()?;
-                let x  = p.read_number()?; let y  = p.read_number()?;
+                if !p.peek_number() {
+                    break;
+                }
+                let x1 = p.read_number()?;
+                let y1 = p.read_number()?;
+                let x = p.read_number()?;
+                let y = p.read_number()?;
                 let (c, end) = if relative {
-                    (Point::new(current.x + x1, current.y + y1),
-                     Point::new(current.x + x,  current.y + y))
+                    (
+                        Point::new(current.x + x1, current.y + y1),
+                        Point::new(current.x + x, current.y + y),
+                    )
                 } else {
                     (Point::new(x1, y1), Point::new(x, y))
                 };
@@ -271,16 +354,22 @@ fn parse_svg_path(input: &str) -> Result<Vec<PathVerb>, PathError> {
                 current = end;
             },
             b'T' => loop {
-                if !p.peek_number() { break; }
-                let x = p.read_number()?; let y = p.read_number()?;
+                if !p.peek_number() {
+                    break;
+                }
+                let x = p.read_number()?;
+                let y = p.read_number()?;
                 let c = match last_control {
                     Some(c) if last_cmd == b'Q' || last_cmd == b'T' => {
                         Point::new(2.0 * current.x - c.x, 2.0 * current.y - c.y)
                     }
                     _ => current,
                 };
-                let end = if relative { Point::new(current.x + x, current.y + y) }
-                          else        { Point::new(x, y) };
+                let end = if relative {
+                    Point::new(current.x + x, current.y + y)
+                } else {
+                    Point::new(x, y)
+                };
                 verbs.push(PathVerb::QuadTo(c, end));
                 last_control = Some(c);
                 current = end;
@@ -311,7 +400,12 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(s: &'a str) -> Self { Self { bytes: s.as_bytes(), pos: 0 } }
+    fn new(s: &'a str) -> Self {
+        Self {
+            bytes: s.as_bytes(),
+            pos: 0,
+        }
+    }
 
     fn skip_whitespace_and_commas(&mut self) {
         while self.pos < self.bytes.len() {
@@ -326,7 +420,9 @@ impl<'a> Parser<'a> {
 
     fn next_command(&mut self) -> Result<Option<u8>, PathError> {
         self.skip_whitespace_and_commas();
-        if self.pos >= self.bytes.len() { return Ok(None); }
+        if self.pos >= self.bytes.len() {
+            return Ok(None);
+        }
         let c = self.bytes[self.pos];
         if c.is_ascii_alphabetic() {
             self.pos += 1;
@@ -339,7 +435,9 @@ impl<'a> Parser<'a> {
 
     fn peek_number(&mut self) -> bool {
         self.skip_whitespace_and_commas();
-        if self.pos >= self.bytes.len() { return false; }
+        if self.pos >= self.bytes.len() {
+            return false;
+        }
         let c = self.bytes[self.pos];
         c == b'+' || c == b'-' || c == b'.' || c.is_ascii_digit()
     }
@@ -347,32 +445,43 @@ impl<'a> Parser<'a> {
     fn read_number(&mut self) -> Result<f32, PathError> {
         self.skip_whitespace_and_commas();
         let start = self.pos;
-        if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-') {
+        if self.pos < self.bytes.len()
+            && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-')
+        {
             self.pos += 1;
         }
         let mut saw_digit = false;
         while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
-            self.pos += 1; saw_digit = true;
+            self.pos += 1;
+            saw_digit = true;
         }
         if self.pos < self.bytes.len() && self.bytes[self.pos] == b'.' {
             self.pos += 1;
             while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
-                self.pos += 1; saw_digit = true;
+                self.pos += 1;
+                saw_digit = true;
             }
         }
-        if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'e' || self.bytes[self.pos] == b'E') {
+        if self.pos < self.bytes.len()
+            && (self.bytes[self.pos] == b'e' || self.bytes[self.pos] == b'E')
+        {
             self.pos += 1;
-            if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-') {
+            if self.pos < self.bytes.len()
+                && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-')
+            {
                 self.pos += 1;
             }
             while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
                 self.pos += 1;
             }
         }
-        if !saw_digit { return Err(PathError::ExpectedNumber(start)); }
+        if !saw_digit {
+            return Err(PathError::ExpectedNumber(start));
+        }
         let s = std::str::from_utf8(&self.bytes[start..self.pos])
             .map_err(|_| PathError::ExpectedNumber(start))?;
-        s.parse::<f32>().map_err(|_| PathError::ExpectedNumber(start))
+        s.parse::<f32>()
+            .map_err(|_| PathError::ExpectedNumber(start))
     }
 }
 
@@ -402,10 +511,14 @@ mod tests {
     #[test]
     fn parses_relative_moves() {
         let p = Path::from_svg("M 10 10 l 5 5 l 5 -5");
-        let pts: Vec<_> = p.commands.iter().filter_map(|v| match v {
-            PathVerb::MoveTo(p) | PathVerb::LineTo(p) => Some(*p),
-            _ => None,
-        }).collect();
+        let pts: Vec<_> = p
+            .commands
+            .iter()
+            .filter_map(|v| match v {
+                PathVerb::MoveTo(p) | PathVerb::LineTo(p) => Some(*p),
+                _ => None,
+            })
+            .collect();
         assert_eq!(pts[0], Point::new(10.0, 10.0));
         assert_eq!(pts[1], Point::new(15.0, 15.0));
         assert_eq!(pts[2], Point::new(20.0, 10.0));

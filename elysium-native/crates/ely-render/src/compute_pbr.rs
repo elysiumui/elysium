@@ -16,33 +16,33 @@ use std::sync::Arc;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Uniforms {
-    pub cam_pos:    [f32; 4],
-    pub cam_look:   [f32; 4],
-    pub cam_right:  [f32; 4],
-    pub cam_up:     [f32; 4],
-    pub sun_dir:    [f32; 4],
-    pub sun_color:  [f32; 4],
-    pub fill_dir:   [f32; 4],
+    pub cam_pos: [f32; 4],
+    pub cam_look: [f32; 4],
+    pub cam_right: [f32; 4],
+    pub cam_up: [f32; 4],
+    pub sun_dir: [f32; 4],
+    pub sun_color: [f32; 4],
+    pub fill_dir: [f32; 4],
     pub fill_color: [f32; 4],
-    pub size:       [u32; 2],
-    pub fov_scale:  f32,
-    pub aspect:     f32,
+    pub size: [u32; 2],
+    pub fov_scale: f32,
+    pub aspect: f32,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct GpuMaterial {
     pub base_color: [f32; 4],
-    pub params:     [f32; 4],   // (metallic, roughness, specular, clearcoat)
-    pub emissive:   [f32; 4],
-    pub cc:         [f32; 4],
+    pub params: [f32; 4], // (metallic, roughness, specular, clearcoat)
+    pub emissive: [f32; 4],
+    pub cc: [f32; 4],
 }
 
 pub struct ComputePbr {
     device: Arc<wgpu::Device>,
-    queue:  Arc<wgpu::Queue>,
+    queue: Arc<wgpu::Queue>,
     pipeline: wgpu::ComputePipeline,
-    layout:   wgpu::BindGroupLayout,
+    layout: wgpu::BindGroupLayout,
 }
 
 const SHADER_SRC: &str = include_str!("shaders/pbr_compute.wgsl");
@@ -54,27 +54,27 @@ impl ComputePbr {
     pub fn new() -> Option<Self> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
-            flags:    wgpu::InstanceFlags::default(),
-            dx12_shader_compiler:  wgpu::Dx12Compiler::default(),
-            gles_minor_version:    wgpu::Gles3MinorVersion::default(),
+            flags: wgpu::InstanceFlags::default(),
+            dx12_shader_compiler: wgpu::Dx12Compiler::default(),
+            gles_minor_version: wgpu::Gles3MinorVersion::default(),
         });
-        let adapter = pollster::block_on(instance.request_adapter(
-            &wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
-                compatible_surface: None,
-            }))?;
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: None,
+        }))?;
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("elysium-compute-pbr-device"),
                 required_features: wgpu::Features::empty(),
-                required_limits:   wgpu::Limits::default(),
+                required_limits: wgpu::Limits::default(),
                 memory_hints: wgpu::MemoryHints::default(),
             },
             None,
-        )).ok()?;
+        ))
+        .ok()?;
         let device = Arc::new(device);
-        let queue  = Arc::new(queue);
+        let queue = Arc::new(queue);
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("pbr_compute.wgsl"),
@@ -85,10 +85,14 @@ impl ComputePbr {
             label: Some("pbr_compute_bgl"),
             entries: &[
                 // 0 uniforms
-                bgl_entry(0, wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false, min_binding_size: None,
-                }),
+                bgl_entry(
+                    0,
+                    wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                ),
                 // 1..8 storage buffers (read-only)
                 bgl_entry(1, sb_read()),
                 bgl_entry(2, sb_read()),
@@ -125,7 +129,12 @@ impl ComputePbr {
             cache: None,
         });
 
-        Some(Self { device, queue, pipeline, layout })
+        Some(Self {
+            device,
+            queue,
+            pipeline,
+            layout,
+        })
     }
 
     /// Dispatch the compute shader over `(w, h)` and return an RGBA8 buffer.
@@ -140,39 +149,61 @@ impl ComputePbr {
         w: u32,
         h: u32,
         uniforms: Uniforms,
-        verts_xyz4:   &[[f32; 4]],
-        faces_v3i1:   &[[u32; 4]],
+        verts_xyz4: &[[f32; 4]],
+        faces_v3i1: &[[u32; 4]],
         normals_xyz4: &[[f32; 4]],
-        bvh_min:      &[[f32; 4]],
-        bvh_max:      &[[f32; 4]],
-        bvh_meta:     &[[i32; 4]],
-        tri_order:    &[u32],
-        materials:    &[GpuMaterial],
+        bvh_min: &[[f32; 4]],
+        bvh_max: &[[f32; 4]],
+        bvh_meta: &[[i32; 4]],
+        tri_order: &[u32],
+        materials: &[GpuMaterial],
     ) -> Vec<u8> {
         let device = &self.device;
-        let queue  = &self.queue;
+        let queue = &self.queue;
 
         use wgpu::util::DeviceExt as _;
         let mk = |bytes: &[u8], label: &str, usage: wgpu::BufferUsages| -> wgpu::Buffer {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(label), contents: bytes, usage,
+                label: Some(label),
+                contents: bytes,
+                usage,
             })
         };
-        let uni_buf = mk(bytemuck::cast_slice(&[uniforms]), "uniforms",
-                         wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
-        let verts_buf   = mk(bytemuck::cast_slice(verts_xyz4),   "verts",   storage_usage());
-        let faces_buf   = mk(bytemuck::cast_slice(faces_v3i1),   "faces",   storage_usage());
-        let normals_buf = mk(bytemuck::cast_slice(normals_xyz4), "normals", storage_usage());
-        let bmin_buf    = mk(bytemuck::cast_slice(bvh_min),      "bvh_min", storage_usage());
-        let bmax_buf    = mk(bytemuck::cast_slice(bvh_max),      "bvh_max", storage_usage());
-        let bmeta_buf   = mk(bytemuck::cast_slice(bvh_meta),     "bvh_meta",storage_usage());
-        let tri_buf     = mk(bytemuck::cast_slice(tri_order),    "tri_order", storage_usage());
-        let mat_buf     = mk(bytemuck::cast_slice(materials),    "materials", storage_usage());
+        let uni_buf = mk(
+            bytemuck::cast_slice(&[uniforms]),
+            "uniforms",
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        );
+        let verts_buf = mk(bytemuck::cast_slice(verts_xyz4), "verts", storage_usage());
+        let faces_buf = mk(bytemuck::cast_slice(faces_v3i1), "faces", storage_usage());
+        let normals_buf = mk(
+            bytemuck::cast_slice(normals_xyz4),
+            "normals",
+            storage_usage(),
+        );
+        let bmin_buf = mk(bytemuck::cast_slice(bvh_min), "bvh_min", storage_usage());
+        let bmax_buf = mk(bytemuck::cast_slice(bvh_max), "bvh_max", storage_usage());
+        let bmeta_buf = mk(bytemuck::cast_slice(bvh_meta), "bvh_meta", storage_usage());
+        let tri_buf = mk(
+            bytemuck::cast_slice(tri_order),
+            "tri_order",
+            storage_usage(),
+        );
+        let mat_buf = mk(
+            bytemuck::cast_slice(materials),
+            "materials",
+            storage_usage(),
+        );
 
         let tex = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("pbr_compute_out"),
-            size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
-            mip_level_count: 1, sample_count: 1,
+            size: wgpu::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC,
@@ -184,16 +215,46 @@ impl ComputePbr {
             label: Some("pbr_compute_bg"),
             layout: &self.layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uni_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: verts_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: faces_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: normals_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 4, resource: bmin_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 5, resource: bmax_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 6, resource: bmeta_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 7, resource: tri_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 8, resource: mat_buf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 9, resource: wgpu::BindingResource::TextureView(&view) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uni_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: verts_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: faces_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: normals_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: bmin_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: bmax_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: bmeta_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: tri_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 8,
+                    resource: mat_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 9,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
             ],
         });
 
@@ -201,7 +262,7 @@ impl ComputePbr {
         let bpp = 4u32;
         let unpadded = w * bpp;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-        let padded = (unpadded + align - 1) / align * align;
+        let padded = unpadded.div_ceil(align) * align;
         let readback = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("pbr_readback"),
             size: (padded * h) as u64,
@@ -219,29 +280,38 @@ impl ComputePbr {
             });
             cp.set_pipeline(&self.pipeline);
             cp.set_bind_group(0, &bind_group, &[]);
-            let gx = (w + 7) / 8;
-            let gy = (h + 7) / 8;
+            let gx = w.div_ceil(8);
+            let gy = h.div_ceil(8);
             cp.dispatch_workgroups(gx, gy, 1);
         }
         enc.copy_texture_to_buffer(
             wgpu::ImageCopyTexture {
-                texture: &tex, mip_level: 0,
+                texture: &tex,
+                mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
             wgpu::ImageCopyBuffer {
                 buffer: &readback,
                 layout: wgpu::ImageDataLayout {
-                    offset: 0, bytes_per_row: Some(padded), rows_per_image: Some(h),
+                    offset: 0,
+                    bytes_per_row: Some(padded),
+                    rows_per_image: Some(h),
                 },
             },
-            wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            wgpu::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1,
+            },
         );
         queue.submit(std::iter::once(enc.finish()));
 
         let slice = readback.slice(..);
         let (tx, rx) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |r| { let _ = tx.send(r); });
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
+        });
         device.poll(wgpu::Maintain::Wait);
         let _ = rx.recv();
         let data = slice.get_mapped_range();
@@ -251,8 +321,7 @@ impl ComputePbr {
         for row in 0..h {
             let src = (row * padded) as usize;
             let dst = (row * unpadded) as usize;
-            out[dst..dst + unpadded as usize]
-                .copy_from_slice(&data[src..src + unpadded as usize]);
+            out[dst..dst + unpadded as usize].copy_from_slice(&data[src..src + unpadded as usize]);
         }
         drop(data);
         readback.unmap();
@@ -280,4 +349,3 @@ fn sb_read() -> wgpu::BindingType {
 fn storage_usage() -> wgpu::BufferUsages {
     wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST
 }
-

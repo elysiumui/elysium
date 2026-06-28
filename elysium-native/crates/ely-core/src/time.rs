@@ -21,8 +21,12 @@ impl FrameClock {
         }
     }
 
-    pub fn elapsed(&self) -> Duration { self.start.elapsed() }
-    pub fn frame_index(&self) -> u64 { self.frame_index }
+    pub fn elapsed(&self) -> Duration {
+        self.start.elapsed()
+    }
+    pub fn frame_index(&self) -> u64 {
+        self.frame_index
+    }
 
     /// Returns the delta seconds since the previous tick.
     pub fn tick(&mut self) -> f32 {
@@ -33,5 +37,7 @@ impl FrameClock {
         dt.as_secs_f32()
     }
 
-    pub fn target_period(&self) -> Duration { self.target_period }
+    pub fn target_period(&self) -> Duration {
+        self.target_period
+    }
 }

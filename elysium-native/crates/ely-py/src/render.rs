@@ -13,9 +13,16 @@ pub struct PyCanvas {
     live: Cell<bool>,
 }
 
+#[allow(dead_code)] // constructed by the deferred live-canvas path
 impl PyCanvas {
-    pub(crate) fn new() -> Self { Self { live: Cell::new(true) } }
-    pub(crate) fn invalidate(&self) { self.live.set(false); }
+    pub(crate) fn new() -> Self {
+        Self {
+            live: Cell::new(true),
+        }
+    }
+    pub(crate) fn invalidate(&self) {
+        self.live.set(false);
+    }
     fn check(&self) -> PyResult<()> {
         if !self.live.get() {
             return Err(CanvasExpired::new_err(
@@ -28,9 +35,15 @@ impl PyCanvas {
 
 #[pymethods]
 impl PyCanvas {
-    fn clear(&self, _color: &str) -> PyResult<()> { self.check() }
-    fn stroke_path(&self, _path: &PyPath, _color: &str, _width: f32) -> PyResult<()> { self.check() }
-    fn fill_path(&self, _path: &PyPath, _color: &str) -> PyResult<()> { self.check() }
+    fn clear(&self, _color: &str) -> PyResult<()> {
+        self.check()
+    }
+    fn stroke_path(&self, _path: &PyPath, _color: &str, _width: f32) -> PyResult<()> {
+        self.check()
+    }
+    fn fill_path(&self, _path: &PyPath, _color: &str) -> PyResult<()> {
+        self.check()
+    }
 }
 
 #[pyclass(name = "Path", unsendable)]
@@ -41,14 +54,31 @@ pub struct PyPath {
 #[pymethods]
 impl PyPath {
     #[new]
-    fn new() -> Self { Self { source: String::new() } }
+    fn new() -> Self {
+        Self {
+            source: String::new(),
+        }
+    }
 
     #[staticmethod]
-    fn from_svg(d: &str) -> Self { Self { source: d.to_string() } }
+    fn from_svg(d: &str) -> Self {
+        Self {
+            source: d.to_string(),
+        }
+    }
 
-    fn move_to(&mut self, x: f32, y: f32) { self.source.push_str(&format!("M {x} {y} ")); }
-    fn line_to(&mut self, x: f32, y: f32) { self.source.push_str(&format!("L {x} {y} ")); }
-    fn close(&mut self) { self.source.push_str("Z "); }
+    fn move_to(&mut self, x: f32, y: f32) {
+        self.source.push_str(&format!("M {x} {y} "));
+    }
+    fn line_to(&mut self, x: f32, y: f32) {
+        self.source.push_str(&format!("L {x} {y} "));
+    }
+    fn close(&mut self) {
+        self.source.push_str("Z ");
+    }
 
-    #[getter] fn source(&self) -> &str { &self.source }
+    #[getter]
+    fn source(&self) -> &str {
+        &self.source
+    }
 }

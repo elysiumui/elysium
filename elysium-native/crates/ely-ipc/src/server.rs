@@ -12,8 +12,8 @@ use parking_lot::Mutex;
 use std::io::{Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use thiserror::Error;
 
@@ -107,7 +107,9 @@ impl IpcServer {
         let _ = std::fs::remove_file(&self.socket_path);
     }
 
-    pub fn socket_path(&self) -> &Path { &self.socket_path }
+    pub fn socket_path(&self) -> &Path {
+        &self.socket_path
+    }
 }
 
 impl Drop for IpcServer {
@@ -131,7 +133,9 @@ fn handle_connection(mut stream: UnixStream, handler: Handler) -> Result<(), Ipc
             Err(e) => return Err(e.into()),
         };
         let len = u32::from_be_bytes(len_buf);
-        if len > 16 * 1024 * 1024 { return Err(IpcError::FrameTooLarge(len)); }
+        if len > 16 * 1024 * 1024 {
+            return Err(IpcError::FrameTooLarge(len));
+        }
         let mut body = vec![0u8; len as usize];
         stream.read_exact(&mut body)?;
         let msg: Message = serde_json::from_slice(&body)?;
@@ -161,7 +165,7 @@ impl IpcClient {
 
     pub fn send(&mut self, msg: &Message) -> Result<Ack, IpcError> {
         let body = serde_json::to_vec(msg)?;
-        let len  = (body.len() as u32).to_be_bytes();
+        let len = (body.len() as u32).to_be_bytes();
         self.stream.write_all(&len)?;
         self.stream.write_all(&body)?;
         self.stream.flush()?;
@@ -169,7 +173,9 @@ impl IpcClient {
         let mut len_buf = [0u8; 4];
         self.stream.read_exact(&mut len_buf)?;
         let ack_len = u32::from_be_bytes(len_buf);
-        if ack_len > 16 * 1024 * 1024 { return Err(IpcError::FrameTooLarge(ack_len)); }
+        if ack_len > 16 * 1024 * 1024 {
+            return Err(IpcError::FrameTooLarge(ack_len));
+        }
         let mut body = vec![0u8; ack_len as usize];
         self.stream.read_exact(&mut body)?;
         Ok(serde_json::from_slice(&body)?)
@@ -186,10 +192,17 @@ mod tests {
         let sock = std::env::temp_dir().join(format!("ely-ipc-test-{}.sock", std::process::id()));
         let handler: Handler = Arc::new(|msg| match msg {
             Message::Hello { client, .. } => Ack {
-                ok: true, message: Some(format!("hello {client}")),
-                reload_ms: None, warnings: vec![],
+                ok: true,
+                message: Some(format!("hello {client}")),
+                reload_ms: None,
+                warnings: vec![],
             },
-            _ => Ack { ok: true, message: None, reload_ms: None, warnings: vec![] },
+            _ => Ack {
+                ok: true,
+                message: None,
+                reload_ms: None,
+                warnings: vec![],
+            },
         });
         let server = IpcServer::start(sock.clone(), handler).unwrap();
 
@@ -197,9 +210,13 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(50));
 
         let mut client = IpcClient::connect(&sock).unwrap();
-        let ack = client.send(&Message::Hello {
-            client: "test".into(), token: "t".into(), protocol_version: 1,
-        }).unwrap();
+        let ack = client
+            .send(&Message::Hello {
+                client: "test".into(),
+                token: "t".into(),
+                protocol_version: 1,
+            })
+            .unwrap();
         assert!(ack.ok);
         assert_eq!(ack.message.as_deref(), Some("hello test"));
 
@@ -211,7 +228,10 @@ mod tests {
         let sock = std::env::temp_dir().join(format!("ely-ipc-drop-{}.sock", std::process::id()));
         {
             let handler: Handler = Arc::new(|_| Ack {
-                ok: true, message: None, reload_ms: None, warnings: vec![],
+                ok: true,
+                message: None,
+                reload_ms: None,
+                warnings: vec![],
             });
             let _server = IpcServer::start(sock.clone(), handler).unwrap();
             assert!(sock.exists());

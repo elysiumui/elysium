@@ -22,7 +22,7 @@ pub struct TextureCache {
     inner: RwLock<Inner>,
     /// Counters Python tests can read to verify caching behaviour.
     pub decodes: AtomicU64,
-    pub hits:    AtomicU64,
+    pub hits: AtomicU64,
 }
 
 #[derive(Default)]
@@ -35,7 +35,9 @@ struct Inner {
 }
 
 impl TextureCache {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Get a cached image, decoding from disk if we haven't seen this
     /// path before. Returns `None` only if the file can't be read or
@@ -68,7 +70,8 @@ impl TextureCache {
         let data = unsafe { skia_safe::Data::new_bytes(&bytes) };
         let Some(image) = Image::from_encoded(data) else {
             let mut g = self.inner.write();
-            g.failed.insert(path.to_path_buf(), "Skia could not decode".into());
+            g.failed
+                .insert(path.to_path_buf(), "Skia could not decode".into());
             return None;
         };
         self.decodes.fetch_add(1, Ordering::Relaxed);
@@ -78,16 +81,25 @@ impl TextureCache {
         Some(arc)
     }
 
-    pub fn decode_count(&self) -> u64 { self.decodes.load(Ordering::Relaxed) }
-    pub fn hit_count(&self)    -> u64 { self.hits.load(Ordering::Relaxed) }
+    pub fn decode_count(&self) -> u64 {
+        self.decodes.load(Ordering::Relaxed)
+    }
+    pub fn hit_count(&self) -> u64 {
+        self.hits.load(Ordering::Relaxed)
+    }
 
     /// Insert pre-decoded bytes under `key`. Used by an async populator
     /// to push results back to the render thread, or by a caller that
     /// wants to keep a SkiaLayer in the cache as if it were a texture.
     pub fn populate_from_bytes(&self, key: &Path, encoded: &[u8]) -> bool {
         let data = unsafe { skia_safe::Data::new_bytes(encoded) };
-        let Some(image) = Image::from_encoded(data) else { return false; };
-        self.inner.write().images.insert(key.to_path_buf(), Arc::new(image));
+        let Some(image) = Image::from_encoded(data) else {
+            return false;
+        };
+        self.inner
+            .write()
+            .images
+            .insert(key.to_path_buf(), Arc::new(image));
         true
     }
 
@@ -107,8 +119,12 @@ impl TextureCache {
         g.failed.clear();
     }
 
-    pub fn len(&self) -> usize { self.inner.read().images.len() }
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
+    pub fn len(&self) -> usize {
+        self.inner.read().images.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 
     /// Kick off a background decode on a one-shot OS thread. The cache
     /// is populated when the decode finishes; subsequent `get_or_load`

@@ -27,200 +27,228 @@ use std::ptr;
 
 // --- Vulkan minimal type surface (subset of vulkan.h) -------------------
 
-type VkResult            = i32;
-type VkInstance          = *mut c_void;
-type VkPhysicalDevice    = *mut c_void;
-type VkDevice            = *mut c_void;
-type VkImage             = u64;       // dispatchable-handle on 64-bit / opaque-u64 in spec
-type VkDeviceMemory      = u64;
-type VkFlags             = u32;
-type VkDeviceSize        = u64;
+type VkResult = i32;
+type VkInstance = *mut c_void;
+type VkPhysicalDevice = *mut c_void;
+type VkDevice = *mut c_void;
+type VkImage = u64; // dispatchable-handle on 64-bit / opaque-u64 in spec
+type VkDeviceMemory = u64;
+type VkFlags = u32;
+type VkDeviceSize = u64;
 
 const VK_SUCCESS: VkResult = 0;
 
-const VK_STRUCTURE_TYPE_APPLICATION_INFO:          i32 = 0;
-const VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO:      i32 = 1;
-const VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO:  i32 = 2;
-const VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO:        i32 = 3;
-const VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO:         i32 = 14;
-const VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO:      i32 = 5;
-const VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO:    i32 = 1000072000;
-const VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO:          i32 = 1000072002;
-const VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO:       i32 = 1000127001;
-const VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR:               i32 = 1000074002;
+const VK_STRUCTURE_TYPE_APPLICATION_INFO: i32 = 0;
+const VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO: i32 = 1;
+const VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO: i32 = 2;
+const VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO: i32 = 3;
+const VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO: i32 = 14;
+const VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO: i32 = 5;
+const VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO: i32 = 1000072000;
+const VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO: i32 = 1000072002;
+const VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO: i32 = 1000127001;
+const VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR: i32 = 1000074002;
 
 const VK_API_VERSION_1_1: u32 = (1 << 22) | (1 << 12);
 
-const VK_IMAGE_TYPE_2D:          u32 = 1;
-const VK_FORMAT_B8G8R8A8_UNORM:  u32 = 44;
-const VK_SAMPLE_COUNT_1_BIT:     u32 = 1;
-const VK_IMAGE_TILING_OPTIMAL:   u32 = 0;
+const VK_IMAGE_TYPE_2D: u32 = 1;
+const VK_FORMAT_B8G8R8A8_UNORM: u32 = 44;
+const VK_SAMPLE_COUNT_1_BIT: u32 = 1;
+const VK_IMAGE_TILING_OPTIMAL: u32 = 0;
 const VK_SHARING_MODE_EXCLUSIVE: u32 = 0;
 const VK_IMAGE_LAYOUT_UNDEFINED: u32 = 0;
-const VK_IMAGE_USAGE_SAMPLED_BIT:        u32 = 0x4;
+const VK_IMAGE_USAGE_SAMPLED_BIT: u32 = 0x4;
 const VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT: u32 = 0x10;
-const VK_IMAGE_USAGE_TRANSFER_SRC_BIT:   u32 = 0x4 | 0x1;   // (kept conservative)
+const VK_IMAGE_USAGE_TRANSFER_SRC_BIT: u32 = 0x4 | 0x1; // (kept conservative)
 
 const VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT: u32 = 0x200;
-const VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT:   u32 = 0x1;
+const VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT: u32 = 0x1;
 
 const VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT: u32 = 0x1;
 
 #[repr(C)]
 struct VkApplicationInfo {
-    sType:              i32,
-    pNext:              *const c_void,
-    pApplicationName:   *const c_char,
+    sType: i32,
+    pNext: *const c_void,
+    pApplicationName: *const c_char,
     applicationVersion: u32,
-    pEngineName:        *const c_char,
-    engineVersion:      u32,
-    apiVersion:         u32,
+    pEngineName: *const c_char,
+    engineVersion: u32,
+    apiVersion: u32,
 }
 
 #[repr(C)]
 struct VkInstanceCreateInfo {
-    sType:                   i32,
-    pNext:                   *const c_void,
-    flags:                   u32,
-    pApplicationInfo:        *const VkApplicationInfo,
-    enabledLayerCount:       u32,
-    ppEnabledLayerNames:     *const *const c_char,
-    enabledExtensionCount:   u32,
+    sType: i32,
+    pNext: *const c_void,
+    flags: u32,
+    pApplicationInfo: *const VkApplicationInfo,
+    enabledLayerCount: u32,
+    ppEnabledLayerNames: *const *const c_char,
+    enabledExtensionCount: u32,
     ppEnabledExtensionNames: *const *const c_char,
 }
 
 #[repr(C)]
 struct VkDeviceQueueCreateInfo {
-    sType:            i32,
-    pNext:            *const c_void,
-    flags:            u32,
+    sType: i32,
+    pNext: *const c_void,
+    flags: u32,
     queueFamilyIndex: u32,
-    queueCount:       u32,
+    queueCount: u32,
     pQueuePriorities: *const f32,
 }
 
 #[repr(C)]
 struct VkDeviceCreateInfo {
-    sType:                   i32,
-    pNext:                   *const c_void,
-    flags:                   u32,
-    queueCreateInfoCount:    u32,
-    pQueueCreateInfos:       *const VkDeviceQueueCreateInfo,
-    enabledLayerCount:       u32,
-    ppEnabledLayerNames:     *const *const c_char,
-    enabledExtensionCount:   u32,
+    sType: i32,
+    pNext: *const c_void,
+    flags: u32,
+    queueCreateInfoCount: u32,
+    pQueueCreateInfos: *const VkDeviceQueueCreateInfo,
+    enabledLayerCount: u32,
+    ppEnabledLayerNames: *const *const c_char,
+    enabledExtensionCount: u32,
     ppEnabledExtensionNames: *const *const c_char,
-    pEnabledFeatures:        *const c_void,
+    pEnabledFeatures: *const c_void,
 }
 
 #[repr(C)]
-struct VkExtent3D { width: u32, height: u32, depth: u32 }
+struct VkExtent3D {
+    width: u32,
+    height: u32,
+    depth: u32,
+}
 
 #[repr(C)]
 struct VkImageCreateInfo {
-    sType:            i32,
-    pNext:            *const c_void,
-    flags:            u32,
-    imageType:        u32,
-    format:           u32,
-    extent:           VkExtent3D,
-    mipLevels:        u32,
-    arrayLayers:      u32,
-    samples:          u32,
-    tiling:           u32,
-    usage:            u32,
-    sharingMode:      u32,
+    sType: i32,
+    pNext: *const c_void,
+    flags: u32,
+    imageType: u32,
+    format: u32,
+    extent: VkExtent3D,
+    mipLevels: u32,
+    arrayLayers: u32,
+    samples: u32,
+    tiling: u32,
+    usage: u32,
+    sharingMode: u32,
     queueFamilyIndexCount: u32,
-    pQueueFamilyIndices:   *const u32,
-    initialLayout:    u32,
+    pQueueFamilyIndices: *const u32,
+    initialLayout: u32,
 }
 
 #[repr(C)]
 struct VkExternalMemoryImageCreateInfo {
-    sType:        i32,
-    pNext:        *const c_void,
-    handleTypes:  u32,
+    sType: i32,
+    pNext: *const c_void,
+    handleTypes: u32,
 }
 
 #[repr(C)]
 struct VkMemoryRequirements {
-    size:           VkDeviceSize,
-    alignment:      VkDeviceSize,
+    size: VkDeviceSize,
+    alignment: VkDeviceSize,
     memoryTypeBits: u32,
 }
 
 #[repr(C)]
 struct VkMemoryAllocateInfo {
-    sType:           i32,
-    pNext:           *const c_void,
-    allocationSize:  VkDeviceSize,
+    sType: i32,
+    pNext: *const c_void,
+    allocationSize: VkDeviceSize,
     memoryTypeIndex: u32,
 }
 
 #[repr(C)]
 struct VkExportMemoryAllocateInfo {
-    sType:       i32,
-    pNext:       *const c_void,
+    sType: i32,
+    pNext: *const c_void,
     handleTypes: u32,
 }
 
 #[repr(C)]
 struct VkMemoryDedicatedAllocateInfo {
-    sType:  i32,
-    pNext:  *const c_void,
-    image:  VkImage,
+    sType: i32,
+    pNext: *const c_void,
+    image: VkImage,
     buffer: u64,
 }
 
 #[repr(C)]
 struct VkMemoryGetFdInfoKHR {
-    sType:      i32,
-    pNext:      *const c_void,
-    memory:     VkDeviceMemory,
+    sType: i32,
+    pNext: *const c_void,
+    memory: VkDeviceMemory,
     handleType: u32,
 }
 
 #[repr(C)]
 struct VkPhysicalDeviceMemoryProperties {
     memoryTypeCount: u32,
-    memoryTypes:     [VkMemoryType; 32],
+    memoryTypes: [VkMemoryType; 32],
     memoryHeapCount: u32,
-    memoryHeaps:     [VkMemoryHeap; 16],
+    memoryHeaps: [VkMemoryHeap; 16],
 }
 
-#[repr(C)] #[derive(Copy, Clone)]
-struct VkMemoryType { propertyFlags: u32, heapIndex: u32 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct VkMemoryType {
+    propertyFlags: u32,
+    heapIndex: u32,
+}
 
-#[repr(C)] #[derive(Copy, Clone)]
-struct VkMemoryHeap { size: VkDeviceSize, flags: u32 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct VkMemoryHeap {
+    size: VkDeviceSize,
+    flags: u32,
+}
 
 // --- Function pointer table ---------------------------------------------
 
-type PFN_vkGetInstanceProcAddr = unsafe extern "system" fn(VkInstance, *const c_char) -> *mut c_void;
-type PFN_vkGetDeviceProcAddr   = unsafe extern "system" fn(VkDevice,   *const c_char) -> *mut c_void;
+type PFN_vkGetInstanceProcAddr =
+    unsafe extern "system" fn(VkInstance, *const c_char) -> *mut c_void;
+type PFN_vkGetDeviceProcAddr = unsafe extern "system" fn(VkDevice, *const c_char) -> *mut c_void;
 
 type PFN_vkCreateInstance = unsafe extern "system" fn(
-    *const VkInstanceCreateInfo, *const c_void, *mut VkInstance) -> VkResult;
+    *const VkInstanceCreateInfo,
+    *const c_void,
+    *mut VkInstance,
+) -> VkResult;
 type PFN_vkDestroyInstance = unsafe extern "system" fn(VkInstance, *const c_void);
-type PFN_vkEnumeratePhysicalDevices = unsafe extern "system" fn(
-    VkInstance, *mut u32, *mut VkPhysicalDevice) -> VkResult;
-type PFN_vkGetPhysicalDeviceMemoryProperties = unsafe extern "system" fn(
-    VkPhysicalDevice, *mut VkPhysicalDeviceMemoryProperties);
+type PFN_vkEnumeratePhysicalDevices =
+    unsafe extern "system" fn(VkInstance, *mut u32, *mut VkPhysicalDevice) -> VkResult;
+type PFN_vkGetPhysicalDeviceMemoryProperties =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut VkPhysicalDeviceMemoryProperties);
 type PFN_vkCreateDevice = unsafe extern "system" fn(
-    VkPhysicalDevice, *const VkDeviceCreateInfo, *const c_void, *mut VkDevice) -> VkResult;
+    VkPhysicalDevice,
+    *const VkDeviceCreateInfo,
+    *const c_void,
+    *mut VkDevice,
+) -> VkResult;
 type PFN_vkDestroyDevice = unsafe extern "system" fn(VkDevice, *const c_void);
 type PFN_vkCreateImage = unsafe extern "system" fn(
-    VkDevice, *const VkImageCreateInfo, *const c_void, *mut VkImage) -> VkResult;
+    VkDevice,
+    *const VkImageCreateInfo,
+    *const c_void,
+    *mut VkImage,
+) -> VkResult;
 type PFN_vkDestroyImage = unsafe extern "system" fn(VkDevice, VkImage, *const c_void);
-type PFN_vkGetImageMemoryRequirements = unsafe extern "system" fn(
-    VkDevice, VkImage, *mut VkMemoryRequirements);
+type PFN_vkGetImageMemoryRequirements =
+    unsafe extern "system" fn(VkDevice, VkImage, *mut VkMemoryRequirements);
 type PFN_vkAllocateMemory = unsafe extern "system" fn(
-    VkDevice, *const VkMemoryAllocateInfo, *const c_void, *mut VkDeviceMemory) -> VkResult;
+    VkDevice,
+    *const VkMemoryAllocateInfo,
+    *const c_void,
+    *mut VkDeviceMemory,
+) -> VkResult;
 type PFN_vkFreeMemory = unsafe extern "system" fn(VkDevice, VkDeviceMemory, *const c_void);
-type PFN_vkBindImageMemory = unsafe extern "system" fn(
-    VkDevice, VkImage, VkDeviceMemory, VkDeviceSize) -> VkResult;
-type PFN_vkGetMemoryFdKHR = unsafe extern "system" fn(
-    VkDevice, *const VkMemoryGetFdInfoKHR, *mut i32) -> VkResult;
+type PFN_vkBindImageMemory =
+    unsafe extern "system" fn(VkDevice, VkImage, VkDeviceMemory, VkDeviceSize) -> VkResult;
+type PFN_vkGetMemoryFdKHR =
+    unsafe extern "system" fn(VkDevice, *const VkMemoryGetFdInfoKHR, *mut i32) -> VkResult;
 
 // libc dlopen surface — avoid pulling the `libc` crate just for these.
 const RTLD_NOW: i32 = 2;
@@ -240,18 +268,18 @@ extern "C" {
 // --- Public ---------------------------------------------------------------
 
 pub struct SharedSurface {
-    pub width:  u32,
+    pub width: u32,
     pub height: u32,
-    lib:        *mut c_void,
-    instance:   VkInstance,
-    device:     VkDevice,
-    image:      VkImage,
-    memory:     VkDeviceMemory,
-    fd:         i32,
+    lib: *mut c_void,
+    instance: VkInstance,
+    device: VkDevice,
+    image: VkImage,
+    memory: VkDeviceMemory,
+    fd: i32,
     /// Cached destroy callbacks so Drop doesn't have to re-load them.
-    destroy_image:    PFN_vkDestroyImage,
-    free_memory:      PFN_vkFreeMemory,
-    destroy_device:   PFN_vkDestroyDevice,
+    destroy_image: PFN_vkDestroyImage,
+    free_memory: PFN_vkFreeMemory,
+    destroy_device: PFN_vkDestroyDevice,
     destroy_instance: PFN_vkDestroyInstance,
 }
 
@@ -263,19 +291,33 @@ impl SharedSurface {
         unsafe { try_allocate(width, height) }
     }
 
-    pub fn width(&self)  -> u32 { self.width }
-    pub fn height(&self) -> u32 { self.height }
-    pub fn fd(&self)     -> i32 { self.fd }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+    pub fn fd(&self) -> i32 {
+        self.fd
+    }
 
-    pub fn vk_image(&self)  -> VkImage        { self.image }
-    pub fn vk_memory(&self) -> VkDeviceMemory { self.memory }
-    pub fn vk_device(&self) -> VkDevice       { self.device }
+    pub fn vk_image(&self) -> VkImage {
+        self.image
+    }
+    pub fn vk_memory(&self) -> VkDeviceMemory {
+        self.memory
+    }
+    pub fn vk_device(&self) -> VkDevice {
+        self.device
+    }
 }
 
 impl Drop for SharedSurface {
     fn drop(&mut self) {
         unsafe {
-            if self.fd >= 0 { close(self.fd); }
+            if self.fd >= 0 {
+                close(self.fd);
+            }
             if self.image != 0 && !self.device.is_null() {
                 (self.destroy_image)(self.device, self.image, ptr::null());
             }
@@ -295,18 +337,21 @@ impl Drop for SharedSurface {
     }
 }
 
-pub fn is_supported() -> bool { true }
+pub fn is_supported() -> bool {
+    true
+}
 
 // --- Implementation -------------------------------------------------------
 
 unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
     // 1. dlopen + vkGetInstanceProcAddr.
     let lib = dlopen(c_str("libvulkan.so.1"), RTLD_NOW);
-    if lib.is_null() { return None; }
+    if lib.is_null() {
+        return None;
+    }
     let get_ipa: PFN_vkGetInstanceProcAddr = transmute_sym(lib, "vkGetInstanceProcAddr")?;
 
-    let create_instance: PFN_vkCreateInstance =
-        load_global(get_ipa, "vkCreateInstance")?;
+    let create_instance: PFN_vkCreateInstance = load_global(get_ipa, "vkCreateInstance")?;
 
     // 2. Create instance.
     let app = VkApplicationInfo {
@@ -345,8 +390,7 @@ unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
         load_instance(get_ipa, instance, "vkEnumeratePhysicalDevices")?;
     let get_mem_props: PFN_vkGetPhysicalDeviceMemoryProperties =
         load_instance(get_ipa, instance, "vkGetPhysicalDeviceMemoryProperties")?;
-    let create_device: PFN_vkCreateDevice =
-        load_instance(get_ipa, instance, "vkCreateDevice")?;
+    let create_device: PFN_vkCreateDevice = load_instance(get_ipa, instance, "vkCreateDevice")?;
 
     // 3. Pick a physical device.
     let mut count: u32 = 0;
@@ -373,9 +417,9 @@ unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
         queueCount: 1,
         pQueuePriorities: &queue_prio,
     };
-    let ext_em   = c_str("VK_KHR_external_memory");
+    let ext_em = c_str("VK_KHR_external_memory");
     let ext_emfd = c_str("VK_KHR_external_memory_fd");
-    let ext_dma  = c_str("VK_EXT_external_memory_dma_buf");
+    let ext_dma = c_str("VK_EXT_external_memory_dma_buf");
     let dev_exts = [ext_em, ext_emfd, ext_dma];
     let dev_ci = VkDeviceCreateInfo {
         sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -396,24 +440,16 @@ unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
         return None;
     }
 
-    let get_dpa: PFN_vkGetDeviceProcAddr =
-        load_instance(get_ipa, instance, "vkGetDeviceProcAddr")?;
-    let destroy_device: PFN_vkDestroyDevice =
-        load_device(get_dpa, device, "vkDestroyDevice")?;
-    let create_image: PFN_vkCreateImage =
-        load_device(get_dpa, device, "vkCreateImage")?;
-    let destroy_image: PFN_vkDestroyImage =
-        load_device(get_dpa, device, "vkDestroyImage")?;
+    let get_dpa: PFN_vkGetDeviceProcAddr = load_instance(get_ipa, instance, "vkGetDeviceProcAddr")?;
+    let destroy_device: PFN_vkDestroyDevice = load_device(get_dpa, device, "vkDestroyDevice")?;
+    let create_image: PFN_vkCreateImage = load_device(get_dpa, device, "vkCreateImage")?;
+    let destroy_image: PFN_vkDestroyImage = load_device(get_dpa, device, "vkDestroyImage")?;
     let get_image_mem_req: PFN_vkGetImageMemoryRequirements =
         load_device(get_dpa, device, "vkGetImageMemoryRequirements")?;
-    let alloc_mem: PFN_vkAllocateMemory =
-        load_device(get_dpa, device, "vkAllocateMemory")?;
-    let free_mem: PFN_vkFreeMemory =
-        load_device(get_dpa, device, "vkFreeMemory")?;
-    let bind_image_mem: PFN_vkBindImageMemory =
-        load_device(get_dpa, device, "vkBindImageMemory")?;
-    let get_mem_fd: PFN_vkGetMemoryFdKHR =
-        load_device(get_dpa, device, "vkGetMemoryFdKHR")?;
+    let alloc_mem: PFN_vkAllocateMemory = load_device(get_dpa, device, "vkAllocateMemory")?;
+    let free_mem: PFN_vkFreeMemory = load_device(get_dpa, device, "vkFreeMemory")?;
+    let bind_image_mem: PFN_vkBindImageMemory = load_device(get_dpa, device, "vkBindImageMemory")?;
+    let get_mem_fd: PFN_vkGetMemoryFdKHR = load_device(get_dpa, device, "vkGetMemoryFdKHR")?;
 
     // 5. Create image with external-memory extension struct chained in pNext.
     let ext_image_ci = VkExternalMemoryImageCreateInfo {
@@ -427,12 +463,16 @@ unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
         flags: 0,
         imageType: VK_IMAGE_TYPE_2D,
         format: VK_FORMAT_B8G8R8A8_UNORM,
-        extent: VkExtent3D { width, height, depth: 1 },
+        extent: VkExtent3D {
+            width,
+            height,
+            depth: 1,
+        },
         mipLevels: 1,
         arrayLayers: 1,
         samples: VK_SAMPLE_COUNT_1_BIT,
         tiling: VK_IMAGE_TILING_OPTIMAL,
-        usage:  VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        usage: VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
         sharingMode: VK_SHARING_MODE_EXCLUSIVE,
         queueFamilyIndexCount: 0,
         pQueueFamilyIndices: ptr::null(),
@@ -449,15 +489,19 @@ unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
     // 6. Allocate memory: dedicated + exportable as dma-buf.
     let mut req: VkMemoryRequirements = std::mem::zeroed();
     get_image_mem_req(device, image, &mut req);
-    let type_idx = pick_memory_type(&mem_props, req.memoryTypeBits,
-                                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-        .unwrap_or(0);
+    let type_idx = pick_memory_type(
+        &mem_props,
+        req.memoryTypeBits,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    )
+    .unwrap_or(0);
 
     // pNext chain: dedicated -> export -> null.
     let dedicated = VkMemoryDedicatedAllocateInfo {
         sType: VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
         pNext: ptr::null(),
-        image, buffer: 0,
+        image,
+        buffer: 0,
     };
     let export = VkExportMemoryAllocateInfo {
         sType: VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
@@ -506,17 +550,30 @@ unsafe fn try_allocate(width: u32, height: u32) -> Option<SharedSurface> {
     }
 
     Some(SharedSurface {
-        width, height,
-        lib, instance, device, image, memory, fd,
-        destroy_image, free_memory: free_mem,
-        destroy_device, destroy_instance,
+        width,
+        height,
+        lib,
+        instance,
+        device,
+        image,
+        memory,
+        fd,
+        destroy_image,
+        free_memory: free_mem,
+        destroy_device,
+        destroy_instance,
     })
 }
 
-fn pick_memory_type(props: &VkPhysicalDeviceMemoryProperties,
-                    type_bits: u32, required_flags: u32) -> Option<u32> {
+fn pick_memory_type(
+    props: &VkPhysicalDeviceMemoryProperties,
+    type_bits: u32,
+    required_flags: u32,
+) -> Option<u32> {
     for i in 0..props.memoryTypeCount {
-        if (type_bits & (1u32 << i)) == 0 { continue; }
+        if (type_bits & (1u32 << i)) == 0 {
+            continue;
+        }
         let mt = props.memoryTypes[i as usize];
         if (mt.propertyFlags & required_flags) == required_flags {
             return Some(i);
@@ -524,7 +581,9 @@ fn pick_memory_type(props: &VkPhysicalDeviceMemoryProperties,
     }
     // Fallback: any matching type, ignore required flags.
     for i in 0..props.memoryTypeCount {
-        if (type_bits & (1u32 << i)) != 0 { return Some(i); }
+        if (type_bits & (1u32 << i)) != 0 {
+            return Some(i);
+        }
     }
     None
 }
@@ -538,25 +597,43 @@ unsafe fn c_str(s: &str) -> *const c_char {
 unsafe fn transmute_sym<T>(lib: *mut c_void, name: &str) -> Option<T> {
     let cs = CString::new(name).ok()?;
     let p = dlsym(lib, cs.as_ptr());
-    if p.is_null() { None } else { Some(std::mem::transmute_copy(&p)) }
+    if p.is_null() {
+        None
+    } else {
+        Some(std::mem::transmute_copy(&p))
+    }
 }
 
 unsafe fn load_global<T>(ipa: PFN_vkGetInstanceProcAddr, name: &str) -> Option<T> {
     let cs = CString::new(name).ok()?;
     let p = ipa(ptr::null_mut(), cs.as_ptr());
-    if p.is_null() { None } else { Some(std::mem::transmute_copy(&p)) }
+    if p.is_null() {
+        None
+    } else {
+        Some(std::mem::transmute_copy(&p))
+    }
 }
 
-unsafe fn load_instance<T>(ipa: PFN_vkGetInstanceProcAddr,
-                            inst: VkInstance, name: &str) -> Option<T> {
+unsafe fn load_instance<T>(
+    ipa: PFN_vkGetInstanceProcAddr,
+    inst: VkInstance,
+    name: &str,
+) -> Option<T> {
     let cs = CString::new(name).ok()?;
     let p = ipa(inst, cs.as_ptr());
-    if p.is_null() { None } else { Some(std::mem::transmute_copy(&p)) }
+    if p.is_null() {
+        None
+    } else {
+        Some(std::mem::transmute_copy(&p))
+    }
 }
 
-unsafe fn load_device<T>(dpa: PFN_vkGetDeviceProcAddr,
-                          dev: VkDevice, name: &str) -> Option<T> {
+unsafe fn load_device<T>(dpa: PFN_vkGetDeviceProcAddr, dev: VkDevice, name: &str) -> Option<T> {
     let cs = CString::new(name).ok()?;
     let p = dpa(dev, cs.as_ptr());
-    if p.is_null() { None } else { Some(std::mem::transmute_copy(&p)) }
+    if p.is_null() {
+        None
+    } else {
+        Some(std::mem::transmute_copy(&p))
+    }
 }

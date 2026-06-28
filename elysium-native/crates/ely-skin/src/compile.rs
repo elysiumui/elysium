@@ -21,17 +21,40 @@ pub fn compile(doc: &Document, surface_w: u32, surface_h: u32) -> DisplayList {
     // The render thread auto-clears the SkiaLayer to (0,0,0,0) each
     // frame so standalone skins still get a clean slate.
     let bg_color_u8 = doc.root.background.as_ref().and_then(parse_color_as_u8);
-    let scene_w = doc.root.size.as_ref().map(|s| s.w).unwrap_or(surface_w as f32);
-    let scene_h = doc.root.size.as_ref().map(|s| s.h).unwrap_or(surface_h as f32);
+    let scene_w = doc
+        .root
+        .size
+        .as_ref()
+        .map(|s| s.w)
+        .unwrap_or(surface_w as f32);
+    let scene_h = doc
+        .root
+        .size
+        .as_ref()
+        .map(|s| s.h)
+        .unwrap_or(surface_h as f32);
     if let Some(bg) = bg_color_u8 {
-        let d = format!("M 0 0 L {sw} 0 L {sw} {sh} L 0 {sh} Z",
-                        sw = scene_w, sh = scene_h);
+        let d = format!(
+            "M 0 0 L {sw} 0 L {sw} {sh} L 0 {sh} Z",
+            sw = scene_w,
+            sh = scene_h
+        );
         commands.push(DrawCommand::FillPath { d, color: bg });
     }
 
-    walk_node(&doc.root, surface_w as f32, surface_h as f32, 0.0, 0.0, &mut commands);
+    walk_node(
+        &doc.root,
+        surface_w as f32,
+        surface_h as f32,
+        0.0,
+        0.0,
+        &mut commands,
+    );
 
-    DisplayList { commands, frame_index: 0 }
+    DisplayList {
+        commands,
+        frame_index: 0,
+    }
 }
 
 fn parse_color_as_u8(v: &Value) -> Option<[u8; 4]> {
@@ -50,7 +73,7 @@ fn walk_node(node: &Node, sw: f32, sh: f32, ox: f32, oy: f32, out: &mut Vec<Draw
     let mut ty = oy;
     let mut pushed = false;
     if let Some(t) = node.transform {
-        let has_rot   = t.rotation.abs() > 1e-4;
+        let has_rot = t.rotation.abs() > 1e-4;
         let has_scale = (t.scale[0] - 1.0).abs() > 1e-4 || (t.scale[1] - 1.0).abs() > 1e-4;
         if has_rot || has_scale {
             out.push(DrawCommand::PushTransform {
@@ -77,15 +100,20 @@ fn walk_node(node: &Node, sw: f32, sh: f32, ox: f32, oy: f32, out: &mut Vec<Draw
         NodeKind::Path => {
             if let Some(d) = &node.d {
                 let p = ElyPath::from_svg(d);
-                emit_path(&p, tx, ty, node.fill.as_ref(),
-                            node.effects.as_slice(), out, d);
+                emit_path(
+                    &p,
+                    tx,
+                    ty,
+                    node.fill.as_ref(),
+                    node.effects.as_slice(),
+                    out,
+                    d,
+                );
             }
         }
         NodeKind::Image => {
             if let Some(src) = &node.src {
-                let bbox = node.d.as_ref()
-                    .map(|d| ElyPath::from_svg(d).bounds())
-                    .flatten();
+                let bbox = node.d.as_ref().and_then(|d| ElyPath::from_svg(d).bounds());
                 let (x, y, w, h) = if let Some(b) = bbox {
                     (b.x + tx, b.y + ty, b.w, b.h)
                 } else {
@@ -100,7 +128,9 @@ fn walk_node(node: &Node, sw: f32, sh: f32, ox: f32, oy: f32, out: &mut Vec<Draw
         NodeKind::Text => {
             if let Some(text) = &node.text {
                 let size = node.font_size.unwrap_or(14.0);
-                let color = node.color.as_deref()
+                let color = node
+                    .color
+                    .as_deref()
                     .and_then(parse_hex)
                     .unwrap_or([0x18, 0x1A, 0x2C, 0xFF]);
                 // Honour the node's own x/y (the public schema's
@@ -109,7 +139,10 @@ fn walk_node(node: &Node, sw: f32, sh: f32, ox: f32, oy: f32, out: &mut Vec<Draw
                 let y = ty + node.y.unwrap_or(0.0);
                 out.push(DrawCommand::DrawText {
                     text: text.clone(),
-                    x, y, size, color,
+                    x,
+                    y,
+                    size,
+                    color,
                 });
             }
         }
@@ -138,7 +171,9 @@ fn emit_path(
     out: &mut Vec<DrawCommand>,
     svg_d: &str,
 ) {
-    let Some(bbox) = path.bounds() else { return; };
+    let Some(bbox) = path.bounds() else {
+        return;
+    };
     let (mut sx, mut sy) = (bbox.x + tx, bbox.y + ty);
     let (mut w, mut h) = (bbox.w, bbox.h);
 
@@ -153,19 +188,26 @@ fn emit_path(
     let (start_c, end_c, single_c) = parse_fill_colors(fill);
     let shadow = effects.iter().find_map(parse_shadow);
 
-    if start_c.is_some() && end_c.is_some() {
+    if let (Some(start_color), Some(end_color)) = (start_c, end_c) {
         // Linear gradient. GradientCard (rounded-rect approximation) is
         // the only shader we have for now; non-rect gradient shapes
         // still render as bbox cards. Acceptable for the existing
         // demo skins which use gradients only on cards / round play
         // buttons (where the bbox+radius approximation is correct).
-        let (shadow_blur, shadow_offset, shadow_color) = shadow.unwrap_or((0.0, [0.0, 0.0], [0,0,0,0]));
-        if let Some(extra) = shadow_extra_pad(&shadow) { sx -= extra; sy -= extra; w += 2.0 * extra; h += 2.0 * extra; let _ = (sx, sy, w, h); }
+        let (shadow_blur, shadow_offset, shadow_color) =
+            shadow.unwrap_or((0.0, [0.0, 0.0], [0, 0, 0, 0]));
+        if let Some(extra) = shadow_extra_pad(&shadow) {
+            sx -= extra;
+            sy -= extra;
+            w += 2.0 * extra;
+            h += 2.0 * extra;
+            let _ = (sx, sy, w, h);
+        }
         out.push(DrawCommand::GradientCard {
             bounds: [bbox.x + tx, bbox.y + ty, bbox.w, bbox.h],
             corner_radius,
-            start_color: start_c.unwrap(),
-            end_color:   end_c.unwrap(),
+            start_color,
+            end_color,
             shadow_blur,
             shadow_offset,
             shadow_color,
@@ -175,12 +217,13 @@ fn emit_path(
             // Fast path: rounded rect with a solid fill. Uses Skia's
             // RRect — visually identical to a path-fill but cheaper
             // and preserves the shadow-blur knob via GradientCard.
-            let (shadow_blur, shadow_offset, shadow_color) = shadow.unwrap_or((0.0, [0.0, 0.0], [0,0,0,0]));
+            let (shadow_blur, shadow_offset, shadow_color) =
+                shadow.unwrap_or((0.0, [0.0, 0.0], [0, 0, 0, 0]));
             out.push(DrawCommand::GradientCard {
                 bounds: [bbox.x + tx, bbox.y + ty, bbox.w, bbox.h],
                 corner_radius,
                 start_color: c,
-                end_color:   c,
+                end_color: c,
                 shadow_blur,
                 shadow_offset,
                 shadow_color,
@@ -195,11 +238,13 @@ fn emit_path(
             } else {
                 translate_svg_path(svg_d, tx, ty)
             };
-            out.push(DrawCommand::FillPath { d: shifted, color: c });
+            out.push(DrawCommand::FillPath {
+                d: shifted,
+                color: c,
+            });
         }
     }
 }
-
 
 /// True when the path is shaped like the Designer's / Phase-0 hand-
 /// authored skins' rounded rectangle:
@@ -212,16 +257,15 @@ fn looks_like_rounded_rect(verbs: &[PathVerb]) -> bool {
     let mut others = 0;
     for v in verbs {
         match v {
-            PathVerb::MoveTo(_)    => {},
-            PathVerb::LineTo(_)    => lines += 1,
+            PathVerb::MoveTo(_) => {}
+            PathVerb::LineTo(_) => lines += 1,
             PathVerb::QuadTo(_, _) => quads += 1,
-            PathVerb::Close        => {},
-            PathVerb::CubicTo(..)  => others += 1,
+            PathVerb::Close => {}
+            PathVerb::CubicTo(..) => others += 1,
         }
     }
     others == 0 && quads == 4 && (lines == 3 || lines == 4)
 }
-
 
 /// Translate every coordinate in an SVG path-d by (dx, dy). Used for
 /// path fills nested under a `transform.x/y` offset so the path's
@@ -243,10 +287,18 @@ fn translate_svg_path(d: &str, dx: f32, dy: f32) -> String {
                 let cy: f32 = tokens.next().and_then(|t| t.parse().ok()).unwrap_or(0.0);
                 let ex: f32 = tokens.next().and_then(|t| t.parse().ok()).unwrap_or(0.0);
                 let ey: f32 = tokens.next().and_then(|t| t.parse().ok()).unwrap_or(0.0);
-                out.push_str(&format!("Q {} {} {} {} ", cx + dx, cy + dy, ex + dx, ey + dy));
+                out.push_str(&format!(
+                    "Q {} {} {} {} ",
+                    cx + dx,
+                    cy + dy,
+                    ex + dx,
+                    ey + dy
+                ));
             }
             "Z" | "z" => out.push_str("Z "),
-            other => { let _ = other; }
+            other => {
+                let _ = other;
+            }
         }
     }
     out
@@ -266,7 +318,9 @@ fn detect_corner_radius(verbs: &[PathVerb]) -> Option<f32> {
     let mut last = None;
     for v in verbs {
         match v {
-            PathVerb::MoveTo(p) | PathVerb::LineTo(p) => { last = Some(*p); }
+            PathVerb::MoveTo(p) | PathVerb::LineTo(p) => {
+                last = Some(*p);
+            }
             PathVerb::QuadTo(c, e) => {
                 if let Some(l) = last {
                     let dx = (c.x - l.x).abs();
@@ -282,12 +336,16 @@ fn detect_corner_radius(verbs: &[PathVerb]) -> Option<f32> {
     None
 }
 
+#[allow(clippy::type_complexity)] // (start, end, single) gradient stops
 fn parse_fill_colors(fill: Option<&Value>) -> (Option<[u8; 4]>, Option<[u8; 4]>, Option<[u8; 4]>) {
-    let Some(fill) = fill else { return (None, None, None); };
+    let Some(fill) = fill else {
+        return (None, None, None);
+    };
     let ty = fill.get("type").and_then(|v| v.as_str()).unwrap_or("");
     match ty {
         "color" => {
-            let c = fill.get("value")
+            let c = fill
+                .get("value")
                 .and_then(|v| v.as_str())
                 .and_then(parse_hex);
             (None, None, c)
@@ -299,25 +357,35 @@ fn parse_fill_colors(fill: Option<&Value>) -> (Option<[u8; 4]>, Option<[u8; 4]>,
             if let Some(stops) = stops {
                 for s in stops.iter() {
                     let arr = s.as_array();
-                    let Some(arr) = arr else { continue; };
-                    if arr.len() < 2 { continue; }
+                    let Some(arr) = arr else {
+                        continue;
+                    };
+                    if arr.len() < 2 {
+                        continue;
+                    }
                     let t = arr[0].as_f64().unwrap_or(0.0);
                     let c = arr[1].as_str().and_then(parse_hex);
                     if let Some(c) = c {
-                        if t <= 0.001 { start = Some(c); }
-                        if t >= 0.999 { end = Some(c); }
+                        if t <= 0.001 {
+                            start = Some(c);
+                        }
+                        if t >= 0.999 {
+                            end = Some(c);
+                        }
                     }
                 }
             }
             if start.is_none() {
-                start = stops.and_then(|s| s.first())
+                start = stops
+                    .and_then(|s| s.first())
                     .and_then(|s| s.as_array())
                     .and_then(|a| a.get(1))
                     .and_then(|v| v.as_str())
                     .and_then(parse_hex);
             }
             if end.is_none() {
-                end = stops.and_then(|s| s.last())
+                end = stops
+                    .and_then(|s| s.last())
                     .and_then(|s| s.as_array())
                     .and_then(|a| a.get(1))
                     .and_then(|v| v.as_str())
@@ -331,15 +399,25 @@ fn parse_fill_colors(fill: Option<&Value>) -> (Option<[u8; 4]>, Option<[u8; 4]>,
 
 fn parse_shadow(effect: &Value) -> Option<(f32, [f32; 2], [u8; 4])> {
     let ty = effect.get("type").and_then(|v| v.as_str())?;
-    if ty != "outer_shadow" { return None; }
-    let blur   = effect.get("blur").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
-    let offset = effect.get("offset").and_then(|v| v.as_array()).map(|a| {
-        [
-            a.get(0).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-            a.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
-        ]
-    }).unwrap_or([0.0, 0.0]);
-    let color  = effect.get("color").and_then(|v| v.as_str()).and_then(parse_hex).unwrap_or([0,0,0,0x7F]);
+    if ty != "outer_shadow" {
+        return None;
+    }
+    let blur = effect.get("blur").and_then(|v| v.as_f64()).unwrap_or(0.0) as f32;
+    let offset = effect
+        .get("offset")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            [
+                a.first().and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+                a.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0) as f32,
+            ]
+        })
+        .unwrap_or([0.0, 0.0]);
+    let color = effect
+        .get("color")
+        .and_then(|v| v.as_str())
+        .and_then(parse_hex)
+        .unwrap_or([0, 0, 0, 0x7F]);
     Some((blur, offset, color))
 }
 
@@ -347,6 +425,7 @@ fn shadow_extra_pad(s: &Option<(f32, [f32; 2], [u8; 4])>) -> Option<f32> {
     s.as_ref().map(|s| s.0 * 0.0) // currently unused; reserved for tight-bbox compensation
 }
 
+#[allow(dead_code)] // kept for the upcoming f32-color shader path
 fn parse_color_as_f4(v: &Value) -> Option<[f32; 4]> {
     if v.get("type").and_then(|t| t.as_str()) == Some("color") {
         let hex = v.get("value").and_then(|v| v.as_str())?;
@@ -376,9 +455,14 @@ fn parse_hex(s: &str) -> Option<[u8; 4]> {
     };
     let b = s.as_bytes();
     match b.len() {
-        6 => Some([h(b[0],b[1])?, h(b[2],b[3])?, h(b[4],b[5])?, 0xFF]),
-        8 => Some([h(b[0],b[1])?, h(b[2],b[3])?, h(b[4],b[5])?, h(b[6],b[7])?]),
-        3 => Some([h(b[0],b[0])?, h(b[1],b[1])?, h(b[2],b[2])?, 0xFF]),
+        6 => Some([h(b[0], b[1])?, h(b[2], b[3])?, h(b[4], b[5])?, 0xFF]),
+        8 => Some([
+            h(b[0], b[1])?,
+            h(b[2], b[3])?,
+            h(b[4], b[5])?,
+            h(b[6], b[7])?,
+        ]),
+        3 => Some([h(b[0], b[0])?, h(b[1], b[1])?, h(b[2], b[2])?, 0xFF]),
         _ => None,
     }
 }
@@ -391,7 +475,8 @@ mod tests {
     #[test]
     fn compiles_hello_skin_to_display_list() {
         let Some(path) = _test_hello_skin_path() else {
-            eprintln!("skipping: hello.esk not located"); return;
+            eprintln!("skipping: hello.esk not located");
+            return;
         };
         let skin = load(&path).unwrap();
         let dl = compile(&skin.document, 480, 320);
@@ -399,16 +484,28 @@ mod tests {
         // card + button label = 4 commands (no scene background fill).
         assert!(dl.commands.len() >= 3, "got {:?}", dl.commands);
         // At least one GradientCard (the rounded card and/or the button).
-        let card_count = dl.commands.iter().filter(|c| matches!(c, DrawCommand::GradientCard { .. })).count();
-        assert!(card_count >= 2, "expected ≥2 cards (card + button), got {card_count}");
+        let card_count = dl
+            .commands
+            .iter()
+            .filter(|c| matches!(c, DrawCommand::GradientCard { .. }))
+            .count();
+        assert!(
+            card_count >= 2,
+            "expected ≥2 cards (card + button), got {card_count}"
+        );
         // At least one text node (either the greeting or the button label).
-        let text_count = dl.commands.iter().filter(|c| matches!(c, DrawCommand::DrawText { .. })).count();
+        let text_count = dl
+            .commands
+            .iter()
+            .filter(|c| matches!(c, DrawCommand::DrawText { .. }))
+            .count();
         assert!(text_count >= 1, "expected ≥1 text, got {text_count}");
     }
 
     #[test]
     fn parses_color_fill() {
-        let v: Value = serde_json::from_str(r##"{ "type": "color", "value": "#5B3FF5" }"##).unwrap();
+        let v: Value =
+            serde_json::from_str(r##"{ "type": "color", "value": "#5B3FF5" }"##).unwrap();
         let (s, e, c) = parse_fill_colors(Some(&v));
         assert!(s.is_none() && e.is_none() && c.is_some());
     }
@@ -416,8 +513,9 @@ mod tests {
     #[test]
     fn parses_linear_gradient_fill() {
         let v: Value = serde_json::from_str(
-            r##"{"type":"linear_gradient","stops":[[0.0,"#5B3FF5"],[1.0,"#FF5C8A"]]}"##
-        ).unwrap();
+            r##"{"type":"linear_gradient","stops":[[0.0,"#5B3FF5"],[1.0,"#FF5C8A"]]}"##,
+        )
+        .unwrap();
         let (s, e, _) = parse_fill_colors(Some(&v));
         assert_eq!(s.unwrap(), [0x5B, 0x3F, 0xF5, 0xFF]);
         assert_eq!(e.unwrap(), [0xFF, 0x5C, 0x8A, 0xFF]);

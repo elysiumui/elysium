@@ -7,8 +7,8 @@
 
 use parking_lot::RwLock;
 use skia_safe::{
-    gradient_shader, paint::Style, BlurStyle, Color, Color4f, ImageInfo, MaskFilter, Paint,
-    Point, RRect, Rect, RuntimeEffect, SamplingOptions, Surface, TileMode,
+    gradient_shader, paint::Style, BlurStyle, Color, Color4f, ImageInfo, MaskFilter, Paint, Point,
+    RRect, Rect, RuntimeEffect, SamplingOptions, Surface, TileMode,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -126,7 +126,8 @@ fn default_font(size: f32) -> skia_safe::Font {
     } else {
         // Last resort: pull whatever the platform serves as a fallback.
         // If that also fails the caller's text just won't render.
-        let tf = mgr.match_family_style("", skia_safe::FontStyle::normal())
+        let tf = mgr
+            .match_family_style("", skia_safe::FontStyle::normal())
             .expect("no usable typeface available");
         skia_safe::Font::new(tf, size)
     }
@@ -154,19 +155,31 @@ impl SkiaLayer {
     /// Variant that lets the caller share a texture cache across
     /// multiple SkiaLayers (e.g., main render thread + offscreen
     /// thumbnailer / snapshot writer).
+    // The caches are Arc-wrapped for cheap sharing within the render thread;
+    // SkiaLayer is single-threaded (!Send) so Send+Sync isn't required.
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn with_cache(width: u32, height: u32, textures: Arc<TextureCache>) -> Self {
         let surface = skia_safe::surfaces::raster_n32_premul((width as i32, height as i32))
             .expect("SkSurface raster_n32_premul failed");
         let row_bytes = (width as usize) * 4;
         let pixels = vec![0u8; row_bytes * height as usize];
         Self {
-            surface, pixels, width, height, row_bytes, textures,
+            surface,
+            pixels,
+            width,
+            height,
+            row_bytes,
+            textures,
             effects: Arc::new(EffectCache::default()),
         }
     }
 
-    pub fn texture_cache(&self) -> Arc<TextureCache> { self.textures.clone() }
-    pub fn effect_cache(&self)  -> Arc<EffectCache>  { self.effects.clone() }
+    pub fn texture_cache(&self) -> Arc<TextureCache> {
+        self.textures.clone()
+    }
+    pub fn effect_cache(&self) -> Arc<EffectCache> {
+        self.effects.clone()
+    }
 
     /// Apply a compiled SkSL effect over a rounded-rect region.
     /// `uniforms` is little-endian f32 bytes laid out in the order the
@@ -178,9 +191,13 @@ impl SkiaLayer {
         corner_radius: f32,
         uniforms: &[u8],
     ) -> bool {
-        let Some(effect) = self.effects.get_or_compile(src) else { return false; };
+        let Some(effect) = self.effects.get_or_compile(src) else {
+            return false;
+        };
         let data = skia_safe::Data::new_copy(uniforms);
-        let Some(shader) = effect.make_shader(data, &[], None) else { return false; };
+        let Some(shader) = effect.make_shader(data, &[], None) else {
+            return false;
+        };
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
         paint.set_shader(shader);
@@ -190,8 +207,12 @@ impl SkiaLayer {
         true
     }
 
-    pub fn size(&self) -> (u32, u32) { (self.width, self.height) }
-    pub fn row_bytes(&self) -> u32 { self.row_bytes as u32 }
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+    pub fn row_bytes(&self) -> u32 {
+        self.row_bytes as u32
+    }
 
     pub fn clear(&mut self, color: [f32; 4]) {
         let c = Color4f::new(color[0], color[1], color[2], color[3]);
@@ -216,12 +237,13 @@ impl SkiaLayer {
     /// tightly-packed BGRA8 (row stride = `w*4`). Returns false if the
     /// region is out of range or the read fails. Used to upload only the
     /// damaged region to the GPU.
-    pub fn snapshot_region_bgra(
-        &mut self, x: u32, y: u32, w: u32, h: u32, dst: &mut [u8],
-    ) -> bool {
-        if w == 0 || h == 0
-            || x + w > self.width || y + h > self.height
-            || dst.len() < (w as usize) * (h as usize) * 4 {
+    pub fn snapshot_region_bgra(&mut self, x: u32, y: u32, w: u32, h: u32, dst: &mut [u8]) -> bool {
+        if w == 0
+            || h == 0
+            || x + w > self.width
+            || y + h > self.height
+            || dst.len() < (w as usize) * (h as usize) * 4
+        {
             return false;
         }
         let info = ImageInfo::new(
@@ -251,18 +273,36 @@ impl SkiaLayer {
         let mut shadow_paint = Paint::default();
         shadow_paint.set_anti_alias(true);
         shadow_paint.set_color(Color::from_argb(
-            shadow_color[3], shadow_color[0], shadow_color[1], shadow_color[2],
+            shadow_color[3],
+            shadow_color[0],
+            shadow_color[1],
+            shadow_color[2],
         ));
-        shadow_paint.set_mask_filter(MaskFilter::blur(BlurStyle::Normal, shadow_blur * 0.5, false));
+        shadow_paint.set_mask_filter(MaskFilter::blur(
+            BlurStyle::Normal,
+            shadow_blur * 0.5,
+            false,
+        ));
         let shadow_rect = RRect::new_rect_xy(
             Rect::from_xywh(x + shadow_offset.0, y + shadow_offset.1, w, h),
-            corner_radius, corner_radius,
+            corner_radius,
+            corner_radius,
         );
         canvas.draw_rrect(shadow_rect, &shadow_paint);
 
         let colors = [
-            Color::from_argb(gradient[0].1[3], gradient[0].1[0], gradient[0].1[1], gradient[0].1[2]),
-            Color::from_argb(gradient[1].1[3], gradient[1].1[0], gradient[1].1[1], gradient[1].1[2]),
+            Color::from_argb(
+                gradient[0].1[3],
+                gradient[0].1[0],
+                gradient[0].1[1],
+                gradient[0].1[2],
+            ),
+            Color::from_argb(
+                gradient[1].1[3],
+                gradient[1].1[0],
+                gradient[1].1[1],
+                gradient[1].1[2],
+            ),
         ];
         let stops = [gradient[0].0, gradient[1].0];
         let p1 = Point::new(x, y);
@@ -292,7 +332,9 @@ impl SkiaLayer {
     /// Solid-color fill of an SVG path. Used by the butterfly demo and
     /// any caller building custom geometry from Python.
     pub fn fill_path_solid(&mut self, svg_d: &str, color: [u8; 4]) {
-        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else { return; };
+        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else {
+            return;
+        };
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
         paint.set_color(Color::from_argb(color[3], color[0], color[1], color[2]));
@@ -306,19 +348,27 @@ impl SkiaLayer {
         p1: (f32, f32),
         p2: (f32, f32),
         start_color: [u8; 4],
-        end_color:   [u8; 4],
+        end_color: [u8; 4],
     ) {
-        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else { return; };
+        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else {
+            return;
+        };
         let colors = [
-            Color::from_argb(start_color[3], start_color[0], start_color[1], start_color[2]),
-            Color::from_argb(end_color[3],   end_color[0],   end_color[1],   end_color[2]),
+            Color::from_argb(
+                start_color[3],
+                start_color[0],
+                start_color[1],
+                start_color[2],
+            ),
+            Color::from_argb(end_color[3], end_color[0], end_color[1], end_color[2]),
         ];
         let shader = gradient_shader::linear(
             (Point::new(p1.0, p1.1), Point::new(p2.0, p2.1)),
             gradient_shader::GradientShaderColors::Colors(&colors),
             None,
             TileMode::Clamp,
-            None, None,
+            None,
+            None,
         );
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
@@ -335,19 +385,28 @@ impl SkiaLayer {
         center: (f32, f32),
         radius: f32,
         start_color: [u8; 4],
-        end_color:   [u8; 4],
+        end_color: [u8; 4],
     ) {
-        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else { return; };
+        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else {
+            return;
+        };
         let colors = [
-            Color::from_argb(start_color[3], start_color[0], start_color[1], start_color[2]),
-            Color::from_argb(end_color[3],   end_color[0],   end_color[1],   end_color[2]),
+            Color::from_argb(
+                start_color[3],
+                start_color[0],
+                start_color[1],
+                start_color[2],
+            ),
+            Color::from_argb(end_color[3], end_color[0], end_color[1], end_color[2]),
         ];
         let shader = gradient_shader::radial(
-            Point::new(center.0, center.1), radius,
+            Point::new(center.0, center.1),
+            radius,
             gradient_shader::GradientShaderColors::Colors(&colors),
             None,
             TileMode::Clamp,
-            None, None,
+            None,
+            None,
         );
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
@@ -358,7 +417,9 @@ impl SkiaLayer {
 
     /// Stroke an SVG path (used for wing veins).
     pub fn stroke_path(&mut self, svg_d: &str, color: [u8; 4], width: f32) {
-        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else { return; };
+        let Some(path) = skia_safe::utils::parse_path::from_svg(svg_d) else {
+            return;
+        };
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
         paint.set_color(Color::from_argb(color[3], color[0], color[1], color[2]));
@@ -389,7 +450,9 @@ impl SkiaLayer {
     /// Load a raster image from disk (cached after first decode) and
     /// draw it into the destination rect.
     pub fn draw_image_file(&mut self, path: &str, dst: (f32, f32, f32, f32)) -> bool {
-        let Some(image) = self.textures.get_or_load(Path::new(path)) else { return false; };
+        let Some(image) = self.textures.get_or_load(Path::new(path)) else {
+            return false;
+        };
         let canvas = self.surface.canvas();
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
@@ -399,7 +462,7 @@ impl SkiaLayer {
         // intrinsic-height worth of dst rows. Route through an
         // explicit translate+scale canvas transform + draw_image at
         // origin, which goes through Skia's stable matrix path.
-        let sx = dst.2 / image.width()  as f32;
+        let sx = dst.2 / image.width() as f32;
         let sy = dst.3 / image.height() as f32;
         canvas.save();
         let mut m = skia_safe::Matrix::new_identity();
@@ -414,9 +477,16 @@ impl SkiaLayer {
     /// Draw a raw RGBA8 (premultiplied) byte buffer at a destination
     /// rect. Skips the texture cache — used by WebView snapshots and
     /// dynamically generated textures whose contents change every frame.
-    pub fn draw_image_bytes(&mut self, rgba: &[u8], w: u32, h: u32,
-                              dst: (f32, f32, f32, f32)) -> bool {
-        if rgba.len() < (w as usize) * (h as usize) * 4 { return false; }
+    pub fn draw_image_bytes(
+        &mut self,
+        rgba: &[u8],
+        w: u32,
+        h: u32,
+        dst: (f32, f32, f32, f32),
+    ) -> bool {
+        if rgba.len() < (w as usize) * (h as usize) * 4 {
+            return false;
+        }
         let info = skia_safe::ImageInfo::new(
             (w as i32, h as i32),
             skia_safe::ColorType::RGBA8888,
@@ -425,15 +495,16 @@ impl SkiaLayer {
         );
         let data = skia_safe::Data::new_copy(rgba);
         let row_bytes = (w as usize) * 4;
-        let Some(image) = skia_safe::images::raster_from_data(&info, data, row_bytes)
-        else { return false; };
+        let Some(image) = skia_safe::images::raster_from_data(&info, data, row_bytes) else {
+            return false;
+        };
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
         let dst_rect = Rect::from_xywh(dst.0, dst.1, dst.2, dst.3);
         let sampling = SamplingOptions::from(skia_safe::CubicResampler::mitchell());
-        self.surface.canvas().draw_image_rect_with_sampling_options(
-            &image, None, dst_rect, sampling, &paint,
-        );
+        self.surface
+            .canvas()
+            .draw_image_rect_with_sampling_options(&image, None, dst_rect, sampling, &paint);
         true
     }
 
@@ -449,7 +520,9 @@ impl SkiaLayer {
         scale: (f32, f32),
         rotation_rad: f32,
     ) -> bool {
-        let Some(image) = self.textures.get_or_load(Path::new(path)) else { return false; };
+        let Some(image) = self.textures.get_or_load(Path::new(path)) else {
+            return false;
+        };
         let canvas = self.surface.canvas();
         canvas.save();
         canvas.translate((translate.0, translate.1));
@@ -465,13 +538,7 @@ impl SkiaLayer {
         paint.set_anti_alias(true);
         let dst_rect = Rect::from_xywh(dst.0, dst.1, dst.2, dst.3);
         let sampling = SamplingOptions::from(skia_safe::CubicResampler::mitchell());
-        canvas.draw_image_rect_with_sampling_options(
-            &*image,
-            None,
-            dst_rect,
-            sampling,
-            &paint,
-        );
+        canvas.draw_image_rect_with_sampling_options(&*image, None, dst_rect, sampling, &paint);
         canvas.restore();
         true
     }
@@ -486,7 +553,9 @@ impl SkiaLayer {
         src: (f32, f32, f32, f32),
         dst: (f32, f32, f32, f32),
     ) -> bool {
-        let Some(image) = self.textures.get_or_load(Path::new(path)) else { return false; };
+        let Some(image) = self.textures.get_or_load(Path::new(path)) else {
+            return false;
+        };
         let mut paint = Paint::default();
         paint.set_anti_alias(true);
         let src_rect = Rect::from_xywh(src.0, src.1, src.2, src.3);
@@ -532,6 +601,7 @@ impl SkiaLayer {
     /// Draw wrapped multi-line text using Skia's textlayout::Paragraph.
     /// `max_width` controls the line-wrap width; `align`: 0=left, 1=right,
     /// 2=center, 3=justify. Returns the resulting block height in pixels.
+    #[allow(clippy::too_many_arguments)] // mirrors the rich Skia paragraph API
     pub fn draw_paragraph(
         &mut self,
         text: &str,
@@ -546,16 +616,20 @@ impl SkiaLayer {
         variation_axes: &[(String, f32)],
         rtl: bool,
     ) -> f32 {
+        use skia_safe::font_arguments::variation_position::Coordinate;
         use skia_safe::textlayout::{
             FontCollection, ParagraphBuilder, ParagraphStyle, TextAlign, TextDirection, TextStyle,
         };
-        use skia_safe::font_arguments::variation_position::Coordinate;
         use skia_safe::{font_style::Weight, FontArguments};
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(skia_safe::FontMgr::new(), None);
 
         let mut ps = ParagraphStyle::new();
-        ps.set_text_direction(if rtl { TextDirection::RTL } else { TextDirection::LTR });
+        ps.set_text_direction(if rtl {
+            TextDirection::RTL
+        } else {
+            TextDirection::LTR
+        });
         ps.set_text_align(match align {
             1 => TextAlign::Right,
             2 => TextAlign::Center,
@@ -581,7 +655,9 @@ impl SkiaLayer {
                 .map(|(tag, val)| {
                     let bytes = tag.as_bytes();
                     let mut t = [0u8; 4];
-                    for (i, b) in bytes.iter().take(4).enumerate() { t[i] = *b; }
+                    for (i, b) in bytes.iter().take(4).enumerate() {
+                        t[i] = *b;
+                    }
                     Coordinate {
                         axis: u32::from_be_bytes(t).into(),
                         value: *val,
@@ -589,7 +665,9 @@ impl SkiaLayer {
                 })
                 .collect();
             let args = FontArguments::new().set_variation_design_position(
-                skia_safe::font_arguments::VariationPosition { coordinates: &coords },
+                skia_safe::font_arguments::VariationPosition {
+                    coordinates: &coords,
+                },
             );
             ts.set_font_arguments(Some(&args));
         }
@@ -694,15 +772,23 @@ impl SkiaLayer {
     /// Same as `execute`, but substitutes live tween values from `anim`
     /// into any `PushTransform` whose `anim_slot` is set. Called by the
     /// render thread; Python code uses the simpler `execute`.
-    pub fn execute_with_anim(&mut self, list: &ely_core::DisplayList,
-                              anim: Option<&ely_core::AnimRegistry>) {
+    pub fn execute_with_anim(
+        &mut self,
+        list: &ely_core::DisplayList,
+        anim: Option<&ely_core::AnimRegistry>,
+    ) {
         use ely_core::display_list::DrawCommand as C;
         for cmd in &list.commands {
             match cmd {
                 C::Clear { color } => self.clear(*color),
                 C::GradientCard {
-                    bounds, corner_radius, start_color, end_color,
-                    shadow_blur, shadow_offset, shadow_color,
+                    bounds,
+                    corner_radius,
+                    start_color,
+                    end_color,
+                    shadow_blur,
+                    shadow_offset,
+                    shadow_color,
                 } => {
                     self.draw_gradient_card(
                         (bounds[0], bounds[1], bounds[2], bounds[3]),
@@ -714,25 +800,39 @@ impl SkiaLayer {
                     );
                 }
                 C::FrostedPanel {
-                    bounds, corner_radius, blur_sigma, tint, border,
+                    bounds,
+                    corner_radius,
+                    blur_sigma,
+                    tint,
+                    border,
                 } => {
                     self.draw_frosted_panel(
                         (bounds[0], bounds[1], bounds[2], bounds[3]),
-                        *corner_radius, *blur_sigma, *tint, *border,
+                        *corner_radius,
+                        *blur_sigma,
+                        *tint,
+                        *border,
                     );
                 }
                 C::FilledCircle { cx, cy, r, color } => {
                     self.draw_filled_circle(*cx, *cy, *r, *color);
                 }
-                C::PushTransform { tx, ty, sx, sy, rotation, anim_slot } => {
-                    let (mut atx, mut aty, mut asx, mut asy, mut arot, mut alpha)
-                        = (*tx, *ty, *sx, *sy, *rotation, 1.0_f32);
+                C::PushTransform {
+                    tx,
+                    ty,
+                    sx,
+                    sy,
+                    rotation,
+                    anim_slot,
+                } => {
+                    let (mut atx, mut aty, mut asx, mut asy, mut arot, mut alpha) =
+                        (*tx, *ty, *sx, *sy, *rotation, 1.0_f32);
                     if let (Some(id), Some(reg)) = (anim_slot, anim) {
                         if let Some(v) = reg.evaluate(*id) {
-                            atx  += v.tx;
-                            aty  += v.ty;
-                            asx  *= v.sx;
-                            asy  *= v.sy;
+                            atx += v.tx;
+                            aty += v.ty;
+                            asx *= v.sx;
+                            asy *= v.sy;
                             arot += v.rotation;
                             alpha = v.alpha;
                         }
@@ -751,25 +851,50 @@ impl SkiaLayer {
                 C::PopClip => self.restore(),
                 C::FillPath { d, color } => self.fill_path_solid(d, *color),
                 C::FillPathLinearGradient {
-                    d, p1, p2, start_color, end_color,
+                    d,
+                    p1,
+                    p2,
+                    start_color,
+                    end_color,
                 } => self.fill_path_linear_gradient(
-                    d, (p1[0], p1[1]), (p2[0], p2[1]), *start_color, *end_color,
+                    d,
+                    (p1[0], p1[1]),
+                    (p2[0], p2[1]),
+                    *start_color,
+                    *end_color,
                 ),
                 C::FillPathRadialGradient {
-                    d, center, radius, start_color, end_color,
+                    d,
+                    center,
+                    radius,
+                    start_color,
+                    end_color,
                 } => self.fill_path_radial_gradient(
-                    d, (center[0], center[1]), *radius, *start_color, *end_color,
+                    d,
+                    (center[0], center[1]),
+                    *radius,
+                    *start_color,
+                    *end_color,
                 ),
                 C::StrokePath { d, color, width } => self.stroke_path(d, *color, *width),
                 C::DrawImageFile { path, dst } => {
                     self.draw_image_file(path, (dst[0], dst[1], dst[2], dst[3]));
                 }
-                C::DrawImageBytes { rgba, width, height, dst } => {
-                    self.draw_image_bytes(rgba, *width, *height,
-                                          (dst[0], dst[1], dst[2], dst[3]));
+                C::DrawImageBytes {
+                    rgba,
+                    width,
+                    height,
+                    dst,
+                } => {
+                    self.draw_image_bytes(rgba, *width, *height, (dst[0], dst[1], dst[2], dst[3]));
                 }
                 C::DrawImageFileTransformed {
-                    path, dst, anchor, translate, scale, rotation_rad,
+                    path,
+                    dst,
+                    anchor,
+                    translate,
+                    scale,
+                    rotation_rad,
                 } => {
                     self.draw_image_file_transformed(
                         path,
@@ -787,15 +912,48 @@ impl SkiaLayer {
                         (dst[0], dst[1], dst[2], dst[3]),
                     );
                 }
-                C::DrawText { text, x, y, size, color } => {
+                C::DrawText {
+                    text,
+                    x,
+                    y,
+                    size,
+                    color,
+                } => {
                     self.draw_text(text, *x, *y, *size, *color);
                 }
-                C::DrawParagraph { text, x, y, max_width, size, color, align,
-                                    font_family, weight, variation_axes, rtl } => {
-                    self.draw_paragraph(text, *x, *y, *max_width, *size, *color,
-                                        *align, font_family, *weight, variation_axes, *rtl);
+                C::DrawParagraph {
+                    text,
+                    x,
+                    y,
+                    max_width,
+                    size,
+                    color,
+                    align,
+                    font_family,
+                    weight,
+                    variation_axes,
+                    rtl,
+                } => {
+                    self.draw_paragraph(
+                        text,
+                        *x,
+                        *y,
+                        *max_width,
+                        *size,
+                        *color,
+                        *align,
+                        font_family,
+                        *weight,
+                        variation_axes,
+                        *rtl,
+                    );
                 }
-                C::SkslEffect { src, dst, corner_radius, uniforms } => {
+                C::SkslEffect {
+                    src,
+                    dst,
+                    corner_radius,
+                    uniforms,
+                } => {
                     self.apply_skia_effect(
                         src,
                         (dst[0], dst[1], dst[2], dst[3]),
@@ -831,7 +989,10 @@ mod text_shaping_tests {
         let mut prev = 0.0;
         for i in 1..=n {
             let x = text_caret_x(s, SZ, i);
-            assert!(x >= prev, "caret x must be non-decreasing at {i}: {x} < {prev}");
+            assert!(
+                x >= prev,
+                "caret x must be non-decreasing at {i}: {x} < {prev}"
+            );
             prev = x;
         }
         let (width, _, _) = measure_text_run(s, SZ);
@@ -873,7 +1034,10 @@ mod text_shaping_tests {
     fn vmetrics_positive() {
         let (asc, desc, lh) = font_vmetrics(SZ);
         assert!(asc > 0.0 && desc > 0.0 && lh > 0.0);
-        assert!(lh >= asc + desc - 1.0, "line height should cover ascent+descent");
+        assert!(
+            lh >= asc + desc - 1.0,
+            "line height should cover ascent+descent"
+        );
     }
 
     #[test]

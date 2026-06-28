@@ -1,21 +1,39 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ColorSpace { Srgb, DisplayP3 }
-
-impl Default for ColorSpace { fn default() -> Self { ColorSpace::Srgb } }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ColorSpace {
+    #[default]
+    Srgb,
+    DisplayP3,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Color {
-    pub r: f32, pub g: f32, pub b: f32, pub a: f32,
-    #[serde(default)] pub space: ColorSpace,
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+    #[serde(default)]
+    pub space: ColorSpace,
 }
 
 impl Color {
-    pub const TRANSPARENT: Self = Self { r: 0.0, g: 0.0, b: 0.0, a: 0.0, space: ColorSpace::Srgb };
+    pub const TRANSPARENT: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 0.0,
+        space: ColorSpace::Srgb,
+    };
 
     pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self { r, g, b, a, space: ColorSpace::Srgb }
+        Self {
+            r,
+            g,
+            b,
+            a,
+            space: ColorSpace::Srgb,
+        }
     }
 
     /// Parse `#RRGGBB`, `#RRGGBBAA`, or `#RGB`. Returns None on malformed input.
@@ -32,12 +50,32 @@ impl Color {
         };
         let b = s.as_bytes();
         let (r, g, bl, a) = match b.len() {
-            6 => (parse(b[0], b[1])?, parse(b[2], b[3])?, parse(b[4], b[5])?, 255),
-            8 => (parse(b[0], b[1])?, parse(b[2], b[3])?, parse(b[4], b[5])?, parse(b[6], b[7])?),
-            3 => (parse(b[0], b[0])?, parse(b[1], b[1])?, parse(b[2], b[2])?, 255),
+            6 => (
+                parse(b[0], b[1])?,
+                parse(b[2], b[3])?,
+                parse(b[4], b[5])?,
+                255,
+            ),
+            8 => (
+                parse(b[0], b[1])?,
+                parse(b[2], b[3])?,
+                parse(b[4], b[5])?,
+                parse(b[6], b[7])?,
+            ),
+            3 => (
+                parse(b[0], b[0])?,
+                parse(b[1], b[1])?,
+                parse(b[2], b[2])?,
+                255,
+            ),
             _ => return None,
         };
-        Some(Self::rgba(r as f32 / 255.0, g as f32 / 255.0, bl as f32 / 255.0, a as f32 / 255.0))
+        Some(Self::rgba(
+            r as f32 / 255.0,
+            g as f32 / 255.0,
+            bl as f32 / 255.0,
+            a as f32 / 255.0,
+        ))
     }
 }
 

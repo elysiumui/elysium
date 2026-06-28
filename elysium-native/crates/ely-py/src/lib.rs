@@ -1,3 +1,9 @@
+// PyO3 binding methods intentionally mirror the rich, multi-parameter
+// drawing / window APIs they wrap (gradient cards, paragraphs, transforms),
+// so several exceed clippy's 7-arg suggestion. That's by design at the FFI
+// boundary; keeping them flat keeps the Python call sites readable.
+#![allow(clippy::too_many_arguments)]
+
 use pyo3::prelude::*;
 
 mod app;

@@ -18,5 +18,7 @@ impl SkiaBridge {
     pub fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
-    pub fn size(&self) -> (u32, u32) { (self.width, self.height) }
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
 }

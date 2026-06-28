@@ -33,7 +33,10 @@ fn r4(b: &[f32; 4]) -> Rect {
 fn union(acc: Option<Rect>, r: Rect) -> Option<Rect> {
     Some(match acc {
         None => r,
-        Some(mut a) => { a.join(r); a }
+        Some(mut a) => {
+            a.join(r);
+            a
+        }
     })
 }
 
@@ -43,13 +46,18 @@ fn cmd_bounds(cmd: &C) -> Option<Rect> {
     match cmd {
         // Whole-surface or context-dependent → cannot localise.
         C::Clear { .. } => None,
-        C::FrostedPanel { .. } => None,        // backdrop blur samples neighbours
+        C::FrostedPanel { .. } => None, // backdrop blur samples neighbours
         C::PushTransform { .. } | C::PopTransform => None,
         C::PushClip { .. } | C::PopClip => None, // changes clip for following cmds
         C::DrawImageFileTransformed { .. } => None, // per-instance rotation
 
         C::SkslEffect { dst, .. } => Some(r4(dst)),
-        C::GradientCard { bounds, shadow_blur, shadow_offset, .. } => {
+        C::GradientCard {
+            bounds,
+            shadow_blur,
+            shadow_offset,
+            ..
+        } => {
             // Expand for the drop shadow (blur radius + offset, both signs).
             let base = r4(bounds);
             let b = *shadow_blur + 1.0;
@@ -68,13 +76,13 @@ fn cmd_bounds(cmd: &C) -> Option<Rect> {
         C::FillPath { d, .. }
         | C::FillPathLinearGradient { d, .. }
         | C::FillPathRadialGradient { d, .. } => path_bounds(d),
-        C::StrokePath { d, width, .. } => {
-            path_bounds(d).map(|r| inflate(r, width / 2.0 + 1.0))
-        }
+        C::StrokePath { d, width, .. } => path_bounds(d).map(|r| inflate(r, width / 2.0 + 1.0)),
         C::DrawImageFile { dst, .. }
         | C::DrawImageBytes { dst, .. }
         | C::DrawImageFileRegion { dst, .. } => Some(r4(dst)),
-        C::DrawText { text, x, y, size, .. } => {
+        C::DrawText {
+            text, x, y, size, ..
+        } => {
             let (adv, asc, desc) = crate::skia_layer::measure_text_run(text, *size);
             // `y` is the baseline; the glyph box spans ascent..descent.
             Some(Rect::from_xywh(*x, *y - asc, adv.max(1.0), asc + desc))
@@ -108,7 +116,11 @@ pub fn diff_damage(prev: &DisplayList, new: &DisplayList) -> Damage {
 
     // First-ever frame (or recovery): nothing retained → full repaint.
     if pc.is_empty() {
-        return if nc.is_empty() { Damage::None } else { Damage::Full };
+        return if nc.is_empty() {
+            Damage::None
+        } else {
+            Damage::Full
+        };
     }
 
     // Common prefix.
@@ -153,9 +165,15 @@ pub fn diff_damage(prev: &DisplayList, new: &DisplayList) -> Damage {
 /// every frame even without a new list, so the render thread must keep
 /// repainting while one is present.
 pub fn has_live_anim(list: &DisplayList) -> bool {
-    list.commands.iter().any(|c| matches!(
-        c, C::PushTransform { anim_slot: Some(_), .. }
-    ))
+    list.commands.iter().any(|c| {
+        matches!(
+            c,
+            C::PushTransform {
+                anim_slot: Some(_),
+                ..
+            }
+        )
+    })
 }
 
 #[cfg(test)]
@@ -164,11 +182,19 @@ mod tests {
     use ely_core::display_list::DrawCommand as C;
 
     fn dl(cmds: Vec<C>) -> DisplayList {
-        DisplayList { commands: cmds, frame_index: 0 }
+        DisplayList {
+            commands: cmds,
+            frame_index: 0,
+        }
     }
 
     fn circle(cx: f32, cy: f32, r: f32) -> C {
-        C::FilledCircle { cx, cy, r, color: [255, 0, 0, 255] }
+        C::FilledCircle {
+            cx,
+            cy,
+            r,
+            color: [255, 0, 0, 255],
+        }
     }
 
     #[test]
@@ -211,7 +237,14 @@ mod tests {
     fn transform_escalates_to_full() {
         let a = dl(vec![circle(10.0, 10.0, 5.0)]);
         let b = dl(vec![
-            C::PushTransform { tx: 1.0, ty: 0.0, sx: 1.0, sy: 1.0, rotation: 0.0, anim_slot: None },
+            C::PushTransform {
+                tx: 1.0,
+                ty: 0.0,
+                sx: 1.0,
+                sy: 1.0,
+                rotation: 0.0,
+                anim_slot: None,
+            },
             circle(10.0, 10.0, 5.0),
             C::PopTransform,
         ]);
@@ -220,11 +253,23 @@ mod tests {
 
     #[test]
     fn text_change_localises_to_text_box() {
-        let a = dl(vec![C::DrawText { text: "a".into(), x: 100.0, y: 100.0, size: 14.0, color: [0; 4] }]);
-        let b = dl(vec![C::DrawText { text: "ab".into(), x: 100.0, y: 100.0, size: 14.0, color: [0; 4] }]);
+        let a = dl(vec![C::DrawText {
+            text: "a".into(),
+            x: 100.0,
+            y: 100.0,
+            size: 14.0,
+            color: [0; 4],
+        }]);
+        let b = dl(vec![C::DrawText {
+            text: "ab".into(),
+            x: 100.0,
+            y: 100.0,
+            size: 14.0,
+            color: [0; 4],
+        }]);
         match diff_damage(&a, &b) {
             Damage::Rect(x, _y, w, _h) => {
-                assert!(x >= 99.0 && x <= 101.0, "x={x}");
+                assert!((99.0..=101.0).contains(&x), "x={x}");
                 assert!(w > 0.0, "w={w}");
             }
             other => panic!("expected Rect, got {other:?}"),
@@ -233,7 +278,14 @@ mod tests {
 
     #[test]
     fn has_live_anim_detects_anim_slot() {
-        let a = dl(vec![C::PushTransform { tx: 0.0, ty: 0.0, sx: 1.0, sy: 1.0, rotation: 0.0, anim_slot: Some(3) }]);
+        let a = dl(vec![C::PushTransform {
+            tx: 0.0,
+            ty: 0.0,
+            sx: 1.0,
+            sy: 1.0,
+            rotation: 0.0,
+            anim_slot: Some(3),
+        }]);
         assert!(has_live_anim(&a));
         let b = dl(vec![circle(0.0, 0.0, 1.0)]);
         assert!(!has_live_anim(&b));
@@ -251,12 +303,24 @@ mod tests {
 
         let scene_a = dl(vec![
             circle(40.0, 40.0, 12.0),
-            C::DrawText { text: "Name: a".into(), x: 20.0, y: 90.0, size: 16.0, color: [20, 20, 20, 255] },
+            C::DrawText {
+                text: "Name: a".into(),
+                x: 20.0,
+                y: 90.0,
+                size: 16.0,
+                color: [20, 20, 20, 255],
+            },
         ]);
         // Only the text changes (caret/typing) — common prefix is the circle.
         let scene_b = dl(vec![
             circle(40.0, 40.0, 12.0),
-            C::DrawText { text: "Name: ab".into(), x: 20.0, y: 90.0, size: 16.0, color: [20, 20, 20, 255] },
+            C::DrawText {
+                text: "Name: ab".into(),
+                x: 20.0,
+                y: 90.0,
+                size: 16.0,
+                color: [20, 20, 20, 255],
+            },
         ]);
 
         // Reference: full redraw of B.
@@ -283,7 +347,9 @@ mod tests {
         partial.restore();
         assert!(partial.snapshot_bgra());
 
-        assert_eq!(partial.pixels, ref_px,
-            "partial repaint must be byte-identical to a full redraw");
+        assert_eq!(
+            partial.pixels, ref_px,
+            "partial repaint must be byte-identical to a full redraw"
+        );
     }
 }

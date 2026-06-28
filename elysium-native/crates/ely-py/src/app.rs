@@ -44,10 +44,10 @@ impl PyApp {
         // events. Must run *before* any window is created.
         #[cfg(target_os = "macos")]
         unsafe {
-            use objc2::{class, msg_send};
             use objc2::runtime::{AnyObject, Bool};
+            use objc2::{class, msg_send};
             let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-            let _: Bool = msg_send![app, setActivationPolicy: 0i64];   // .regular
+            let _: Bool = msg_send![app, setActivationPolicy: 0i64]; // .regular
             let _: () = msg_send![app, activateIgnoringOtherApps: true];
         }
 
@@ -93,5 +93,7 @@ impl PyApp {
     }
 
     #[getter]
-    fn identifier(&self) -> &str { &self.identifier }
+    fn identifier(&self) -> &str {
+        &self.identifier
+    }
 }
