@@ -30,6 +30,39 @@ from typing import Any, Callable, TypedDict
 from elysium.theme import Color, Shadow, Theme, current_theme, mix, with_alpha, lighten
 
 
+# Native text-shaping primitives (caret geometry / hit-testing) used by the
+# editable text widgets. Imported lazily + guarded so the component library
+# still imports when the native extension isn't built (tests, docs); a
+# proportional-font estimate stands in so logic stays exercisable.
+def _shaping():
+    mod = getattr(_shaping, "_mod", "unset")
+    if mod == "unset":
+        try:
+            from elysium._native import _native as _n
+            mod = _n if hasattr(_n, "text_caret_x") else None
+        except Exception:
+            mod = None
+        _shaping._mod = mod
+    return mod
+
+
+def _caret_x(text: str, size: float, index: int) -> float:
+    n = _shaping()
+    if n is not None:
+        return float(n.text_caret_x(text, size, index))
+    return len(text[:index]) * size * 0.55  # fallback estimate
+
+
+def _hit_index(text: str, size: float, px: float) -> int:
+    n = _shaping()
+    if n is not None:
+        return int(n.text_hit_index(text, size, max(0.0, px)))
+    # Fallback: nearest by uniform-width estimate.
+    if px <= 0:
+        return 0
+    return min(len(text), int(round(px / (size * 0.55))))
+
+
 class ComponentState(TypedDict, total=False):
     hover:    bool
     pressed:  bool
@@ -688,6 +721,14 @@ class Slider(Component):
 
 @dataclass
 class TextField(Component):
+    """Single-line editable text field.
+
+    Embeds an :class:`elysium.text.edit.EditableText` model and implements
+    the :class:`elysium.input.Editable` protocol, so registering it with a
+    window's ``InputRouter`` makes it fully editable: caret, selection,
+    word navigation, undo/redo, clipboard, validators/masks, and IME — no
+    per-app keystroke plumbing. Reads of ``.value`` stay valid (mirrored
+    from the model)."""
     placeholder: str = ""
     value: str = ""
     on_change: Callable[[str], None] | None = None
@@ -696,10 +737,137 @@ class TextField(Component):
     fill_color:   Color | None = None
     text_color:   Color | None = None
     accent_color: Color | None = None     # focus underline + label
+    selection_color: Color | None = None  # themeable selection highlight
+    focus_id: str = ""                    # set so InputRouter can target it
+    password: bool = False                # render bullets instead of glyphs
+    # Optional validation hooks forwarded to the EditableText model.
+    validator: Callable[[str], int] | None = None
+    mask: Any = None
+    max_length: int | None = None
+    font_size: float | None = None
+
+    _edit: Any = field(default=None, init=False, repr=False)
+    _blink_t: float = field(default=0.0, init=False, repr=False)
+    _scroll_x: float = field(default=0.0, init=False, repr=False)
+    _multiline: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        from elysium.text.edit import EditableText
+        self._edit = EditableText(
+            text=self.value, multiline=self._multiline,
+            validator=self.validator, mask=self.mask,
+            max_length=self.max_length, on_change=self._sync_value,
+        )
+
+    # -- value mirror -------------------------------------------------------
+
+    def _sync_value(self, text: str) -> None:
+        self.value = text
+        if self.on_change is not None:
+            try: self.on_change(text)
+            except Exception: pass
+
+    def set_value(self, text: str) -> None:
+        self._edit.set_text(text)
+
+    # -- text geometry helpers ---------------------------------------------
+
+    def _text_x(self) -> float:
+        return self.x + 12.0
+
+    def _baseline_y(self, t) -> float:
+        return self.y + self.h * 0.66
+
+    def _font(self, t) -> float:
+        return self.font_size if self.font_size is not None else t.font_size_body
+
+    def _display_text(self) -> str:
+        e = self._edit
+        if self.password and e.text:
+            return "•" * len(e.text)
+        return e.text
+
+    # -- Editable protocol --------------------------------------------------
+
+    def wants_keys(self) -> bool:
+        return self._disabled_t < 0.5
+
+    def focus_rect(self) -> tuple[float, float, float, float]:
+        return (self.x, self.y, self.w, self.h)
+
+    def on_key(self, code: str, mods: int) -> bool:
+        consumed = self._edit.on_key(code, mods)
+        if consumed:
+            self._blink_t = 0.0  # show caret immediately after a move/edit
+        return consumed
+
+    def on_text(self, s: str) -> None:
+        self._edit.on_text(s)
+        self._blink_t = 0.0
+
+    def on_ime_preedit(self, s: str) -> None:
+        self._edit.set_preedit(s)
+
+    def on_ime_commit(self, s: str) -> None:
+        self._edit.commit_preedit(s)
+
+    def selected_text(self) -> str:
+        return self._edit.selected_text()
+
+    def delete_selection(self) -> None:
+        self._edit.delete_selection()
+
+    def on_paste(self, s: str) -> None:
+        # Single-line fields paste a flattened (newline-stripped) string.
+        self._edit.insert(s.replace("\n", " "))
+
+    def caret_rect(self) -> tuple[float, float, float, float] | None:
+        t = current_theme()
+        size = self._font(t)
+        cx = self._text_x() + _caret_x(self._edit.text, size, self._edit.caret) - self._scroll_x
+        return (cx, self.y + 6.0, 2.0, self.h - 12.0)
+
+    # -- mouse → caret (call from the app on click / drag) ------------------
+
+    def caret_from_x(self, mx: float) -> int:
+        t = current_theme()
+        size = self._font(t)
+        rel = mx - self._text_x() + self._scroll_x
+        return _hit_index(self._edit.text, size, rel)
+
+    def on_mouse_press(self, mx: float, my: float, *, extend: bool = False) -> None:
+        self._edit.set_caret(self.caret_from_x(mx), select=extend)
+        self._blink_t = 0.0
+
+    def on_mouse_drag(self, mx: float, my: float) -> None:
+        self._edit.set_caret(self.caret_from_x(mx), select=True)
+
+    # -- per-frame ----------------------------------------------------------
+
+    def update(self, dt: float, state: ComponentState) -> None:
+        super().update(dt, state)
+        self._blink_t += dt
+        # Keep the caret horizontally in view (scroll long content).
+        if self._focus_t > 0.5:
+            t = current_theme()
+            size = self._font(t)
+            caret_px = _caret_x(self._edit.text, size, self._edit.caret)
+            view_w = self.w - 24.0
+            if caret_px - self._scroll_x > view_w:
+                self._scroll_x = caret_px - view_w
+            elif caret_px - self._scroll_x < 0:
+                self._scroll_x = caret_px
+            if self._scroll_x < 0:
+                self._scroll_x = 0.0
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
+        e = self._edit
         r = self.radius if self.radius is not None else t.radius_small
+        size = self._font(t)
+        tx = self._text_x() - self._scroll_x
+        by = self._baseline_y(t)
+        focused = self._focus_t > 0.5
         # Background.
         dl.fill_path(_rounded_rect(self.x, self.y, self.w, self.h, r),
                      self.fill_color or t.surface_variant)
@@ -708,32 +876,50 @@ class TextField(Component):
         dl.stroke_path(_rounded_rect(self.x + 0.5, self.y + 0.5, self.w - 1, self.h - 1, r),
                        line_color, 1.0)
         # Floating label.
-        label_floats = self._focus_t > 0.01 or bool(self.value)
         if self.label:
-            float_t = max(self._focus_t, 1.0 if self.value else 0.0)
+            float_t = max(self._focus_t, 1.0 if e.text else 0.0)
             lx = self.x + 12.0
             ly_unfocused = self.y + self.h * 0.62
             ly_focused   = self.y - 2.0
             ly = ly_unfocused + (ly_focused - ly_unfocused) * float_t
-            lsize_unfocused = t.font_size_body
-            lsize_focused   = t.font_size_caption
-            ls = lsize_unfocused + (lsize_focused - lsize_unfocused) * float_t
+            ls = t.font_size_body + (t.font_size_caption - t.font_size_body) * float_t
             lcolor = mix(t.on_surface_muted, t.accent, float_t)
             dl.draw_text(self.label, lx, ly, ls, lcolor)
+        # Selection highlight (behind the text).
+        if focused and e.has_selection:
+            lo, hi = e.selection()
+            x0 = self._text_x() + _caret_x(e.text, size, lo) - self._scroll_x
+            x1 = self._text_x() + _caret_x(e.text, size, hi) - self._scroll_x
+            sel = self.selection_color or with_alpha(t.accent, 0.30)
+            dl.fill_path(_rounded_rect(x0, self.y + 5.0, max(1.0, x1 - x0), self.h - 10.0, 2.0), sel)
         # Value or placeholder.
-        text = self.value if self.value else self.placeholder if not label_floats and not self.label else self.value
-        if text:
-            dl.draw_text(text,
-                         self.x + 12.0,
-                         self.y + self.h * 0.66,
-                         t.font_size_body,
-                         t.on_surface if self.value else t.on_surface_muted)
+        disp = self._display_text()
+        if disp:
+            dl.draw_text(disp, tx, by, size, self.text_color or t.on_surface)
+        elif self.placeholder and not self.label:
+            # When a floating label exists it serves as the hint, so the
+            # placeholder only shows on label-less fields.
+            dl.draw_text(self.placeholder, tx, by, size, t.on_surface_muted)
+        # IME preedit (underlined candidate text drawn after the caret pos).
+        if focused and e.preedit:
+            px = self._text_x() + _caret_x(e.text, size, e.caret) - self._scroll_x
+            dl.draw_text(e.preedit, px, by, size, t.on_surface)
+            pw = _caret_x(e.preedit, size, len(e.preedit))
+            dl.fill_path(_rounded_rect(px, by + 3.0, pw, 1.5, 0.75), t.accent)
+        # Caret (blinks ~1.6 Hz; solid while preedit is active).
+        if focused and (e.preedit or (self._blink_t % 1.06) < 0.53):
+            base = e.text
+            cx = self._text_x() + _caret_x(base, size, e.caret) - self._scroll_x
+            if e.preedit:
+                cx += _caret_x(e.preedit, size, len(e.preedit))
+            caret_col = self.accent_color or t.accent
+            dl.fill_path(_rounded_rect(cx, self.y + 6.0, 2.0, self.h - 12.0, 1.0), caret_col)
         # Focus underline (expands from centre).
         if self._focus_t > 0.001:
             uw = (self.w - 24) * self._focus_t
             ux = self.x + 12 + ((self.w - 24) - uw) / 2.0
             uy = self.y + self.h - 2
-            dl.fill_path(_rounded_rect(ux, uy, uw, 2.0, 1.0), t.accent)
+            dl.fill_path(_rounded_rect(ux, uy, uw, 2.0, 1.0), self.accent_color or t.accent)
 
 
 # ---------------------------------------------------------------------------
@@ -941,22 +1127,171 @@ class Radio(Component):
 
 @dataclass
 class TextArea(Component):
+    """Multi-line editable text area. Like :class:`TextField` it embeds an
+    :class:`EditableText` (with ``multiline=True``) and implements the
+    Editable protocol, adding hard-newline line layout, vertical caret
+    movement, cross-line selection, and vertical scroll. Lines are split on
+    ``\\n``; visual soft-wrap of over-long lines is a later refinement."""
     placeholder: str = ""
     value: str = ""
     on_change: Callable[[str], None] | None = None
     radius: float | None = None
+    focus_id: str = ""
+    selection_color: Color | None = None
+    accent_color: Color | None = None
+    font_size: float | None = None
+    line_height: float | None = None
+
+    _edit: Any = field(default=None, init=False, repr=False)
+    _blink_t: float = field(default=0.0, init=False, repr=False)
+    _scroll_y: float = field(default=0.0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        from elysium.text.edit import EditableText
+        self._edit = EditableText(
+            text=self.value, multiline=True, on_change=self._sync_value)
+
+    def _sync_value(self, text: str) -> None:
+        self.value = text
+        if self.on_change is not None:
+            try: self.on_change(text)
+            except Exception: pass
+
+    def set_value(self, text: str) -> None:
+        self._edit.set_text(text)
+
+    # geometry
+    def _font(self, t) -> float:
+        return self.font_size if self.font_size is not None else t.font_size_body
+
+    def _lh(self, t) -> float:
+        return self.line_height if self.line_height is not None else self._font(t) * 1.45
+
+    def _pad(self) -> tuple[float, float]:
+        return (self.x + 12.0, self.y + 10.0)
+
+    def _caret_line_col(self) -> tuple[int, int]:
+        e = self._edit
+        before = e.text[: e.caret]
+        line = before.count("\n")
+        col = e.caret - (before.rfind("\n") + 1)
+        return line, col
+
+    # Editable protocol
+    def wants_keys(self) -> bool:
+        return self._disabled_t < 0.5
+
+    def focus_rect(self) -> tuple[float, float, float, float]:
+        return (self.x, self.y, self.w, self.h)
+
+    def on_key(self, code: str, mods: int) -> bool:
+        consumed = self._edit.on_key(code, mods)
+        if consumed:
+            self._blink_t = 0.0
+        return consumed
+
+    def on_text(self, s: str) -> None:
+        self._edit.on_text(s); self._blink_t = 0.0
+
+    def on_ime_preedit(self, s: str) -> None:
+        self._edit.set_preedit(s)
+
+    def on_ime_commit(self, s: str) -> None:
+        self._edit.commit_preedit(s)
+
+    def selected_text(self) -> str:
+        return self._edit.selected_text()
+
+    def delete_selection(self) -> None:
+        self._edit.delete_selection()
+
+    def on_paste(self, s: str) -> None:
+        self._edit.insert(s)
+
+    def caret_rect(self) -> tuple[float, float, float, float] | None:
+        t = current_theme()
+        px, py = self._pad()
+        line, col = self._caret_line_col()
+        size = self._font(t)
+        line_text = self._edit.text.split("\n")[line] if self._edit.text else ""
+        cx = px + _caret_x(line_text, size, col)
+        cy = py + line * self._lh(t) - self._scroll_y
+        return (cx, cy, 2.0, size + 4.0)
+
+    def caret_from_point(self, mx: float, my: float) -> int:
+        t = current_theme()
+        px, py = self._pad()
+        size = self._font(t)
+        lines = self._edit.text.split("\n")
+        line = int(max(0, min(len(lines) - 1, (my - py + self._scroll_y) // self._lh(t))))
+        col = _hit_index(lines[line], size, mx - px)
+        return sum(len(l) + 1 for l in lines[:line]) + col
+
+    def on_mouse_press(self, mx: float, my: float, *, extend: bool = False) -> None:
+        self._edit.set_caret(self.caret_from_point(mx, my), select=extend)
+        self._blink_t = 0.0
+
+    def on_mouse_drag(self, mx: float, my: float) -> None:
+        self._edit.set_caret(self.caret_from_point(mx, my), select=True)
+
+    def update(self, dt: float, state: ComponentState) -> None:
+        super().update(dt, state)
+        self._blink_t += dt
+        if self._focus_t > 0.5:
+            t = current_theme()
+            line, _ = self._caret_line_col()
+            lh = self._lh(t)
+            caret_top = line * lh
+            view_h = self.h - 20.0
+            if caret_top - self._scroll_y > view_h - lh:
+                self._scroll_y = caret_top - (view_h - lh)
+            elif caret_top - self._scroll_y < 0:
+                self._scroll_y = caret_top
+            if self._scroll_y < 0:
+                self._scroll_y = 0.0
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
+        e = self._edit
         r = self.radius if self.radius is not None else t.radius_small
+        size = self._font(t)
+        lh = self._lh(t)
+        px, py = self._pad()
+        focused = self._focus_t > 0.5
         dl.fill_path(_rounded_rect(self.x, self.y, self.w, self.h, r), t.surface_variant)
         dl.stroke_path(_rounded_rect(self.x + 0.5, self.y + 0.5, self.w - 1, self.h - 1, r),
                        mix(t.edge, t.accent, self._focus_t), 1.0)
-        # Text content (single-line approximation; real line breaking is Phase 3).
-        text = self.value if self.value else self.placeholder
-        if text:
-            color = t.on_surface if self.value else t.on_surface_muted
-            dl.draw_text(text, self.x + 12.0, self.y + 22.0, t.font_size_body, color)
+        if not e.text and self.placeholder:
+            dl.draw_text(self.placeholder, px, py + size, size, t.on_surface_muted)
+        lines = e.text.split("\n")
+        # Selection rectangles per line.
+        if focused and e.has_selection:
+            lo, hi = e.selection()
+            sel_col = self.selection_color or with_alpha(t.accent, 0.30)
+            char = 0
+            for li, line in enumerate(lines):
+                lstart, lend = char, char + len(line)
+                a = max(lo, lstart); b = min(hi, lend)
+                if a < b or (lo <= lend < hi and lstart <= lo):
+                    x0 = px + _caret_x(line, size, max(0, a - lstart))
+                    x1 = px + _caret_x(line, size, max(0, b - lstart))
+                    ly = py + li * lh - self._scroll_y
+                    if x1 > x0:
+                        dl.fill_path(_rounded_rect(x0, ly, x1 - x0, lh, 2.0), sel_col)
+                char = lend + 1
+        # Text, line by line (clipped to the visible band by the y check).
+        for li, line in enumerate(lines):
+            ly = py + li * lh - self._scroll_y
+            if ly + lh < self.y or ly > self.y + self.h:
+                continue
+            if line:
+                dl.draw_text(line, px, ly + size, size, t.on_surface)
+        # Caret.
+        if focused and (self._blink_t % 1.06) < 0.53:
+            cr = self.caret_rect()
+            if cr is not None:
+                dl.fill_path(_rounded_rect(cr[0], cr[1], 2.0, cr[3], 1.0),
+                             self.accent_color or t.accent)
 
 
 # ---------------------------------------------------------------------------
