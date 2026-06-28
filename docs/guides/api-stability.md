@@ -47,7 +47,7 @@ Nothing public is removed without a deprecation window:
 from elysium import deprecated
 
 @deprecated(since="1.2", removal="2.0", alt="new_widget")
-def old_widget(...):
+def old_widget(*args, **kwargs):
     ...
 ```
 

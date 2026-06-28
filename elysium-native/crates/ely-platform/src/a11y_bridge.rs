@@ -72,15 +72,13 @@ impl A11yBridge {
         // target type isn't primitive.
         use windows::Win32::Foundation::HWND;
         let hwnd = HWND(hwnd);
-        let adapter = unsafe {
-            accesskit_windows::Adapter::new(
-                hwnd,
-                false,
-                StateActionHandler {
-                    state: self.state.clone(),
-                },
-            )
-        };
+        let adapter = accesskit_windows::Adapter::new(
+            hwnd,
+            false,
+            StateActionHandler {
+                state: self.state.clone(),
+            },
+        );
         self.adapter = Some(adapter);
         self.refresh();
     }

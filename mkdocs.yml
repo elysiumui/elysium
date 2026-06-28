@@ -112,6 +112,18 @@ nav:
       - CLI: guides/cli.md
       - Marketplace: guides/marketplace.md
       - Editor integration: guides/editors.md
+      - Designer → code → ship: guides/designer-to-code.md
+      - Porting from Qt: guides/porting-from-qt.md
+      - Text input and dialogs: guides/text-input-and-dialogs.md
+      - Scale and scroll: guides/scale-and-scroll.md
+      - Threading and services: guides/threading-and-services.md
+      - API stability: guides/api-stability.md
+  - Patterns:
+      - Overview: patterns/index.md
+      - CRUD app: patterns/crud-app.md
+      - Forms and validation: patterns/forms-and-validation.md
+      - Tables and Model/View: patterns/tables-and-modelview.md
+      - Dialogs: patterns/dialogs.md
   - Recipes:
       - Overview: recipes/index.md
       - "Open a borderless window": recipes/01-open-borderless-window.md
@@ -143,6 +155,20 @@ nav:
       - Overview: api/index.md
       - elysium: api/elysium.md
       - elysium.components: api/components.md
+      - elysium.components.dataentry: api/dataentry.md
+      - elysium.components.scroll: api/scroll.md
+      - elysium.components.virtual: api/virtual.md
+      - elysium.input: api/input.md
+      - elysium.text: api/text.md
+      - elysium.dialogs: api/dialogs.md
+      - elysium.modelview: api/modelview.md
+      - elysium.concurrency: api/concurrency.md
+      - elysium.windowing: api/windowing.md
+      - elysium.native: api/native.md
+      - elysium.i18n: api/i18n.md
+      - elysium.locale: api/locale.md
+      - elysium.settings: api/settings.md
+      - elysium.testing: api/testing.md
       - elysium.layout: api/layout.md
       - elysium.theme: api/theme.md
       - elysium.anim: api/anim.md
@@ -168,6 +194,7 @@ nav:
       - From Flet: migration/from-flet.md
   - Resources:
       - Which Python GUI?: resources/which-python-gui.md
+      - Scope and batteries: resources/scope-and-batteries.md
       - Comparison matrix: resources/comparison.md
       - Examples gallery: resources/examples-gallery.md
       - Glossary: resources/glossary.md

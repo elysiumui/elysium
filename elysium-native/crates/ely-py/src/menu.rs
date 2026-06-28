@@ -14,6 +14,7 @@ fn chan() -> &'static (Sender<i64>, Receiver<i64>) {
     MENU_CHAN.get_or_init(unbounded)
 }
 
+#[cfg(target_os = "macos")] // only the macOS menu trampoline pushes actions
 pub(crate) fn push_action(tag: i64) {
     let _ = chan().0.send(tag);
 }
