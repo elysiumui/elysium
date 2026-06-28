@@ -162,6 +162,24 @@ class _WindowProxy:
     def focused_node(self) -> str | None:
         return getattr(self, "_focused_node_id", None)
 
+    # --- Framework input routing (Tier-1) -----------------------------
+
+    def input_router(self):
+        """Return this window's :class:`elysium.input.InputRouter`,
+        creating it on first use. The router centralizes delivery of
+        keystrokes, typed text, IME composition, and clipboard actions to
+        the focused editable widget. Register the focusable widgets each
+        frame with ``router.set_widgets(...)`` and call ``router.tick()``
+        once per frame after polling.
+
+        This supersedes the lower-level ``install_focus_nav`` /
+        ``handle_focus_key`` helpers for any app with editable widgets."""
+        r = getattr(self, "_input_router", None)
+        if r is None:
+            from elysium.input import InputRouter
+            r = self._input_router = InputRouter(self)
+        return r
+
     def set_outer_position(self, x: int, y: int) -> None:
         self._native.set_outer_position(x, y)
 
