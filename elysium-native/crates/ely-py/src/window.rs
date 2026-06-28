@@ -27,6 +27,8 @@ pub fn config_from_kwargs(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) ->
         if let Some(v) = kw.get_item("always_on_top")? { cfg.always_on_top = v.extract()?; }
         if let Some(v) = kw.get_item("min_size")?    { cfg.min_size = Some(v.extract()?); }
         if let Some(v) = kw.get_item("initial_size")? { cfg.initial_size = v.extract()?; }
+        if let Some(v) = kw.get_item("owner_id")?    { cfg.owner_id = Some(v.extract()?); }
+        if let Some(v) = kw.get_item("modal")?       { cfg.modal = v.extract()?; }
     }
     Ok(cfg)
 }
@@ -127,6 +129,42 @@ impl PyWindow {
     /// per frame from on_frame.
     fn poll_pinch_delta(&self) -> f32 {
         self.handle.drain_pinch_delta()
+    }
+
+    /// Drain (read + reset) the accumulated mouse-wheel / trackpad scroll
+    /// delta since the last poll. Returns `(dx, dy, precise)` in logical
+    /// pixels — `precise` is True for trackpad pixel deltas (momentum
+    /// candidates), False for normalised mouse-wheel line deltas. Call once
+    /// per frame; route the delta to the hovered scrollable.
+    fn poll_scroll_delta(&self) -> (f32, f32, bool) {
+        self.handle.drain_scroll()
+    }
+
+    /// Pop the next pending lifecycle / power event ("suspended",
+    /// "resumed", "memory_warning"), or None. Lets apps pause animation /
+    /// flush state when the OS suspends the process.
+    fn poll_lifecycle_event(&self) -> Option<String> {
+        self.handle.poll_lifecycle()
+    }
+
+    /// Process-unique window id. Stable for the window's life; used to
+    /// express owner/child + modal relationships in the WindowManager.
+    #[getter]
+    fn id(&self) -> u64 {
+        self.handle.id()
+    }
+
+    /// Suppress (or restore) OS input dispatch to this window — mouse
+    /// buttons, keys, and scroll are dropped while blocked; paint still
+    /// flows. The WindowManager sets this on a modal dialog's owner.
+    fn set_input_blocked(&self, blocked: bool) {
+        self.handle.set_input_blocked(blocked);
+    }
+
+    /// Whether input to this window is currently suppressed.
+    #[getter]
+    fn input_blocked(&self) -> bool {
+        self.handle.is_input_blocked()
     }
 
     /// True while the user is dragging a file over the window (after

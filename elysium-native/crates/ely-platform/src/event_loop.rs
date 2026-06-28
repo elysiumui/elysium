@@ -425,9 +425,29 @@ fn default_hero_card(w: u32, h: u32) -> DisplayList {
 impl ApplicationHandler for AppHandler {
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // `resumed` fires both on first launch and on a real OS resume
+        // (e.g. app foregrounded after suspend). Only surface a lifecycle
+        // event for the latter — when windows already exist.
+        if !self.live.is_empty() {
+            for lw in &self.live {
+                lw.handle.push_lifecycle("resumed");
+            }
+        }
         self.create_pending(event_loop);
         if self.init_error.is_some() {
             event_loop.exit();
+        }
+    }
+
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        for lw in &self.live {
+            lw.handle.push_lifecycle("suspended");
+        }
+    }
+
+    fn memory_warning(&mut self, _event_loop: &ActiveEventLoop) {
+        for lw in &self.live {
+            lw.handle.push_lifecycle("memory_warning");
         }
     }
 
@@ -467,7 +487,27 @@ impl ApplicationHandler for AppHandler {
                 // Accumulate into the window handle; Python drains it
                 // once per frame and applies it to canvas zoom.
                 let lw = &self.live[idx];
+                if lw.handle.is_input_blocked() { return; }
                 lw.handle.accumulate_pinch_delta(delta as f32);
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                // Discrete wheel (mouse) or precise pixel deltas (trackpad).
+                // Normalise line deltas to logical pixels; accumulate for
+                // Python to drain via `poll_scroll_delta()` once per frame.
+                let lw = &self.live[idx];
+                if lw.handle.is_input_blocked() { return; }
+                use crate::window::WHEEL_LINE_PX;
+                match delta {
+                    winit::event::MouseScrollDelta::LineDelta(x, y) => {
+                        lw.handle.accumulate_scroll(
+                            x * WHEEL_LINE_PX, y * WHEEL_LINE_PX, false);
+                    }
+                    winit::event::MouseScrollDelta::PixelDelta(p) => {
+                        let scale = lw.winit_window.scale_factor();
+                        lw.handle.accumulate_scroll(
+                            (p.x / scale) as f32, (p.y / scale) as f32, true);
+                    }
+                }
             }
             WindowEvent::Moved(pos) => {
                 // Record the current outer position so Python can
@@ -529,6 +569,7 @@ impl ApplicationHandler for AppHandler {
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let lw = &self.live[idx];
+                if lw.handle.is_input_blocked() { return; }
                 let pressed = state == winit::event::ElementState::Pressed;
                 match button {
                     winit::event::MouseButton::Left => {
@@ -561,6 +602,7 @@ impl ApplicationHandler for AppHandler {
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 let lw = &self.live[idx];
+                if lw.handle.is_input_blocked() { return; }
                 let code = format!("{:?}", event.physical_key)
                     .replace("Code(", "").replace(')', "");
                 let pressed = event.state == winit::event::ElementState::Pressed;

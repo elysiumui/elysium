@@ -15,6 +15,14 @@ pub struct WindowConfig {
     pub always_on_top: bool,
     pub min_size: Option<(u32, u32)>,
     pub initial_size: (u32, u32),
+    /// Process-unique id of the owner window, if this is an owned/child
+    /// window. Drives modal + owned-window semantics in the Python
+    /// `WindowManager`; the platform layer only records it.
+    pub owner_id: Option<u64>,
+    /// When true, this window is application-modal with respect to its
+    /// owner — the `WindowManager` sets the owner's `input_blocked` flag
+    /// while this window is live.
+    pub modal: bool,
 }
 
 impl Default for WindowConfig {
@@ -30,6 +38,8 @@ impl Default for WindowConfig {
             always_on_top: false,
             min_size: None,
             initial_size: (1200, 800),
+            owner_id: None,
+            modal: false,
         }
     }
 }
@@ -116,9 +126,24 @@ struct WindowInner {
     /// `poll_pinch_delta()` once per frame to read+reset the accumulator
     /// and apply the value to whatever zoom logic owns it.
     pub pinch_delta_milli: AtomicI32,
+    /// Process-unique window id, assigned at creation. Stable for the life
+    /// of the handle; used by the Python `WindowManager` to express
+    /// owner/child + modal relationships without depending on the OS
+    /// `WindowId` (which doesn't exist until the window is materialised).
+    pub id: u64,
+    /// When true, the event loop drops mouse-button / key / scroll input to
+    /// this window (paint still flows). Set by the `WindowManager` to make
+    /// a window's owner inert while a modal child is live.
+    pub input_blocked: std::sync::atomic::AtomicBool,
+    /// Lifecycle / power events seen since the last poll (e.g. "suspended",
+    /// "resumed"). Python drains via `poll_lifecycle_event()`.
+    pub lifecycle: Mutex<std::collections::VecDeque<String>>,
     pub a11y: Arc<crate::a11y::A11yState>,
     pub anim: Arc<ely_core::AnimRegistry>,
 }
+
+/// Monotonic source of process-unique window ids.
+static NEXT_WINDOW_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Default)]
 pub struct MouseState {
@@ -133,7 +158,22 @@ pub struct MouseState {
     /// Same counter, for right-button presses. Lets Python distinguish
     /// "open context menu" from "use this swatch".
     pub right_press_count: AtomicU64,
+    /// Accumulated mouse-wheel / trackpad scroll delta since the last poll,
+    /// in logical pixels ×1000 (fixed-point to fit an atomic). Line-delta
+    /// wheel events are normalised to pixels via `WHEEL_LINE_PX`. Python
+    /// drains via `poll_scroll_delta()` once per frame.
+    pub scroll_x_milli: AtomicI32,
+    pub scroll_y_milli: AtomicI32,
+    /// Set whenever a precise (pixel-delta / trackpad) scroll event
+    /// contributed since the last poll — lets the scroll system pick
+    /// momentum behaviour. Cleared on drain.
+    pub scroll_precise: std::sync::atomic::AtomicBool,
 }
+
+/// One wheel "line" is treated as this many logical pixels when an OS
+/// reports `MouseScrollDelta::LineDelta` (mouse wheels) rather than precise
+/// pixel deltas (trackpads). Matches the common platform convention.
+pub const WHEEL_LINE_PX: f32 = 40.0;
 
 #[derive(Debug, Clone)]
 pub struct KeyEvent {
@@ -327,6 +367,9 @@ impl WindowHandle {
                 outer_x: AtomicI32::new(0),
                 outer_y: AtomicI32::new(0),
                 pinch_delta_milli: AtomicI32::new(0),
+                id: NEXT_WINDOW_ID.fetch_add(1, Ordering::AcqRel),
+                input_blocked: std::sync::atomic::AtomicBool::new(false),
+                lifecycle: Mutex::new(std::collections::VecDeque::new()),
                 a11y: crate::a11y::A11yState::new(),
                 anim: ely_core::AnimRegistry::new(),
             }),
@@ -345,6 +388,51 @@ impl WindowHandle {
     pub fn accumulate_pinch_delta(&self, delta: f32) {
         let inc = (delta * 1000.0).round() as i32;
         self.inner.pinch_delta_milli.fetch_add(inc, Ordering::AcqRel);
+    }
+
+    /// Read + reset the scroll accumulator in one shot. Returns
+    /// `(dx, dy, precise)` in logical pixels since the last call; `precise`
+    /// is true when a trackpad / pixel-delta event contributed.
+    pub fn drain_scroll(&self) -> (f32, f32, bool) {
+        let dx = self.inner.mouse.scroll_x_milli.swap(0, Ordering::AcqRel) as f32 / 1000.0;
+        let dy = self.inner.mouse.scroll_y_milli.swap(0, Ordering::AcqRel) as f32 / 1000.0;
+        let precise = self.inner.mouse.scroll_precise.swap(false, Ordering::AcqRel);
+        (dx, dy, precise)
+    }
+
+    /// Internal — accumulate a scroll delta (logical pixels) seen on the
+    /// event loop. `precise` distinguishes trackpad pixel deltas from
+    /// normalised mouse-wheel line deltas.
+    pub fn accumulate_scroll(&self, dx: f32, dy: f32, precise: bool) {
+        self.inner.mouse.scroll_x_milli
+            .fetch_add((dx * 1000.0).round() as i32, Ordering::AcqRel);
+        self.inner.mouse.scroll_y_milli
+            .fetch_add((dy * 1000.0).round() as i32, Ordering::AcqRel);
+        if precise {
+            self.inner.mouse.scroll_precise.store(true, Ordering::Release);
+        }
+    }
+
+    /// Process-unique window id (stable for the handle's life).
+    pub fn id(&self) -> u64 { self.inner.id }
+
+    /// Whether input dispatch to this window is currently suppressed (modal
+    /// owner). Checked by the event loop before applying button/key/scroll.
+    pub fn is_input_blocked(&self) -> bool {
+        self.inner.input_blocked.load(Ordering::Acquire)
+    }
+    /// Set/clear the input-suppression flag (driven by the `WindowManager`).
+    pub fn set_input_blocked(&self, blocked: bool) {
+        self.inner.input_blocked.store(blocked, Ordering::Release);
+    }
+
+    /// Internal — record a lifecycle/power event for Python to drain.
+    pub fn push_lifecycle(&self, kind: &str) {
+        self.inner.lifecycle.lock().push_back(kind.to_string());
+    }
+    /// Pop the oldest pending lifecycle event, if any.
+    pub fn poll_lifecycle(&self) -> Option<String> {
+        self.inner.lifecycle.lock().pop_front()
     }
 
     /// Latest logical surface size (set by the event loop on Resized).
@@ -490,5 +578,53 @@ pub mod ely_core_hook_stub {
         State { states: Vec<String> },
         Slot,
         Style,
+    }
+}
+
+#[cfg(test)]
+mod tier2_tests {
+    use super::*;
+
+    #[test]
+    fn scroll_accumulates_and_drains() {
+        let h = WindowHandle::stub(WindowConfig::default());
+        h.accumulate_scroll(1.5, -2.0, false);
+        h.accumulate_scroll(0.5, -1.0, true);
+        let (dx, dy, precise) = h.drain_scroll();
+        assert!((dx - 2.0).abs() < 1e-3);
+        assert!((dy + 3.0).abs() < 1e-3);
+        assert!(precise, "precise flag latches when any pixel-delta arrives");
+        // Drained → reset.
+        let (dx2, dy2, precise2) = h.drain_scroll();
+        assert_eq!((dx2, dy2), (0.0, 0.0));
+        assert!(!precise2);
+    }
+
+    #[test]
+    fn input_block_flag_round_trips() {
+        let h = WindowHandle::stub(WindowConfig::default());
+        assert!(!h.is_input_blocked());
+        h.set_input_blocked(true);
+        assert!(h.is_input_blocked());
+        h.set_input_blocked(false);
+        assert!(!h.is_input_blocked());
+    }
+
+    #[test]
+    fn window_ids_are_unique() {
+        let a = WindowHandle::stub(WindowConfig::default());
+        let b = WindowHandle::stub(WindowConfig::default());
+        assert_ne!(a.id(), b.id());
+    }
+
+    #[test]
+    fn lifecycle_events_queue_fifo() {
+        let h = WindowHandle::stub(WindowConfig::default());
+        assert_eq!(h.poll_lifecycle(), None);
+        h.push_lifecycle("suspended");
+        h.push_lifecycle("resumed");
+        assert_eq!(h.poll_lifecycle().as_deref(), Some("suspended"));
+        assert_eq!(h.poll_lifecycle().as_deref(), Some("resumed"));
+        assert_eq!(h.poll_lifecycle(), None);
     }
 }
