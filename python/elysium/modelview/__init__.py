@@ -378,12 +378,10 @@ class TableView(Component):
         return self.y + (self.header_height if self.show_header else 0.0)
 
     def visible_row_range(self) -> tuple[int, int]:
-        if self.row_height <= 0:
-            return (0, 0)
+        from elysium.components.virtual import row_window
         n = self.model.row_count() if self.model else 0
-        start = max(0, int(self.scroll))
-        rows = int((self.h - (self.header_height if self.show_header else 0)) / self.row_height) + 1
-        return (start, min(n, start + rows))
+        body_h = self.h - (self.header_height if self.show_header else 0)
+        return row_window(n, body_h, self.row_height, self.scroll)
 
     def _col_x(self, col_index: int) -> float:
         x = self.x - self.scroll_x
@@ -568,9 +566,8 @@ class TreeView(Component):
         return out
 
     def visible_row_range(self, total: int) -> tuple[int, int]:
-        start = max(0, int(self.scroll))
-        n = int(self.h / self.row_height) + 1
-        return (start, min(total, start + n))
+        from elysium.components.virtual import row_window
+        return row_window(total, self.h, self.row_height, self.scroll)
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
