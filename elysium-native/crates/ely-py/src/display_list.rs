@@ -242,6 +242,17 @@ impl PyDisplayList {
         self.inner.commands.push(DrawCommand::PopTransform);
     }
 
+    /// Clip subsequent draws to a rectangle (current transform space) until
+    /// the matching `pop_clip()`. Used by ScrollView to keep scrolled
+    /// content inside its viewport.
+    fn push_clip(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        self.inner.commands.push(DrawCommand::PushClip { x, y, w, h });
+    }
+
+    fn pop_clip(&mut self) {
+        self.inner.commands.push(DrawCommand::PopClip);
+    }
+
     // Aliases so the same drawing code targets either a SkiaLayer (offscreen)
     // or a DisplayList (published to the render thread).
     #[pyo3(signature = (tx, ty, sx=1.0, sy=1.0, rotation=0.0))]

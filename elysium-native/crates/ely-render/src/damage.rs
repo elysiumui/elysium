@@ -45,6 +45,7 @@ fn cmd_bounds(cmd: &C) -> Option<Rect> {
         C::Clear { .. } => None,
         C::FrostedPanel { .. } => None,        // backdrop blur samples neighbours
         C::PushTransform { .. } | C::PopTransform => None,
+        C::PushClip { .. } | C::PopClip => None, // changes clip for following cmds
         C::DrawImageFileTransformed { .. } => None, // per-instance rotation
 
         C::SkslEffect { dst, .. } => Some(r4(dst)),

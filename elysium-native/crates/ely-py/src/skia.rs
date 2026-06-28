@@ -198,6 +198,14 @@ impl PySkiaLayer {
         self.inner.restore();
     }
 
+    /// Save canvas state and intersect the clip with a rectangle. Pair with
+    /// `restore()`. Mirrors the DisplayList `push_clip` so offscreen renders
+    /// (golden snapshots) match the live render thread.
+    fn push_clip(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        self.inner.save();
+        self.inner.clip_rect(x, y, w, h);
+    }
+
     #[getter]
     fn size(&self) -> (u32, u32) { self.inner.size() }
 }

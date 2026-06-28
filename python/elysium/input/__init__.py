@@ -180,6 +180,7 @@ class InputRouter:
         self.focus = FocusManager()
         self._widgets: list[Any] = []
         self._by_id: dict[str, Any] = {}
+        self._scrollables: list[Any] = []
 
     # -- registration -------------------------------------------------------
 
@@ -200,6 +201,24 @@ class InputRouter:
 
     def focus_widget(self, widget_id: str | None) -> None:
         self.focus.focus(widget_id, self._by_id)
+
+    def set_scrollables(self, scrollables: Iterable[Any]) -> None:
+        """Register the scrollable widgets (``scroll_rect`` + ``on_scroll``).
+        Mouse-wheel deltas are routed to whichever one is under the cursor.
+        Listed back-to-front; the last (topmost) match wins. Safe per frame."""
+        self._scrollables = [s for s in scrollables
+                             if _has(s, "on_scroll") and _has(s, "scroll_rect")]
+
+    def _hovered_scrollable(self, cur: tuple[float, float]) -> Any | None:
+        mx, my = cur
+        for s in reversed(self._scrollables):
+            try:
+                x, y, w, h = s.scroll_rect()
+            except Exception:
+                continue
+            if x <= mx <= x + w and y <= my <= y + h:
+                return s
+        return None
 
     # -- per-frame routing --------------------------------------------------
 
@@ -223,6 +242,20 @@ class InputRouter:
                 break
             code, pressed, mods, text = ev
             self._route_key(code, pressed, mods, text)
+
+        # 2b) Drain mouse-wheel scroll → hovered scrollable.
+        if self._scrollables and _has(self.window, "poll_scroll_delta"):
+            try:
+                sx, sy, precise = self.window.poll_scroll_delta()
+            except Exception:
+                sx = sy = 0.0
+                precise = False
+            if sx or sy:
+                cur = getattr(self.window, "cursor_position", None)
+                target = self._hovered_scrollable(cur) if cur is not None else None
+                if target is not None:
+                    try: target.on_scroll(sx, sy, precise)
+                    except Exception: pass
 
         # 3) Park the OS IME candidate popup at the caret.
         focused = self.focused

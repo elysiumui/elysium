@@ -198,6 +198,11 @@ impl SkiaLayer {
         self.surface.canvas().clear(c);
     }
 
+    /// Save canvas state (clip + transform). Pair with `restore`.
+    pub fn save(&mut self) {
+        self.surface.canvas().save();
+    }
+
     /// Intersect the canvas clip with a rectangle (current coordinate
     /// space). Pair with `save_with_transform` / `restore`. Used by the
     /// dirty-rect render path so `clear` + replayed draws only touch the
@@ -734,6 +739,14 @@ impl SkiaLayer {
                     let _ = alpha; // alpha-blend hook reserved for paint sites
                 }
                 C::PopTransform => self.restore(),
+                C::PushClip { x, y, w, h } => {
+                    // Save canvas state, then intersect the clip. The
+                    // matching PopClip restores (also unwinding any nested
+                    // transforms), so ScrollView content stays in its rect.
+                    self.surface.canvas().save();
+                    self.clip_rect(*x, *y, *w, *h);
+                }
+                C::PopClip => self.restore(),
                 C::FillPath { d, color } => self.fill_path_solid(d, *color),
                 C::FillPathLinearGradient {
                     d, p1, p2, start_color, end_color,

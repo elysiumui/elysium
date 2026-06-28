@@ -61,6 +61,15 @@ pub enum DrawCommand {
     },
     PopTransform,
 
+    /// Intersect the canvas clip with a rectangle (in the current
+    /// transform space) until the matching `PopClip`. Saves canvas state so
+    /// `PopClip` restores both the clip and any nested transforms. Used by
+    /// `ScrollView` to keep scrolled content inside its viewport.
+    PushClip {
+        x: f32, y: f32, w: f32, h: f32,
+    },
+    PopClip,
+
     // Generic SVG-path commands. Used by the butterfly demo and any
     // future custom paint built up from Python.
     FillPath {
