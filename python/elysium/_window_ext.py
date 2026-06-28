@@ -19,7 +19,10 @@ import threading
 class _WindowProxy:
     """Wraps a native `Window` and adds Python-side dispatch + dot-access."""
 
-    __slots__ = ("_native", "_handlers", "_lock", "_ipc_server")
+    __slots__ = ("_native", "_handlers", "_lock", "_ipc_server",
+                 "_input_router", "_ui_dispatcher",
+                 "_focus_nodes_provider", "_focused_node_id",
+                 "_focus_handlers_on_change")
 
     def __init__(self, native_window: Any) -> None:
         self._native = native_window
