@@ -158,17 +158,17 @@ impl PySkiaLayer {
     /// resulting block height in pixels. `align`: 0=left, 1=right,
     /// 2=center, 3=justify.
     #[pyo3(signature = (text, x, y, max_width, size, color, align=0,
-                        font_family="", weight=0, variation_axes=Vec::new()))]
+                        font_family="", weight=0, variation_axes=Vec::new(), rtl=false))]
     fn draw_paragraph(
         &mut self, text: &str, x: f32, y: f32, max_width: f32,
         size: f32, color: (u8, u8, u8, u8), align: i32,
         font_family: &str, weight: i32,
-        variation_axes: Vec<(String, f32)>,
+        variation_axes: Vec<(String, f32)>, rtl: bool,
     ) -> f32 {
         self.inner.draw_paragraph(
             text, x, y, max_width, size,
             [color.0, color.1, color.2, color.3], align,
-            font_family, weight, &variation_axes,
+            font_family, weight, &variation_axes, rtl,
         )
     }
 

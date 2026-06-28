@@ -544,9 +544,10 @@ impl SkiaLayer {
         font_family: &str,
         weight: i32,
         variation_axes: &[(String, f32)],
+        rtl: bool,
     ) -> f32 {
         use skia_safe::textlayout::{
-            FontCollection, ParagraphBuilder, ParagraphStyle, TextAlign, TextStyle,
+            FontCollection, ParagraphBuilder, ParagraphStyle, TextAlign, TextDirection, TextStyle,
         };
         use skia_safe::font_arguments::variation_position::Coordinate;
         use skia_safe::{font_style::Weight, FontArguments};
@@ -554,6 +555,7 @@ impl SkiaLayer {
         font_collection.set_default_font_manager(skia_safe::FontMgr::new(), None);
 
         let mut ps = ParagraphStyle::new();
+        ps.set_text_direction(if rtl { TextDirection::RTL } else { TextDirection::LTR });
         ps.set_text_align(match align {
             1 => TextAlign::Right,
             2 => TextAlign::Center,
@@ -789,9 +791,9 @@ impl SkiaLayer {
                     self.draw_text(text, *x, *y, *size, *color);
                 }
                 C::DrawParagraph { text, x, y, max_width, size, color, align,
-                                    font_family, weight, variation_axes } => {
+                                    font_family, weight, variation_axes, rtl } => {
                     self.draw_paragraph(text, *x, *y, *max_width, *size, *color,
-                                        *align, font_family, *weight, variation_axes);
+                                        *align, font_family, *weight, variation_axes, *rtl);
                 }
                 C::SkslEffect { src, dst, corner_radius, uniforms } => {
                     self.apply_skia_effect(

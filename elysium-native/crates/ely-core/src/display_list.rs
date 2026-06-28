@@ -157,6 +157,11 @@ pub enum DrawCommand {
         /// Optional variation axes as `(tag, value)` pairs (e.g.
         /// `[("wdth", 110.0), ("ital", 0.0), ("slnt", -8.0)]`).
         variation_axes: Vec<(String, f32)>,
+        /// Base paragraph direction. `true` lays the paragraph out
+        /// right-to-left (Arabic / Hebrew); Skia still shapes + reorders
+        /// bidi runs internally either way. Defaults to `false` (LTR).
+        #[serde(default)]
+        rtl: bool,
     },
     /// Custom SkSL shader pass over a rounded rectangle. The Skia layer
     /// compiles + caches the SkSL once per unique `src` and binds the
