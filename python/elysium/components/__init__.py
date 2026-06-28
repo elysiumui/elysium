@@ -754,7 +754,7 @@ class TextField(Component):
     def __post_init__(self) -> None:
         from elysium.text.edit import EditableText
         self._edit = EditableText(
-            text=self.value, multiline=self._multiline,
+            text=self.value, caret=len(self.value), multiline=self._multiline,
             validator=self.validator, mask=self.mask,
             max_length=self.max_length, on_change=self._sync_value,
         )
@@ -1149,7 +1149,8 @@ class TextArea(Component):
     def __post_init__(self) -> None:
         from elysium.text.edit import EditableText
         self._edit = EditableText(
-            text=self.value, multiline=True, on_change=self._sync_value)
+            text=self.value, caret=len(self.value), multiline=True,
+            on_change=self._sync_value)
 
     def _sync_value(self, text: str) -> None:
         self.value = text
