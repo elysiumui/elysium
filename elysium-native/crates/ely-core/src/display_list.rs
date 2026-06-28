@@ -25,7 +25,7 @@ pub struct DisplayList {
     pub frame_index: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DrawCommand {
     Clear {
         color: [f32; 4],

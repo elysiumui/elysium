@@ -7,6 +7,7 @@
 
 pub mod compositor;
 pub mod compute_pbr;
+pub mod damage;
 pub mod effects;
 pub mod render_thread;
 pub mod skia_bridge;

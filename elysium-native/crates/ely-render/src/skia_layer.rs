@@ -198,6 +198,37 @@ impl SkiaLayer {
         self.surface.canvas().clear(c);
     }
 
+    /// Intersect the canvas clip with a rectangle (current coordinate
+    /// space). Pair with `save_with_transform` / `restore`. Used by the
+    /// dirty-rect render path so `clear` + replayed draws only touch the
+    /// damaged region; `SkCanvas::clear` honours the active clip.
+    pub fn clip_rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        let r = Rect::from_xywh(x, y, w, h);
+        self.surface.canvas().clip_rect(r, None, false);
+    }
+
+    /// Read a physical-pixel sub-rectangle of the surface into `dst` as
+    /// tightly-packed BGRA8 (row stride = `w*4`). Returns false if the
+    /// region is out of range or the read fails. Used to upload only the
+    /// damaged region to the GPU.
+    pub fn snapshot_region_bgra(
+        &mut self, x: u32, y: u32, w: u32, h: u32, dst: &mut [u8],
+    ) -> bool {
+        if w == 0 || h == 0
+            || x + w > self.width || y + h > self.height
+            || dst.len() < (w as usize) * (h as usize) * 4 {
+            return false;
+        }
+        let info = ImageInfo::new(
+            (w as i32, h as i32),
+            skia_safe::ColorType::BGRA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+        self.surface
+            .read_pixels(&info, dst, (w as usize) * 4, (x as i32, y as i32))
+    }
+
     pub fn draw_gradient_card(
         &mut self,
         bounds: (f32, f32, f32, f32),
