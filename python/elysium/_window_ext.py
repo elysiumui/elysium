@@ -180,6 +180,28 @@ class _WindowProxy:
             r = self._input_router = InputRouter(self)
         return r
 
+    # --- Threading → UI marshalling (Tier-2) --------------------------
+
+    def ui_dispatcher(self):
+        """Return this window's :class:`elysium.concurrency.UiDispatcher`,
+        creating it on first use and installing it as the process default so
+        ``call_on_ui_thread`` / ``post`` / ``@ui_thread`` target this window's
+        frame loop. Drain it each tick (``FrameLoop`` does this for you)."""
+        d = getattr(self, "_ui_dispatcher", None)
+        if d is None:
+            from elysium.concurrency import UiDispatcher, set_default_dispatcher
+            d = self._ui_dispatcher = UiDispatcher()
+            set_default_dispatcher(d)
+        return d
+
+    def post(self, fn, *args, **kwargs) -> None:
+        """Queue ``fn`` to run on the UI thread next tick (fire-and-forget)."""
+        self.ui_dispatcher().post(fn, *args, **kwargs)
+
+    def invoke(self, fn, *args, **kwargs):
+        """Queue ``fn`` on the UI thread; returns a Future for the result."""
+        return self.ui_dispatcher().invoke(fn, *args, **kwargs)
+
     def set_outer_position(self, x: int, y: int) -> None:
         self._native.set_outer_position(x, y)
 
