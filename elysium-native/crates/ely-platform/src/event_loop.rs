@@ -180,6 +180,12 @@ impl AppHandler {
         let win = event_loop
             .create_window(attrs)
             .map_err(|e| AppError::Window(e.to_string()))?;
+        // Allow OS input-method composition by default so CJK / dead-key
+        // input works as soon as a text widget is focused. winit only
+        // emits `WindowEvent::Ime` during an actual composition, so this
+        // is free when the user isn't composing. The Python input router
+        // may toggle it per focus via `set_ime_allowed`.
+        win.set_ime_allowed(true);
         let win = Arc::new(win);
 
         let target = Arc::new(WinitTarget { window: win.clone() });
@@ -367,6 +373,19 @@ fn apply_window_request(win: &WinitWindow, req: WindowRequest) {
             // when there's no active mouse button); swallow the error
             // and let the user try again.
             let _ = win.drag_resize_window(dir);
+        }
+        // Cross-platform — enable/disable OS input-method composition.
+        WindowRequest::SetImeAllowed { allowed } => {
+            win.set_ime_allowed(allowed);
+        }
+        // Cross-platform — position the IME candidate popup at the caret.
+        WindowRequest::SetImeCursorArea { x, y, w, h } => {
+            use winit::dpi::LogicalPosition;
+            use winit::dpi::LogicalSize;
+            win.set_ime_cursor_area(
+                winit::dpi::Position::Logical(LogicalPosition::new(x as f64, y as f64)),
+                winit::dpi::Size::Logical(LogicalSize::new(w as f64, h as f64)),
+            );
         }
     }
 }
@@ -558,6 +577,37 @@ impl ApplicationHandler for AppHandler {
                 let mut q = lw.handle.keyboard().events.lock();
                 if q.len() >= 256 { q.pop_front(); }
                 q.push_back(ev);
+            }
+            // Input-method (IME) composition. Preedit text is the in-flight
+            // candidate string (rendered with an underline by the text
+            // widget); Commit is the finished string, delivered into the
+            // normal key-event queue as an "ImeCommit" entry so the text
+            // layer treats it like typed input. Required for CJK / accent
+            // composition.
+            WindowEvent::Ime(ime) => {
+                use winit::event::Ime;
+                let lw = &self.live[idx];
+                match ime {
+                    Ime::Preedit(text, _cursor) => {
+                        *lw.handle.keyboard().preedit.lock() = text;
+                    }
+                    Ime::Commit(text) => {
+                        lw.handle.keyboard().preedit.lock().clear();
+                        let mods = lw.handle.keyboard().modifiers.load(Ordering::Acquire);
+                        let ev = crate::window::KeyEvent {
+                            code: "ImeCommit".to_string(),
+                            pressed: true,
+                            modifiers: mods,
+                            text,
+                        };
+                        let mut q = lw.handle.keyboard().events.lock();
+                        if q.len() >= 256 { q.pop_front(); }
+                        q.push_back(ev);
+                    }
+                    Ime::Enabled | Ime::Disabled => {
+                        lw.handle.keyboard().preedit.lock().clear();
+                    }
+                }
             }
             _ => {}
         }

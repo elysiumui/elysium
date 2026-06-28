@@ -152,6 +152,10 @@ pub struct KeyboardState {
     pub events: Mutex<std::collections::VecDeque<KeyEvent>>,
     pub held:   Mutex<std::collections::HashSet<String>>,
     pub modifiers: std::sync::atomic::AtomicU8,
+    /// Active IME composition (pre-edit) string. Updated on
+    /// `WindowEvent::Ime(Ime::Preedit)`; cleared on commit / disable.
+    /// Read by Python via `PyWindow.preedit()` to render candidate text.
+    pub preedit: Mutex<String>,
 }
 
 /// OS-level mouse cursor icon. Maps 1:1 to a subset of
@@ -221,6 +225,14 @@ pub enum WindowRequest {
     /// releases the mouse. Mirrors winit's
     /// `Window::drag_resize_window(ResizeDirection)`.
     DragResize { direction: ResizeDirection },
+    /// Cross-platform — enable/disable OS input-method composition.
+    /// Required for CJK / dead-key text input. Mirrors
+    /// `Window::set_ime_allowed(bool)`.
+    SetImeAllowed { allowed: bool },
+    /// Cross-platform — position the IME candidate popup next to the
+    /// focused caret (logical px in window coords). Mirrors
+    /// `Window::set_ime_cursor_area(position, size)`.
+    SetImeCursorArea { x: f32, y: f32, w: f32, h: f32 },
 }
 
 /// Edge/corner the user wants to resize from.  Maps 1:1 to
@@ -262,6 +274,14 @@ impl WindowHandle {
     pub fn request_drag_resize(&self, direction: ResizeDirection) {
         self.inner.window_requests.lock()
             .push(WindowRequest::DragResize { direction });
+    }
+    pub fn request_set_ime_allowed(&self, allowed: bool) {
+        self.inner.window_requests.lock()
+            .push(WindowRequest::SetImeAllowed { allowed });
+    }
+    pub fn request_set_ime_cursor_area(&self, x: f32, y: f32, w: f32, h: f32) {
+        self.inner.window_requests.lock()
+            .push(WindowRequest::SetImeCursorArea { x, y, w, h });
     }
     pub fn request_set_maximized(&self, maximized: bool) {
         self.inner.window_requests.lock()

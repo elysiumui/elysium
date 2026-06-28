@@ -270,6 +270,54 @@ impl PyWindow {
         self.handle.keyboard().modifiers.load(std::sync::atomic::Ordering::Acquire)
     }
 
+    /// Current IME composition (pre-edit) string, or "" when no
+    /// composition is active. The text-input layer reads this each frame
+    /// to render the underlined candidate text while a CJK / accent
+    /// composition is in progress. Committed text arrives separately as a
+    /// `poll_key_event` entry whose `code == "ImeCommit"` and whose
+    /// `text` is the finished string.
+    fn preedit(&self) -> String {
+        self.handle.keyboard().preedit.lock().clone()
+    }
+
+    /// Enable or disable OS input-method composition for this window.
+    /// Must be on for CJK / dead-key input to work. Off by default so
+    /// pure-hotkey apps don't get composition popups; the input router
+    /// turns it on when an editable widget gains focus.
+    fn set_ime_allowed(&self, allowed: bool) {
+        self.handle.request_set_ime_allowed(allowed);
+    }
+
+    /// Tell the OS where the focused text caret is (logical px, window
+    /// coords) so the candidate-selection popup appears next to it
+    /// rather than at the window origin. Call when the caret moves.
+    fn set_ime_cursor_area(&self, x: f32, y: f32, w: f32, h: f32) {
+        self.handle.request_set_ime_cursor_area(x, y, w, h);
+    }
+
+    /// Put `text` on the system clipboard. Cross-platform via `arboard`.
+    /// Safe to call from any thread.
+    fn set_clipboard_text(&self, text: &str) -> PyResult<()> {
+        let mut cb = arboard::Clipboard::new().map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("clipboard open failed: {e}"))
+        })?;
+        cb.set_text(text.to_string()).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("clipboard write failed: {e}"))
+        })?;
+        Ok(())
+    }
+
+    /// Read text from the system clipboard. Returns "" when the clipboard
+    /// is empty or holds non-text content. Cross-platform via `arboard`.
+    fn get_clipboard_text(&self) -> PyResult<String> {
+        match arboard::Clipboard::new() {
+            Ok(mut cb) => Ok(cb.get_text().unwrap_or_default()),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "clipboard open failed: {e}"
+            ))),
+        }
+    }
+
     /// Move the window's top-left corner to (x, y) on screen in
     /// physical pixels. Non-blocking; the main thread applies the
     /// request on its next iteration.

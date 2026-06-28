@@ -13,6 +13,7 @@ mod runtime;
 mod scene;
 mod skia;
 mod skin;
+mod text;
 mod wgsl;
 mod window;
 
@@ -35,7 +36,13 @@ fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(menu::poll_menu_action, m)?)?;
     m.add_function(wrap_pyfunction!(menu::set_application_menu, m)?)?;
     m.add_function(wrap_pyfunction!(dialogs::open_file_dialog, m)?)?;
+    m.add_function(wrap_pyfunction!(dialogs::save_file_dialog, m)?)?;
+    m.add_function(wrap_pyfunction!(dialogs::pick_folder, m)?)?;
     m.add_function(wrap_pyfunction!(dialogs::path_bounds, m)?)?;
+    m.add_function(wrap_pyfunction!(text::font_vmetrics, m)?)?;
+    m.add_function(wrap_pyfunction!(text::measure_text_run, m)?)?;
+    m.add_function(wrap_pyfunction!(text::text_caret_x, m)?)?;
+    m.add_function(wrap_pyfunction!(text::text_hit_index, m)?)?;
     m.add_function(wrap_pyfunction!(wgsl::validate_wgsl, m)?)?;
     m.add_function(wrap_pyfunction!(compute::render_pbr_compute, m)?)?;
 

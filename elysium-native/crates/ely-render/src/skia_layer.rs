@@ -37,6 +37,82 @@ impl EffectCache {
 
 use crate::texture_cache::TextureCache;
 
+// ---------------------------------------------------------------------------
+// Stateless text-shaping primitives (no GPU surface required).
+//
+// These power caret placement, selection rectangles, and click-to-position
+// in editable text fields. They operate on Unicode *codepoint* indices
+// (matching Python `str` indexing — `len(s)` and `s[i]`), NOT byte or
+// UTF-16 offsets, so the Python text-editing layer can use them directly.
+//
+// Single-line, measurement-based: exact for the common case (text fields,
+// each line of a multi-line area). Multi-line wrapping is done in Python on
+// top of `measure_text_run`, so the native surface area stays minimal.
+// ---------------------------------------------------------------------------
+
+/// Vertical font metrics at `size`: `(ascent, descent, line_height)`, all
+/// positive pixels. `ascent` is the distance from baseline up to the top of
+/// glyphs; `descent` from baseline down; `line_height` is the recommended
+/// line advance (ascent + descent + leading).
+pub fn font_vmetrics(size: f32) -> (f32, f32, f32) {
+    let font = default_font(size);
+    let (spacing, m) = font.metrics();
+    (-m.ascent, m.descent, spacing)
+}
+
+/// Total advance width of `text` at `size`, plus `(ascent, descent)`.
+/// Stateless equivalent of `SkiaLayer::measure_text` that needs no surface.
+pub fn measure_text_run(text: &str, size: f32) -> (f32, f32, f32) {
+    let font = default_font(size);
+    let (advance, _bounds) = font.measure_str(text, None);
+    let m = font.metrics().1;
+    (advance, -m.ascent, m.descent)
+}
+
+/// X-offset (pixels from the run's left edge) of the caret positioned
+/// *before* the codepoint at `char_index`. `char_index` is clamped to
+/// `[0, char_count]`; an index of `char_count` returns the run's full width
+/// (caret at end). Measures the substring up to the boundary, so the result
+/// is exact for proportional fonts.
+pub fn text_caret_x(text: &str, size: f32, char_index: usize) -> f32 {
+    if char_index == 0 {
+        return 0.0;
+    }
+    let font = default_font(size);
+    // Take the prefix of `char_index` codepoints.
+    let prefix: String = text.chars().take(char_index).collect();
+    let (advance, _) = font.measure_str(&prefix, None);
+    advance
+}
+
+/// Codepoint index nearest the x coordinate `px` (pixels from the run's left
+/// edge) — the inverse of `text_caret_x`, used for click-to-place-caret and
+/// drag-selection. Walks codepoints accumulating advances and returns the
+/// boundary whose midpoint the cursor has passed (standard text hit-test),
+/// so clicking the left half of a glyph lands the caret before it and the
+/// right half lands it after. Result is in `[0, char_count]`.
+pub fn text_hit_index(text: &str, size: f32, px: f32) -> usize {
+    if px <= 0.0 {
+        return 0;
+    }
+    let font = default_font(size);
+    let mut acc = 0.0f32;
+    let mut idx = 0usize;
+    let mut prev = String::new();
+    for (i, ch) in text.chars().enumerate() {
+        prev.push(ch);
+        let (w_to_here, _) = font.measure_str(&prev, None);
+        let glyph_w = w_to_here - acc;
+        let mid = acc + glyph_w * 0.5;
+        if px < mid {
+            return i;
+        }
+        acc = w_to_here;
+        idx = i + 1;
+    }
+    idx
+}
+
 /// Skia-safe 0.78 doesn't expose `Typeface::default()` directly; this
 /// helper builds a default Font via the platform FontMgr.
 fn default_font(size: f32) -> skia_safe::Font {
@@ -691,5 +767,77 @@ impl SkiaLayer {
         let image = self.surface.image_snapshot();
         let data = image.encode(None, skia_safe::EncodedImageFormat::PNG, None)?;
         Some(data.as_bytes().to_vec())
+    }
+}
+
+#[cfg(test)]
+mod text_shaping_tests {
+    use super::{font_vmetrics, measure_text_run, text_caret_x, text_hit_index};
+
+    const SZ: f32 = 16.0;
+
+    #[test]
+    fn caret_x_monotonic_and_bounded() {
+        let s = "hello world";
+        let n = s.chars().count();
+        // caret(0) is 0; caret advances monotonically; caret(n) == run width.
+        assert_eq!(text_caret_x(s, SZ, 0), 0.0);
+        let mut prev = 0.0;
+        for i in 1..=n {
+            let x = text_caret_x(s, SZ, i);
+            assert!(x >= prev, "caret x must be non-decreasing at {i}: {x} < {prev}");
+            prev = x;
+        }
+        let (width, _, _) = measure_text_run(s, SZ);
+        assert!((text_caret_x(s, SZ, n) - width).abs() < 0.5);
+        // Over-long index clamps to the end rather than panicking.
+        assert!((text_caret_x(s, SZ, n + 50) - width).abs() < 0.5);
+    }
+
+    #[test]
+    fn hit_index_round_trips_caret() {
+        let s = "Editable";
+        let n = s.chars().count();
+        // Clicking just past each caret position should resolve back to that
+        // index (midpoint hit-test: sample a hair past the boundary).
+        for i in 0..=n {
+            let x = text_caret_x(s, SZ, i);
+            let probe = if i == n { x } else { x + 0.5 };
+            let hit = text_hit_index(s, SZ, probe);
+            assert!(
+                (hit as i64 - i as i64).abs() <= 1,
+                "hit_index({probe}) = {hit}, expected ~{i}"
+            );
+        }
+        // Negative / left-of-start clamps to 0; far-right clamps to end.
+        assert_eq!(text_hit_index(s, SZ, -100.0), 0);
+        assert_eq!(text_hit_index(s, SZ, 100_000.0), n);
+    }
+
+    #[test]
+    fn empty_string_is_safe() {
+        assert_eq!(text_caret_x("", SZ, 0), 0.0);
+        assert_eq!(text_hit_index("", SZ, 25.0), 0);
+        let (w, asc, desc) = measure_text_run("", SZ);
+        assert_eq!(w, 0.0);
+        assert!(asc >= 0.0 && desc >= 0.0);
+    }
+
+    #[test]
+    fn vmetrics_positive() {
+        let (asc, desc, lh) = font_vmetrics(SZ);
+        assert!(asc > 0.0 && desc > 0.0 && lh > 0.0);
+        assert!(lh >= asc + desc - 1.0, "line height should cover ascent+descent");
+    }
+
+    #[test]
+    fn cjk_codepoints_count_correctly() {
+        // CJK is BMP; codepoint indexing must match Python str indexing.
+        let s = "日本語ABC"; // 6 codepoints
+        assert_eq!(s.chars().count(), 6);
+        let (width, _, _) = measure_text_run(s, SZ);
+        assert!((text_caret_x(s, SZ, 6) - width).abs() < 0.5);
+        // Caret before "A" (index 3) sits left of the run end.
+        assert!(text_caret_x(s, SZ, 3) < width);
     }
 }

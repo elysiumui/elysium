@@ -68,7 +68,8 @@ def test_menu_action_count_is_audit_baseline():
     has to update this test consciously."""
     actions = _menu_actions()
     # Adjust this number deliberately when adding/removing menu items.
-    expected = 226
+    # 227 since the Close Skin / Exit Designer / Reset-Camera menu work.
+    expected = 227
     assert len(actions) == expected, (
         f"Menu action count changed: now {len(actions)}, was {expected}. "
         f"If intentional, update the expected value in this test.")
