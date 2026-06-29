@@ -967,6 +967,39 @@ def _round_top(x, y, w, h, r) -> str:
     )
 
 
+
+def _paint_studio_chrome(dl, t) -> None:
+    """Studio window chrome: a flat slate body, one static iris seam under the
+    title strip, and a crisp hairline edge. Replaces the old 9-layer
+    "breathing alien glass" chrome (chromatic halo / pulsing gloss /
+    colour-cycling rim) with a calm, professional frame. Self-contained — it
+    reads only the theme + module layout constants, so it renders headlessly."""
+    chrome_radius = 14.0
+    # 1. Tight, static drop shadow (a defined card, not a halo).
+    for off, alpha in [(16, 0.05), (8, 0.08), (3, 0.12)]:
+        dl.fill_path(
+            _round(0, off * 0.5, WIDTH, HEIGHT, chrome_radius),
+            themes.with_alpha((0, 0, 0, 255), alpha))
+    # 2. Flat slate body (a whisper of top lift for depth).
+    dl.fill_path_linear_gradient(
+        _round(0, 0, WIDTH, HEIGHT, chrome_radius),
+        (0, 0), (0, HEIGHT),
+        themes.lighten(t.surface, 0.02), t.surface)
+    # 3. Single static iris seam just under the title strip.
+    dl.fill_path(
+        _round_top(1, 0, WIDTH - 2, 2, max(0.0, chrome_radius - 0.5)),
+        themes.with_alpha(t.primary, 0.55))
+    # 4. Bottom floor darken above the status bar.
+    floor_y = HEIGHT - STATUS_H - 1
+    dl.fill_path_linear_gradient(
+        _rect(0, floor_y - 24, WIDTH, 24),
+        (0, floor_y - 24), (0, floor_y),
+        themes.with_alpha((0, 0, 0, 255), 0.0),
+        themes.with_alpha((0, 0, 0, 255), 0.08 if not t.is_dark else 0.14))
+    # 5. Crisp hairline edge (static, theme edge colour).
+    dl.stroke_path(
+        _round(0.5, 0.5, WIDTH - 1, HEIGHT - 1, chrome_radius),
+        themes.with_alpha(t.edge, 1.0), 1.0)
 def _round_bottom(x, y, w, h, r) -> str:
     """Mirror of `_round_top`: square top corners, rounded bottom.
     Used by the status bar so the chrome's rounded bottom corners
@@ -1330,8 +1363,12 @@ class Designer:
         self._auto_save_interval: float = 15.0
 
         # Theme.
+        # Studio is the default look (the chosen redesign direction); the
+        # classic themes stay selectable after it. Index 0 → studio_dark so a
+        # fresh launch shows the Studio chrome, controls, and icons.
         self.theme_index = reactive.signal(0)
-        self.themes_list = [themes.light, themes.dark, themes.oled,
+        self.themes_list = [themes.studio_dark, themes.studio_light,
+                            themes.light, themes.dark, themes.oled,
                             themes.midnight_glass, themes.frost]
 
         # Document.
@@ -13284,121 +13321,10 @@ class Designer:
         t = self.themes_list[self.theme_index()]()
         themes.set_theme(t)
 
-        # Self-host migration: the host window is transparent (we
-        # own the chrome). Clear to fully-transparent and then paint
-        # the Designer's frosted-glass alien chrome:
-        #
-        #   1. Long luminous drop shadow  more "halo" than "stamp"
-        #   2. Frosted glass body (gradient_card with light-tinted
-        #      gradient, blurred shadow under)
-        #   3. Chromatic ambient halo across the top that breathes
-        #      slowly (sin-driven, ~0.4 Hz)
-        #   4. Glass body gradient with subtle iridescence at top
-        #   5. Inner bottom darken for the 3D dome read
-        #   6. Top high-gloss specular following the corner radius
-        #   7. Crisp top-edge rim brightness with a chromatic tint
-        #      cycle (primary → accent → primary, ~0.25 Hz)
-        #   8. Outer glassy edge stroke
-        #   9. Bottom floor darken above the status bar
+        # Self-host migration: the host window is transparent (we own the
+        # chrome). Clear to fully-transparent, then paint the Studio frame.
         dl.clear_color(0.0, 0.0, 0.0, 0.0)
-        chrome_radius = 22.0
-        # Ambient breath: slow sin(t) drives the gloss intensity,
-        # halo opacity, and rim chromatic mix so the chrome feels
-        # alive without distracting motion.
-        breath = 0.5 + 0.5 * math.sin(
-            self._anim_clock_t * 2.5)            # ~0.4 Hz
-        rim_phase = (math.sin(self._anim_clock_t * 1.6) + 1.0) * 0.5
-        # ---- 1. Long luminous drop shadow ----
-        for off, alpha in [(28, 0.05), (18, 0.07),
-                            (10, 0.10), (4, 0.14)]:
-            dl.fill_path(
-                _round(0, off * 0.50, WIDTH, HEIGHT, chrome_radius),
-                themes.with_alpha((0, 0, 0, 255), alpha))
-        # ---- 2/4. Frosted-glass body ----
-        # Lighter top, base surface bottom + a faint chromatic
-        # iridescence (subtle primary tint on the lighter side so
-        # it doesn't read pure white).
-        body_top = themes.mix(themes.lighten(t.surface, 0.06),
-                               t.primary, 0.06)
-        body_bot = themes.mix(t.surface, t.accent, 0.04)
-        dl.fill_path_linear_gradient(
-            _round(0, 0, WIDTH, HEIGHT, chrome_radius),
-            (0, 0), (0, HEIGHT),
-            body_top, body_bot)
-        # ---- 3. Chromatic ambient halo across the top ----
-        # Strong primary→accent horizontal gradient that breathes
-        # slowly. Two passes: a saturated top stripe (40 px) gives
-        # the chrome its "alien" tint, and a softer fade extends
-        # the colour into the body so the transition doesn't pop.
-        halo_alpha_top = (0.42 + 0.18 * breath
-                           if not t.is_dark else
-                           0.28 + 0.18 * breath)
-        halo_alpha_mid = (0.18 + 0.10 * breath
-                           if not t.is_dark else
-                           0.14 + 0.08 * breath)
-        # Saturated top stripe: 40 px below the OS title bar.
-        top_strip_h = 44.0
-        top_strip_path = _round_top(0, 0, WIDTH, top_strip_h,
-                                      chrome_radius)
-        dl.fill_path_linear_gradient(
-            top_strip_path, (0, 0), (WIDTH, 0),
-            themes.with_alpha(t.primary, halo_alpha_top),
-            themes.with_alpha(t.accent,  halo_alpha_top))
-        # Wider faded extension: blends the chroma into the body
-        # over the next 80 px.
-        halo_h = top_strip_h + 80.0
-        halo_path = _round_top(0, top_strip_h, WIDTH, halo_h - top_strip_h, 0.0)
-        dl.fill_path_linear_gradient(
-            halo_path, (0, top_strip_h), (0, halo_h),
-            themes.with_alpha(themes.mix(t.primary, t.accent, 0.5),
-                              halo_alpha_mid),
-            themes.with_alpha(t.surface, 0.0))
-        # ---- 5. Inner bottom darken (3D dome) ----
-        dl.fill_path_linear_gradient(
-            _round(0, 0, WIDTH, HEIGHT, chrome_radius),
-            (0, HEIGHT * 0.55), (0, HEIGHT),
-            themes.with_alpha((0, 0, 0, 255), 0.0),
-            themes.with_alpha((0, 0, 0, 255), 0.14))
-        # ---- 6. Top high-gloss specular ----
-        # White-to-clear vertical that intensifies with the breath
-        # (the chrome "shines brighter" on the up-swing).
-        gloss_h = float(TOP_OFFSET) + 50.0
-        inset = 4.0
-        gloss_radius = max(0.0, chrome_radius - inset * 0.5)
-        gloss_path = _round_top(inset, inset, WIDTH - inset * 2,
-                                  gloss_h, gloss_radius)
-        gloss_peak = ((0.36 if not t.is_dark else 0.20)
-                      + 0.10 * breath)
-        dl.fill_path_linear_gradient(
-            gloss_path, (0, inset), (0, inset + gloss_h * 0.95),
-            themes.with_alpha((255, 255, 255, 255), gloss_peak),
-            themes.with_alpha((255, 255, 255, 255), 0.0))
-        # ---- 7. Chromatic top-edge rim ----
-        # Mix primary ↔ accent over the slow phase so the bevel
-        # catch shifts colour. Always >= a base white component
-        # so it still reads as a "polished edge".
-        rim_chroma = themes.mix(t.primary, t.accent, rim_phase)
-        rim_col = themes.mix((255, 255, 255, 255), rim_chroma, 0.35)
-        rim_path = _round_top(1, 0, WIDTH - 2, 2,
-                               max(0.0, chrome_radius - 0.5))
-        dl.fill_path(rim_path,
-                     themes.with_alpha(rim_col,
-                                       0.62 if not t.is_dark else 0.42))
-        # ---- 8. Outer glassy edge stroke ----
-        edge_chroma = themes.mix(t.primary, t.accent, 1.0 - rim_phase)
-        dl.stroke_path(
-            _round(0.5, 0.5, WIDTH - 1, HEIGHT - 1, chrome_radius),
-            themes.with_alpha(themes.mix((255, 255, 255, 255),
-                                         edge_chroma, 0.25),
-                              0.28), 1.0)
-        # ---- 9. Bottom floor darken above status bar ----
-        floor_y = HEIGHT - STATUS_H - 1
-        dl.fill_path_linear_gradient(
-            _rect(0, floor_y - 24, WIDTH, 24),
-            (0, floor_y - 24), (0, floor_y),
-            themes.with_alpha((0, 0, 0, 255), 0.0),
-            themes.with_alpha((0, 0, 0, 255),
-                              0.10 if not t.is_dark else 0.18))
+        _paint_studio_chrome(dl, t)
         # First call lazy-creates undo_btn; then list it explicitly.
         # Theme buttons are no longer part of the toolbar (moved to
         # the Theme top-level menu, 2026-05-20).

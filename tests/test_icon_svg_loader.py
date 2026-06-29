@@ -71,3 +71,17 @@ def test_parser_handles_duotone_and_circles(designer):
 def test_malformed_svg_yields_no_ops(designer):
     assert designer._parse_svg_icon_ops("not xml at all <") == []
     assert designer._parse_svg_icon_ops("<svg></svg>") == []
+
+
+def test_studio_chrome_renders(designer):
+    # The flat Studio chrome (module-level, self-contained) renders without
+    # error through the real pipeline for both Studio palettes.
+    from elysium import theme as T
+    from elysium._native import _native as n
+
+    for theme_factory in (T.studio_dark, T.studio_light):
+        dl = n.DisplayList()
+        designer._paint_studio_chrome(dl, theme_factory())
+        layer = n.SkiaLayer(designer.WIDTH, designer.HEIGHT)
+        layer.execute(dl)
+        assert bytes(layer.encode_png())[:4] == b"\x89PNG"
