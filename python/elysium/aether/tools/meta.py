@@ -1,4 +1,4 @@
-"""agent.* — introspection + capability-gap reporting."""
+"""agent.*: introspection + capability-gap reporting."""
 from __future__ import annotations
 
 from . import register_tool
@@ -74,11 +74,11 @@ def agent_list_presets() -> dict:
     name="dev.reload_module",
     description="Hot-reload a Python module by dotted name (e.g. "
                 "'elysium.render.pbr', 'elysium.aether.tools.window'). Uses "
-                "importlib.reload — fresh calls hit the new code. Tools "
+                "importlib.reload: fresh calls hit the new code. Tools "
                 "registered via @register_tool re-register on reload. Module-"
                 "level state (caches, registries that aren't decorator-driven) "
                 "is recreated, so caller may also want a follow-up cache flush. "
-                "Does NOT reload elysium-designer/__main__.py — the running "
+                "Does NOT reload elysium-designer/__main__.py: the running "
                 "Designer instance retains its old class methods; for those "
                 "changes, use `dev.reload_designer_module` (which monkey-"
                 "patches the Designer class onto the live instance) or "
@@ -157,7 +157,7 @@ def dev_dump_placement_attrs(session, id: str,
     import inspect
     try:
         out["__to_json_source_lines"] = inspect.getsourcelines(type(p).to_json)[1]
-        # And the actual code constants — to see if it contains our marker
+        # And the actual code constants: to see if it contains our marker
         co = type(p).to_json.__code__
         consts_with_str = [c for c in co.co_consts if isinstance(c, str)]
         out["__to_json_str_consts"] = consts_with_str[:20]
@@ -175,8 +175,8 @@ def dev_dump_placement_attrs(session, id: str,
 
 @register_tool(
     name="dev.dump_tool",
-    description="Dump runtime info about a registered tool — module, code "
-                "object id, function id, and a few co_consts strings — so "
+    description="Dump runtime info about a registered tool: module, code "
+                "object id, function id, and a few co_consts strings: so "
                 "callers can verify hot-reload actually replaced the "
                 "function reference.",
     input_schema={"type": "object",
@@ -217,7 +217,7 @@ def dev_reload_designer_module(session) -> dict:
     # When the Designer is run via `python -m elysium-designer`, its
     # module sits in sys.modules under '__main__', but the module's spec
     # name (used by importlib.reload internally) is the package-qualified
-    # 'elysium-designer.__main__' which IS NOT a sys.modules key — so
+    # 'elysium-designer.__main__' which IS NOT a sys.modules key: so
     # importlib.reload fails with "module ... not in sys.modules".
     # Work around that by mirroring the module under its spec name so
     # reload's lookup succeeds.
@@ -238,7 +238,7 @@ def dev_reload_designer_module(session) -> dict:
     spec_name = getattr(getattr(m, "__spec__", None), "name", None) or m.__name__
     if spec_name not in sys.modules:
         sys.modules[spec_name] = m
-    # Snapshot every class object the OLD module currently exposes — these
+    # Snapshot every class object the OLD module currently exposes: these
     # are the live classes that existing instances reference. Methods on
     # these need to be replaced in place once the reload runs.
     import inspect as _inspect
@@ -287,7 +287,7 @@ def dev_reload_designer_module(session) -> dict:
                 pass
         classes_touched.append(cls_name)
         new_by_old[old_cls] = new_cls
-    # Reassign __class__ on every live instance by NAME match — handles
+    # Reassign __class__ on every live instance by NAME match: handles
     # multi-reload scenarios where the instance's type is an even-older
     # class object that isn't in our just-captured `old_classes` snapshot.
     new_by_name = {cls_name: new_cls
@@ -314,7 +314,7 @@ def dev_reload_designer_module(session) -> dict:
     _swap(getattr(designer, "window_doc", None))
     # IMPORTANT: `Designer.run()` passes `self.on_frame` (a bound method)
     # to the animation thread at startup. The bound method's __func__ is
-    # the ORIGINAL on_frame function from before any reload — class-attr
+    # the ORIGINAL on_frame function from before any reload: class-attr
     # reassignment doesn't update it. Patch every live function object
     # whose qualname matches a fresh Designer method, by overwriting its
     # __code__ in place. This way pre-captured bound methods immediately
@@ -463,7 +463,7 @@ def dev_probe_designer(session, names: list[str] | None = None) -> dict:
               "_pan_press_count", "_pan_drag_count"):
         out[f"a__{n}"] = getattr(session.designer, n, "<missing>")
     # Pull live source of _paint_toolbox to see if it actually calls
-    # _paint_brush_palette (the constant-name check above is fragile —
+    # _paint_brush_palette (the constant-name check above is fragile -
     # method calls show up in co_names, not co_consts).
     try:
         fn = getattr(cls, "_paint_toolbox")
@@ -472,7 +472,7 @@ def dev_probe_designer(session, names: list[str] | None = None) -> dict:
         out["_paint_toolbox_source_tail"] = inspect.getsource(fn).splitlines()[-6:]
     except Exception as e:
         out["_paint_toolbox_inspect_err"] = str(e)
-    # Pan-handler probe — confirm the live class has the new code.
+    # Pan-handler probe: confirm the live class has the new code.
     try:
         d = session.designer
         out["pan_tool_eq_hand"] = (getattr(d, "tool", None) == "hand")
@@ -483,7 +483,7 @@ def dev_probe_designer(session, names: list[str] | None = None) -> dict:
         out["pan_press"] = getattr(d, "_pan_press_count", "<missing>")
         out["pan_drag"] = getattr(d, "_pan_drag_count", "<missing>")
         out["on_frame_calls"] = getattr(d, "_on_frame_calls", "<missing>")
-        # Source of the on_frame method — search for our pan marker.
+        # Source of the on_frame method: search for our pan marker.
         on_frame_fn = getattr(cls, "on_frame", None) or getattr(cls, "_handle_input", None)
         if on_frame_fn is not None:
             src = inspect.getsource(on_frame_fn)

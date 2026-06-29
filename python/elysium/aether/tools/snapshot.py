@@ -1,4 +1,4 @@
-"""snapshot.* — list / restore / diff / branch checkpoints."""
+"""snapshot.*: list / restore / diff / branch checkpoints."""
 from __future__ import annotations
 
 from . import register_tool

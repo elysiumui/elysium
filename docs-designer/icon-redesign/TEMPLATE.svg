@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
-  <!-- DESIGN TEMPLATE — replace the guide with your icon.
-       Artboard 48x48. Centre (24,24). Keep art inside the 4..44 safe area.
-       Draw in ONE colour using currentColor. Monoline stroke-width ~1.6.
+  <!-- DESIGN TEMPLATE: replace the guide with your icon.
+       Artboard 48x48. Center (24,24). Keep art inside the 4..44 safe area.
+       Draw in ONE color using currentColor. Monoline stroke-width ~1.6.
        Use ONLY <path> (and <circle>); flatten everything else to path data. -->
   <rect x="4" y="4" width="40" height="40" rx="6" fill="none" stroke="#3a4150" stroke-width="0.5" stroke-dasharray="2 2"/>
   <line x1="24" y1="4" x2="24" y2="44" stroke="#3a4150" stroke-width="0.4" stroke-dasharray="1 3"/>

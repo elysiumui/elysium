@@ -98,7 +98,7 @@ preferences, not blockers):
 | 14 | End-to-end Designer smoke test in CI | §11 verification 3 | **Done**  `tests/test_designer_smoke.py` (13 tests + the full brush-palette flow walk). |
 | 15 | Performance benchmark | §10 risk 1 + §11 verification 4 | **Done**  per-surface paint budget asserted < 5 ms in `test_paint_meets_per_frame_budget`. |
 | 16 | Brush palette click flow E2E | §9 Stage 3d preview gate | **Done**  `test_brush_palette_click_flow_end_to_end` walks left-click → popover → Pick a color → picker → confirm → slider scrub → re-apply → right-click → Cancel. |
-| 17 | Tool Properties dock floatable + dockable | user request | **Done**  drag-grip on the brush-chip header, snap-back-to-bottom-centre dock zone, prefs-persisted mode + position. |
+| 17 | Tool Properties dock floatable + dockable | user request | **Done**  drag-grip on the brush-chip header, snap-back-to-bottom-center dock zone, prefs-persisted mode + position. |
 | 18 | Borderless OS window + custom Elysium title strip | user request | **Done**  `transparent=True, title_bar=False`; 3D glassy title bar with bold-simulated text, three traffic lights with hover-glyph reveal, drag region everywhere else. |
 | 19 | Main host window  alien-elegant glossy chrome | user request | **Done**  22-px corner radius, chromatic ambient halo that breathes at ~0.4 Hz, iridescent rim highlights, frosted-glass body. |
 | 20 | Brush slot popover  color + brush + stroke params | user request | **Done**  Size / Opacity / Hardness sliders + on-Apply restoration of the full painting setup. |

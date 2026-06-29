@@ -22,21 +22,21 @@ Click the **paint-roller** icon on the toolbar (between Render Final
 and the status-line toggles) to open the Customize dialog without
 diving through menus. The dialog lets you:
 
-- **Pick a base palette** by clicking a primary colour swatch. Every
+- **Pick a base palette** by clicking a primary color swatch. Every
   derived token (`accent`, `surface`, `on_surface`, etc.) is
-  regenerated via OKLCH colour math so the theme stays harmonious.
-- **Toggle Dark mode** — flips the surface family from light to
+  regenerated via OKLCH color math so the theme stays harmonious.
+- **Toggle Dark mode**: flips the surface family from light to
   dark + adjusts contrast tokens.
-- **Save as user theme** — gives the in-progress edit a name so it
+- **Save as user theme**: gives the in-progress edit a name so it
   shows up under Theme > Manage User Themes... and survives restart.
-- **Cancel** — drops the in-progress edit, no save.
+- **Cancel**: drops the in-progress edit, no save.
 
 The same dialog is reachable via **Theme > Customize...** in the
 menu bar.
 
 ## Saving a theme
 
-Once the colour + dark-mode toggle look right, press **Save current
+Once the color + dark-mode toggle look right, press **Save current
 as user theme...** and name it. The theme is written to:
 
 | OS | Path |
@@ -61,13 +61,13 @@ Copy it into the per-user themes directory under your preferred
 name (e.g. `~/.config/elysium-designer/themes/my-chrome.esk/`),
 edit any of:
 
-- **`manifest.json`** — the `"layout"` block sets `toolbox_w`,
+- **`manifest.json`**: the `"layout"` block sets `toolbox_w`,
   `right_w`, `status_h`, `timeline_h`, etc. Reload the Designer
   to see the new geometry.
-- **`assets/icons/`** — drop PNG / SVG files named after the icon
+- **`assets/icons/`**: drop PNG / SVG files named after the icon
   keys (e.g. `tb_save.png`). The `GlyphAtlas` framework primitive
   auto-loads them; `ui.IconButton` resolves by name.
-- **`document.json` variants** — `variants/high_contrast.json` or
+- **`document.json` variants**: `variants/high_contrast.json` or
   `variants/reduce_motion.json` swap in when the OS accessibility
   prefs request them.
 
@@ -77,7 +77,7 @@ straight over to your own apps.
 
 ## Live preview
 
-Every theme edit applies immediately — there is no Apply button. The
+Every theme edit applies immediately: there is no Apply button. The
 Designer renders through `elysium.theme.current_theme()` each frame,
 so any change to the theme tokens (or a Theme menu switch) is
 visible on the next paint.
@@ -85,7 +85,7 @@ visible on the next paint.
 ## Resetting
 
 **Theme > Reset to default** drops every user customization and
-returns to Light. The user-themes file is left intact — the reset
+returns to Light. The user-themes file is left intact: the reset
 just switches the active theme back to the built-in default.
 
 ## See also

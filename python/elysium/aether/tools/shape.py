@@ -1,4 +1,4 @@
-"""shape.* tools — draw paths and run boolean ops via the native helpers."""
+"""shape.* tools: draw paths and run boolean ops via the native helpers."""
 from __future__ import annotations
 
 from . import register_tool

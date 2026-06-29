@@ -1,4 +1,4 @@
-"""code.* — read / write / patch arbitrary Python source in the project."""
+"""code.*: read / write / patch arbitrary Python source in the project."""
 from __future__ import annotations
 
 from pathlib import Path

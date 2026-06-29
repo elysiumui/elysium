@@ -1,4 +1,4 @@
-"""texture.* — extract, apply, paint."""
+"""texture.*: extract, apply, paint."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -166,7 +166,7 @@ def texture_crop_to_match(session, src: str, name: str,
                 "PaintMask at the given target rect (in placement-local "
                 "coords [0,0] = top-left of the bbox). Equivalent of using "
                 "the Brush tool with a custom image stamp instead of a solid "
-                "color — lets a caller build up a complex texture section "
+                "color: lets a caller build up a complex texture section "
                 "by section. Pass `src_crop` [x,y,w,h] in source-pixel "
                 "coords (defaults to whole image) and `dst_rect` [x,y,w,h] "
                 "in placement-bbox px (defaults to (0,0,placement.w,placement.h)). "
@@ -211,7 +211,7 @@ def texture_stamp_region(session, id: str, src: str,
     mask = masks.get(_obj_id(p))
     pw, ph = int(p.w), int(p.h)
     if mask is None:
-        # Lazy import the PaintMask class from the framework — same one
+        # Lazy import the PaintMask class from the framework: same one
         # the live brush uses.
         try:
             from elysium.render.texture import PaintMask
@@ -273,7 +273,7 @@ def texture_stamp_region(session, id: str, src: str,
                 "fresh size×size canvas), and pasted in. `flip_v` defaults "
                 "to True (matching the .3ds loader's V-flip so on-screen "
                 "anatomy is right-side up). Existing destination pixels are "
-                "overwritten — paint anatomy from background → foreground "
+                "overwritten: paint anatomy from background → foreground "
                 "(wings first, body last). Returns the saved atlas path so "
                 "it can be bound via material.set_texture.",
     input_schema={
@@ -321,7 +321,7 @@ def texture_assemble_atlas(session, name: str,
         else:
             raise ValueError("assemble_atlas: every region needs `src`, or pass top-level `src`")
         crop = src_im.crop((sx, sy, sx + sw, sy + sh))
-        # Optional horizontal mirror — useful when the source photo's wing
+        # Optional horizontal mirror: useful when the source photo's wing
         # is oriented the opposite way from the mesh's UV layout (e.g.
         # photo's inner-blue content is on one side of the crop but the
         # mesh's inner-wing UV is on the other).
@@ -344,7 +344,7 @@ def texture_assemble_atlas(session, name: str,
         if flip_v:
             # Flip the crop vertically too so wing-tip pixels map to the
             # v=vmax edge of the bbox (which after V-flip lands at the
-            # smaller-y end of the atlas image — i.e. the "top" visually).
+            # smaller-y end of the atlas image: i.e. the "top" visually).
             scaled = scaled.transpose(_PIL.FLIP_TOP_BOTTOM)
         atlas.alpha_composite(scaled, dest=(px0, py0))
     from elysium.render import texture as _tex
@@ -359,7 +359,7 @@ def texture_assemble_atlas(session, name: str,
     description="Wipe a placement's PaintMask (the screen-space brush "
                 "overlay) back to fully transparent. Equivalent to selecting "
                 "the placement, picking the Eraser, and dragging across the "
-                "entire bbox — but in one tool call. Use to revert all "
+                "entire bbox: but in one tool call. Use to revert all "
                 "freehand painting on a placement before restarting.",
     input_schema={"type": "object",
                    "properties": {"id": {"type": "string"}},
@@ -564,7 +564,7 @@ def texture_generate_pbr_maps(session, src: str, name: str,
                 "dimensions, then copied row-by-row top-down so each pixel "
                 "in the source maps to one pixel in the target.\n\n"
                 "Use `row_start` / `row_end` (in [0,1] of the section) to "
-                "transfer only a partial vertical band — that's the basis "
+                "transfer only a partial vertical band: that's the basis "
                 "for the progressive top-down workflow: call repeatedly "
                 "with row_end stepping from 0→1 and screenshot between "
                 "each call to watch the wing fill in section by section.\n\n"
@@ -603,7 +603,7 @@ def texture_transfer_section(session, id: str, src: str,
     src_im = src_im.crop((sx, sy, sx + sw, sy + sh))
     if flip_h:
         src_im = src_im.transpose(_PIL.FLIP_LEFT_RIGHT)
-    # Scale to target dimensions — this is where the wings become the
+    # Scale to target dimensions: this is where the wings become the
     # same pixel size on both butterflies.
     if (sw, sh) != (dw, dh):
         src_im = src_im.resize((dw, dh), _PIL.LANCZOS)
@@ -648,7 +648,7 @@ def texture_transfer_section(session, id: str, src: str,
     if tgt_y1 > ph: band = band[:ph - tgt_y0]; tgt_y1 = ph
     if band.shape[0] <= 0 or band.shape[1] <= 0:
         return {"transferred": 0, "reason": "clipped to nothing"}
-    # Strict pixel copy — straight write into mask.buf at the destination.
+    # Strict pixel copy: straight write into mask.buf at the destination.
     # Force opaque alpha so paint is additive only (cannot erase model).
     band_rgb = band[..., :3]
     h_band, w_band = band_rgb.shape[:2]
@@ -679,7 +679,7 @@ def texture_transfer_section(session, id: str, src: str,
                 "For a Mesh3D placement: projects each face's vertices "
                 "through the placement's camera, identifies which faces "
                 "fall in the vertical band, then traces the outer edge of "
-                "those faces as a polygon — so the lasso hugs the actual "
+                "those faces as a polygon: so the lasso hugs the actual "
                 "wing perimeter at that altitude.\n\n"
                 "For an Image placement: reads the photo's alpha channel "
                 "inside `source_bbox` (in source-image pixel coords), "
@@ -761,7 +761,7 @@ def lasso_wing_perimeter(session, id: str,
         wxs = px[mask]; wys = py[mask]
         if len(wxs) == 0:
             return {"points": [], "reason": "no verts in part"}
-        # Choose the "scan axis" — the direction we slice the wing along.
+        # Choose the "scan axis": the direction we slice the wing along.
         # axis="tip": auto-detect the wing's body→tip direction (outer X
         #   side for left/right wings); "top 1%" = 1% slice closest to
         #   the tip.
@@ -829,7 +829,7 @@ def lasso_wing_perimeter(session, id: str,
                 points.append((float(hi), float(y_)))
         elif axis == "tip":
             cx = float(wxs.mean())
-            # The body's screen X centre — use the placement centre as
+            # The body's screen X center: use the placement center as
             # proxy (mesh world X=0 maps roughly here).
             body_cx = p.w * 0.5
             # tip is OUTSIDE the body: for Wing_Right (cx > body_cx) the
@@ -1029,7 +1029,7 @@ def lasso_wing_perimeter(session, id: str,
                 stroke=tuple(cc),
                 stroke_w=3.0)
         # `is_lasso` flag (marching-ants stroke marker) set after
-        # construction — Placement's dataclass `__init__` may pre-date
+        # construction: Placement's dataclass `__init__` may pre-date
         # the field on a hot-reloaded instance.
         sh.is_lasso = True
         designer.placements.append(sh)
@@ -1044,7 +1044,7 @@ def lasso_wing_perimeter(session, id: str,
     name="texture.transfer_uv_band",
     description="Copy a horizontal band of pixels from a source image into "
                 "a Mesh3D placement's UV-mapped albedo texture (the texture "
-                "that's baked onto the mesh's surface — NOT a screen "
+                "that's baked onto the mesh's surface: NOT a screen "
                 "overlay).\n\n"
                 "Algorithm: identify the named sub-mesh part's UV bbox in "
                 "the atlas → compute the atlas pixel rect that corresponds "
@@ -1097,7 +1097,7 @@ def texture_transfer_uv_band(session, id: str, src: str,
     else:
         mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
     if mesh.vert_uvs is None or mesh.part_names is None:
-        raise ValueError("mesh needs UVs + part names — uv_unwrap first")
+        raise ValueError("mesh needs UVs + part names: uv_unwrap first")
     # Find the part's UV bbox.
     pid = None
     for i, n in enumerate(mesh.part_names):
@@ -1223,7 +1223,7 @@ def texture_transfer_uv_band(session, id: str, src: str,
     name="texture.flush_caches",
     description="Clear every in-memory texture/mesh cache so the next "
                 "render re-reads files from disk. Use after overwriting a "
-                "texture in the library — without this, pbr._TEX_CACHE "
+                "texture in the library: without this, pbr._TEX_CACHE "
                 "keeps the stale pixels even though the file changed.",
     input_schema={"type": "object", "properties": {}},
 )
@@ -1250,7 +1250,7 @@ def texture_flush_caches(session) -> dict:
     description="Delete a texture from the user's library. Pass the tile's "
                 "filename stem (e.g. 'bm_wing'). The tile is unlinked from "
                 "disk but any placement still referencing it will keep its "
-                "current binding string — the next render will hit a missing "
+                "current binding string: the next render will hit a missing "
                 "file. Bind a different tile via material.set_texture / "
                 "material.set_part_texture before deleting.",
     input_schema={"type": "object",

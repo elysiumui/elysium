@@ -1,4 +1,4 @@
-"""tester.* — autonomous probes the agent runs to verify its own work."""
+"""tester.*: autonomous probes the agent runs to verify its own work."""
 from __future__ import annotations
 
 import base64

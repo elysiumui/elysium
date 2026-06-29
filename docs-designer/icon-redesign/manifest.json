@@ -96,12 +96,12 @@
   },
   "tb_snap_grid": {
     "category": "Toolbar",
-    "purpose": "3\u00d73 grid of dots with the centre dot highlighted accent.",
+    "purpose": "3\u00d73 grid of dots with the center dot highlighted accent.",
     "file": "current/tb_snap_grid.svg"
   },
   "tb_soft_select": {
     "category": "Toolbar",
-    "purpose": "Concentric circles fading centre-to-edge (gradient falloff).",
+    "purpose": "Concentric circles fading center-to-edge (gradient falloff).",
     "file": "current/tb_soft_select.svg"
   },
   "tb_stop": {
@@ -126,7 +126,7 @@
   },
   "tool_gizmo": {
     "category": "Transform tools",
-    "purpose": "Rotate (E) \u2014 monoline circular-arrows glyph (replaces the old multi-colour 3-ellipse manipulator for a cohesive Studio set).",
+    "purpose": "Rotate (E) \u2014 monoline circular-arrows glyph (replaces the old multi-color 3-ellipse manipulator for a cohesive Studio set).",
     "file": "current/tool_gizmo.svg"
   },
   "tool_lasso_select": {
@@ -146,7 +146,7 @@
   },
   "tool_pivot_edit": {
     "category": "Transform tools",
-    "purpose": "Pivot Edit \u2014 crosshair + centre pin, monoline.",
+    "purpose": "Pivot Edit \u2014 crosshair + center pin, monoline.",
     "file": "current/tool_pivot_edit.svg"
   },
   "tool_scale": {

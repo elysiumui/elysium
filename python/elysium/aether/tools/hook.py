@@ -1,4 +1,4 @@
-"""hook.* — declare and annotate skin hooks."""
+"""hook.*: declare and annotate skin hooks."""
 from __future__ import annotations
 
 from . import register_tool

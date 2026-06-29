@@ -1,4 +1,4 @@
-"""codelink.* — bridge Designer hook names to Python handler functions."""
+"""codelink.*: bridge Designer hook names to Python handler functions."""
 from __future__ import annotations
 
 from . import register_tool

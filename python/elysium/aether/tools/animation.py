@@ -1,4 +1,4 @@
-"""animation.* — states, keyframes, playhead."""
+"""animation.*: states, keyframes, playhead."""
 from __future__ import annotations
 
 from . import register_tool
@@ -136,7 +136,7 @@ def animation_read(session, id: str) -> dict:
 @register_tool(
     name="animation.add_scene",
     description="Append a Scene (keyframed pose snapshot) to a placement. "
-                "Same data model as animation.add_state — alternate name "
+                "Same data model as animation.add_state: alternate name "
                 "matching the Designer's UI terminology.",
     input_schema={
         "type": "object",

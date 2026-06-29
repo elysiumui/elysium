@@ -1,4 +1,4 @@
-"""placement.* tools — add / move / resize / list / read placements."""
+"""placement.* tools: add / move / resize / list / read placements."""
 from __future__ import annotations
 
 from . import register_tool
@@ -133,7 +133,7 @@ def placement_select(session, id: str) -> dict:
 )
 def placement_set_property(session, id: str, key: str, value) -> dict:
     p = session.lookup(id)
-    # Colour / coordinate fields are declared as tuples on the Placement
+    # Color / coordinate fields are declared as tuples on the Placement
     # dataclass; the bridge ships them across as JSON arrays. Convert
     # incoming lists for known tuple-typed fields so downstream code (cache
     # keys, normalisation, save round-trip) doesn't trip on `unhashable
@@ -209,7 +209,7 @@ def placement_send_backward(session, id: str) -> dict:
 @register_tool(
     name="placement.list",
     description="List every placement on the canvas with id / kind / "
-                "name / bounds. Read-only — call this after changes to "
+                "name / bounds. Read-only: call this after changes to "
                 "verify state.",
     input_schema={"type": "object", "properties": {}},
     side_effect=SideEffect.READ,

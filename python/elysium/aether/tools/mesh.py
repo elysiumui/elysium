@@ -1,4 +1,4 @@
-"""mesh.* — 3D import, camera, render."""
+"""mesh.*: 3D import, camera, render."""
 from __future__ import annotations
 
 from . import register_tool
@@ -28,7 +28,7 @@ def mesh_import(session, path: str, x: float = 100, y: float = 100,
 
 @register_tool(
     name="mesh.import_3d",
-    description="Import a 3D model file (.3ds / .obj / .gltf / .glb / .fbx) — "
+    description="Import a 3D model file (.3ds / .obj / .gltf / .glb / .fbx): "
                 "the same one-action flow as File → Import 3D Model… in the "
                 "Designer. Parses the file, registers it in the mesh library "
                 "under its filename stem, and adds a Mesh3D placement centered "
@@ -45,7 +45,7 @@ def mesh_import_3d(session, path: str,
                     w: float = 400.0, h: float = 400.0) -> dict:
     """One-shot equivalent of the GUI's File → Import 3D Model… menu item.
     Centres the placement in the App Window doc and picks a sensible camera
-    distance for an imported (unit-normalised) mesh."""
+    distance for an imported (unit-normalized) mesh."""
     from pathlib import Path as _Path
     from elysium.render import pbr as _pbr
     designer = session.designer
@@ -57,7 +57,7 @@ def mesh_import_3d(session, path: str,
     # Store the placement with `mesh_kind = "file:<abs path>"` so the
     # render path loads straight from disk every time and doesn't
     # depend on the in-memory MESH_LIBRARY (which gets wiped whenever
-    # elysium.render.pbr is hot-reloaded — that used to silently
+    # elysium.render.pbr is hot-reloaded: that used to silently
     # downgrade imported butterflies to a Sphere fallback).
     abs_path = str(src.resolve())
     mesh_kind = f"file:{abs_path}"
@@ -76,7 +76,7 @@ def mesh_import_3d(session, path: str,
         props={},
         mesh_kind=mesh_kind,
     )
-    # Imported meshes are normalised to a unit cube; pull the camera in.
+    # Imported meshes are normalized to a unit cube; pull the camera in.
     placement.mesh_dist = 1.2
     designer.placements.append(placement)
     designer.menu_status = (f"Imported {name} ({len(mesh.faces)} tris, "
@@ -94,7 +94,7 @@ def mesh_import_3d(session, path: str,
                 "in the MESH_LIBRARY under `name` *without* creating a new "
                 "placement. Use this on launch when a saved .esk references "
                 "a named mesh (e.g. 'butterfly') that the fresh process has "
-                "not yet loaded — calling this rebinds the name so the "
+                "not yet loaded: calling this rebinds the name so the "
                 "existing Mesh3D placement starts rendering again.",
     input_schema={"type": "object",
                    "properties": {"path": {"type": "string"},
@@ -130,7 +130,7 @@ def mesh_register_from_file(session, path: str, name: str) -> dict:
                 "  - 'cylindrical' : wrap around the Y axis (u=angle, v=height).\n"
                 "  - 'spherical'   : wrap around origin (u=longitude, v=latitude).\n"
                 "Mutates the cached mesh object's `vert_uvs` in place. Does NOT "
-                "alter vertices, faces, normals, rigging, or part ids — the "
+                "alter vertices, faces, normals, rigging, or part ids: the "
                 "model's geometry stays identical. Returns the new per-part UV "
                 "bbox so callers can re-render or rebuild atlases against it.",
     input_schema={
@@ -219,7 +219,7 @@ def mesh_uv_unwrap(session, id: str, mode: str,
 
 @register_tool(
     name="material.project_photo",
-    description="'Projection painting' — bake a photo onto the mesh from a "
+    description="'Projection painting': bake a photo onto the mesh from a "
                 "camera angle (yaw, pitch, dist), then save the result as a "
                 "UV-aligned albedo atlas and bind it. For each mesh vertex, "
                 "the camera maps it to a screen-space point in the photo; "
@@ -258,7 +258,7 @@ def material_project_photo(session, id: str, src: str, name: str,
       3. Project that 3D point through a virtual camera to a photo pixel.
       4. Bilinear-sample the photo at that pixel and write it.
 
-    Crucially this is NOT per-vertex color interpolation — each atlas
+    Crucially this is NOT per-vertex color interpolation: each atlas
     pixel reads a real photo pixel through the geometry, so when the
     placement is later rendered from the same camera angle, the on-
     screen result matches the photo at pixel resolution (limited only
@@ -292,7 +292,7 @@ def material_project_photo(session, id: str, src: str, name: str,
     else:
         mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
     if mesh.vert_uvs is None:
-        raise ValueError("mesh has no UVs — call mesh.uv_unwrap first")
+        raise ValueError("mesh has no UVs: call mesh.uv_unwrap first")
     verts = mesh.verts.astype(_np.float32)
     uvs   = mesh.vert_uvs.astype(_np.float32)
     faces = mesh.faces
@@ -312,7 +312,7 @@ def material_project_photo(session, id: str, src: str, name: str,
         fx0, fy0, fx1, fy1 = ox0, oy0, ox1, oy1
     atlas  = _np.zeros((size, size, 4), dtype=_np.uint8)
     # Optional second buffer to track best-projection per atlas pixel
-    # via "smallest cos(angle) to look direction" — front-facing fragments
+    # via "smallest cos(angle) to look direction": front-facing fragments
     # win over edge-on ones to suppress projection stretching.
     best_dot = _np.full((size, size), -2.0, dtype=_np.float32)
     inv_size = 1.0 / float(size - 1)
@@ -416,10 +416,10 @@ def material_project_photo(session, id: str, src: str, name: str,
                 "every atlas pixel inside that part: finds its 3D position "
                 "via barycentric coords, normalises that position within "
                 "the part's 3D screen-space bbox (x,y from a given camera "
-                "view), and samples the photo at the equivalent normalised "
+                "view), and samples the photo at the equivalent normalized "
                 "position inside the part's photo bbox. Result: the top 1% "
                 "of the mesh's left wing samples the top 1% of the photo's "
-                "left wing, and so on — every section of every wing/body "
+                "left wing, and so on: every section of every wing/body "
                 "lines up proportionally to its counterpart in the reference.\n\n"
                 "`part_photo_bboxes` maps mesh part name -> {x,y,w,h} in "
                 "source-image pixel coords. Defaults supplied for parts "
@@ -467,9 +467,9 @@ def material_project_per_part(session, id: str, src: str, name: str,
     else:
         mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
     if mesh.vert_uvs is None:
-        raise ValueError("mesh has no UVs — call mesh.uv_unwrap first")
+        raise ValueError("mesh has no UVs: call mesh.uv_unwrap first")
     if mesh.part_names is None or mesh.vert_part_ids is None:
-        raise ValueError("mesh has no part_names/vert_part_ids — project_per_part needs a rigged mesh")
+        raise ValueError("mesh has no part_names/vert_part_ids: project_per_part needs a rigged mesh")
     # Camera basis (so x/y projection picks 'screen-space' axes).
     cy_, sy_ = math.cos(yaw), math.sin(yaw)
     cp_, sp_ = math.cos(pitch), math.sin(pitch)
@@ -549,7 +549,7 @@ def material_project_per_part(session, id: str, src: str, name: str,
         # 3D screen-space x/y per atlas-pixel.
         Px = w0 * v3d_x[0] + w1 * v3d_x[1] + w2 * v3d_x[2]
         Py = w0 * v3d_y[0] + w1 * v3d_y[1] + w2 * v3d_y[2]
-        # Normalised position within the part's screen-space bbox.
+        # Normalized position within the part's screen-space bbox.
         dx = pxmax - pxmin; dy = pymax - pymin
         if dx < 1e-6 or dy < 1e-6: continue
         vx = (Px - pxmin) / dx
@@ -604,7 +604,7 @@ def material_project_per_part(session, id: str, src: str, name: str,
 @register_tool(
     name="mesh.read_render_bbox",
     description="Return the tight bbox (in placement-bbox local pixels) "
-                "of where the rendered Mesh3D actually occupies space — "
+                "of where the rendered Mesh3D actually occupies space: "
                 "i.e. the alpha-bbox of the cached mesh PNG, scaled into "
                 "the placement bbox. Lets a caller stamp paint exactly "
                 "onto the visible mesh region (e.g. the butterfly's "
@@ -687,7 +687,7 @@ def mesh_read_render_bbox(session, id: str) -> dict:
                 "image, then scales into placement-bbox local pixels. "
                 "Lets a caller crop the reference photo to the EXACT "
                 "pixel dimensions of a model's wing region before "
-                "applying — the basis for pixel-perfect transfer.",
+                "applying: the basis for pixel-perfect transfer.",
     input_schema={"type": "object",
                    "properties": {"id": {"type": "string"}},
                    "required": ["id"]},
@@ -787,7 +787,7 @@ def mesh_read_parts(session, id: str) -> dict:
     description="Report the UV bounding box (umin, vmin, umax, vmax) for "
                 "each sub-mesh of a Mesh3D placement. UV coords are in "
                 "[0,1] and indicate which region of an albedo texture a "
-                "part samples — essential for picking a photo crop that "
+                "part samples: essential for picking a photo crop that "
                 "lands on the correct anatomy at the right size.",
     input_schema={"type": "object",
                    "properties": {"id": {"type": "string"}},
@@ -897,7 +897,7 @@ def mesh_render_final(session, id: str, samples: int = 12,
 
 
 # ──────────────────────────────────────────────────────────────────────
-#   ObjectMapper / PixelSelector — hybrid render-then-mask pipeline
+#   ObjectMapper / PixelSelector: hybrid render-then-mask pipeline
 #   (see user's design doc 2026-05-17). The CPU ray-tracer in
 #   elysium.render.pbr already produces per-pixel face_idx; this layer
 #   exposes that as on-demand binary masks + screen-space pixel lists
@@ -943,7 +943,7 @@ def _canvas_xy_for_image_pixel(p, img_x: float, img_y: float,
     to its painted location on the Designer canvas. Matches the
     ``dl.draw_image_bytes(rgba, img_w, img_h, ax, ay, p.w, p.h)``
     stretch used by ``_paint_one_placement``, INCLUDING the live
-    animation transform (``_t_dx`` / ``_t_dy``) — without this offset
+    animation transform (``_t_dx`` / ``_t_dy``): without this offset
     the lasso lands where the placement WOULD be at rest, but the
     visible mesh has flown 50 px up because of the looping animation.
     """
@@ -988,8 +988,8 @@ def _cached_visible_alpha_mask(p) -> tuple:
     description="Render the named sub-mesh part of a Mesh3D placement to "
                 "a binary mask sized at the placement's on-canvas pixel "
                 "dimensions (p.w × p.h). The mask is what the user sees "
-                "— byte-for-byte identical camera + projection as the "
-                "real PBR render — so any pixel that's '1' on the mask "
+                "- byte-for-byte identical camera + projection as the "
+                "real PBR render: so any pixel that's '1' on the mask "
                 "is a pixel the user sees coloured by that part on the "
                 "checkerboard canvas. Returns the PNG path + pixel count "
                 "+ canvas-space bbox of the part.\n\n"
@@ -1043,7 +1043,7 @@ def mesh_render_part_mask(session, id: str,
         if hit.any():
             mat_id[hit] = mesh.face_mats[face_idx[hit]].astype(_np.int32)
     # Full silhouette = any face-hit (works even when the mesh has no
-    # vert_part_ids / part_names — `part_id` would be all -1 there).
+    # vert_part_ids / part_names: `part_id` would be all -1 there).
     full_hit = (face_idx >= 0)
     # Build the requested mask.
     want = []
@@ -1059,7 +1059,7 @@ def mesh_render_part_mask(session, id: str,
     else:
         # Material-aware fallback for meshes without named parts but
         # with face_mats. For the procedural butterfly the convention is
-        # mat 0=forewing, 1=hindwing, 2=body, 3=head — so "wing" names
+        # mat 0=forewing, 1=hindwing, 2=body, 3=head: so "wing" names
         # restrict to mats {0,1} and exclude antennae/body, which would
         # otherwise pull the silhouette out to the placement edges.
         if not full_hit.any():
@@ -1121,7 +1121,7 @@ def mesh_render_part_mask(session, id: str,
     name="mesh.world_to_screen",
     description="Project a world-space (x, y, z) point through a Mesh3D "
                 "placement's camera and return the resulting CANVAS "
-                "(x, y) pixel — i.e. the same coordinate space as the "
+                "(x, y) pixel: i.e. the same coordinate space as the "
                 "Designer's drag-drop placements. Useful for putting a "
                 "marker on a known model vertex (wing tip, antenna, "
                 "etc.).",
@@ -1209,7 +1209,7 @@ def mesh_lasso_tip_pct(session, id: str, part: str,
     yaw   = float(getattr(p, "mesh_yaw",   0.4))
     pitch = float(getattr(p, "mesh_pitch", 0.25))
     dist  = float(getattr(p, "mesh_dist", None) or 3.5)
-    # ALWAYS build a fresh partmap — this is the only way to get
+    # ALWAYS build a fresh partmap: this is the only way to get
     # per-pixel part_id / mat_id needed to isolate Wing_Left from
     # Wing_Right / Body / antennae. The cached visible alpha is used
     # only as a SILHOUETTE GATE (so we never lasso a pixel the user
@@ -1276,7 +1276,7 @@ def mesh_lasso_tip_pct(session, id: str, part: str,
         elif "right" in lo: mask = base & (_np.arange(rw)[None, :] >  cx_split)
         else:               mask = base
     if not mask.any():
-        return {"points": [], "reason": "no pixels — part fully occluded"}
+        return {"points": [], "reason": "no pixels: part fully occluded"}
     ys, xs = _np.where(mask)
     # Auto-pick the tip corner from the part name unless the caller said.
     if anchor == "auto":
@@ -1295,7 +1295,7 @@ def mesh_lasso_tip_pct(session, id: str, part: str,
     # Re-anchor: snap the tip to the most extreme pixel along the wing's
     # outward direction (the corner that visually reads as 'the tip').
     # For "top_left" this is the pixel with min(y + x); for "top_right"
-    # min(y - x); etc. — this stops us picking the middle of the top row.
+    # min(y - x); etc.: this stops us picking the middle of the top row.
     yx = _np.column_stack([ys, xs]).astype(_np.float32)
     if   anchor == "top_left":     score = yx[:, 0] + yx[:, 1]
     elif anchor == "top_right":    score = yx[:, 0] - yx[:, 1]
@@ -1310,7 +1310,7 @@ def mesh_lasso_tip_pct(session, id: str, part: str,
     tip_arr = _np.array(tip_yx, dtype=_np.float32)
     dist_to_tip = _np.linalg.norm(yx - tip_arr, axis=1)
     n_total = int(mask.sum())
-    # `n_target` overrides pct when set — useful for matching another
+    # `n_target` overrides pct when set: useful for matching another
     # lasso's exact pixel count regardless of percentage drift.
     n_keep = (int(n_target) if n_target and n_target > 0
               else max(1, int(round(n_total * (pct / 100.0)))))
@@ -1397,7 +1397,7 @@ def mesh_lasso_tip_pct(session, id: str, part: str,
 
 
 # ──────────────────────────────────────────────────────────────────────
-# image.lasso_left_wing_tip_pct — Image-placement counterpart of
+# image.lasso_left_wing_tip_pct: Image-placement counterpart of
 # mesh.lasso_tip_pct. The reference photo doesn't have a 3D part rig,
 # so we recover the "left wing" via an alpha + non-white silhouette
 # pass on the source pixels, find the upper-outer tip, and lasso the
@@ -1428,7 +1428,7 @@ def _photo_left_wing_pixels(ref_placement):
 @register_tool(
     name="image.lasso_left_wing_tip_pct",
     description="Pixel-accurate lasso on the upper-outer tip of an "
-                "Image placement's left wing — the Image counterpart of "
+                "Image placement's left wing: the Image counterpart of "
                 "mesh.lasso_tip_pct. Algorithm: alpha + non-white "
                 "silhouette pass on the source photo, split at the "
                 "horizontal midpoint to isolate the left wing, find the "
@@ -1500,7 +1500,7 @@ def image_lasso_left_wing_tip_pct(session, id: str,
     tip_yx = (float(side_yx[tip_idx, 0]), float(side_yx[tip_idx, 1]))
     dist = _np.linalg.norm(side_yx - _np.array(tip_yx, dtype=_np.float32),
                             axis=1)
-    # `n_target` overrides pct when set — useful for matching another
+    # `n_target` overrides pct when set: useful for matching another
     # lasso's exact pixel count regardless of percentage drift.
     n_keep = (int(n_target) if n_target and n_target > 0
               else max(1, int(round(n_total * (pct / 100.0)))))
@@ -1584,10 +1584,10 @@ def image_lasso_left_wing_tip_pct(session, id: str,
                 "crop at its bbox-local position. Painted into the "
                 "placement's PaintMask so the result composites over the "
                 "mesh immediately.\n\n"
-                "method='bbox_warp' (default) — image-warps the source "
+                "method='bbox_warp' (default): image-warps the source "
                 "crop so stripes/spots stay in the right place even when "
                 "the wings have different shapes.\n"
-                "method='sweep'      — legacy zig-zag row-major copy "
+                "method='sweep'     : legacy zig-zag row-major copy "
                 "(loses pattern; only useful as a comparison baseline).\n\n"
                 "n_regions controls progress reporting (and the row "
                 "subdivision used in 'sweep' mode); bbox_warp samples "
@@ -1620,7 +1620,7 @@ def image_lasso_left_wing_tip_pct(session, id: str,
                             "items": {"type": "object"}},
             "paint_only_empty": {"type": "boolean",
                             "description": "Skip pixels where the "
-                            "PaintMask already has alpha>0 — i.e. only "
+                            "PaintMask already has alpha>0: i.e. only "
                             "fill the gaps left by a previous transfer. "
                             "Pair with clear_mask=false to layer."},
         },
@@ -1755,7 +1755,7 @@ def mesh_transfer_wing_from_reference(session,
                 Output starts with tip + base (anchors), then n_contour
                 arc-length boundary samples beginning AT the tip (rolled
                 so both wings start at the same anatomical landmark),
-                then n_interior points binned by normalised distance from
+                then n_interior points binned by normalized distance from
                 base. Order is deterministic for fixed mask geometry."""
                 ys_, xs_ = _np.where(mask_2d)
                 if len(ys_) < 16:
@@ -1771,7 +1771,7 @@ def mesh_transfer_wing_from_reference(session,
                 base = _np.array([xs_[base_idx], ys_[base_idx]], dtype=_np.float64)
                 # 2. Arc-length boundary walk (skimage.find_contours returns
                 #    pixel-precise ordered contour vertices, CCW for a
-                #    foreground blob — so neighbouring vertices stay
+                #    foreground blob: so neighbouring vertices stay
                 #    spatially adjacent and we can integrate arc length).
                 contours = _find_contours(mask_2d.astype(_np.uint8), level=0.5)
                 if not contours:
@@ -1801,7 +1801,7 @@ def mesh_transfer_wing_from_reference(session,
                 sample_idx = _np.searchsorted(rolled_arc, sample_at)
                 sample_idx = _np.clip(sample_idx, 0, len(rolled_xy) - 1)
                 contour_pts = rolled_xy[sample_idx].astype(_np.float64)
-                # 3. Interior points binned by normalised distance-from-base.
+                # 3. Interior points binned by normalized distance-from-base.
                 #    For each radial bin take the point closest to the bin's
                 #    target radius AND closest to the line tip→base for
                 #    repeatability.
@@ -1891,7 +1891,7 @@ def mesh_transfer_wing_from_reference(session,
                     src_full[..., ch].astype(_np.float32), coords,
                     order=3, mode="reflect", prefilter=False)
                 warped[..., ch] = _np.clip(samp, 0, 255).astype(_np.uint8)
-            # Source butterfly mask gate (warped) — pixels mapped from
+            # Source butterfly mask gate (warped): pixels mapped from
             # outside the source butterfly stay un-painted so we don't
             # bleed the photo's background onto the wing.
             bf_sampled = _map_coords(
@@ -1927,7 +1927,7 @@ def mesh_transfer_wing_from_reference(session,
                 "warped_size":    [int(yy.shape[1]), int(yy.shape[0])],
             }
         except Exception as _tps_err:
-            # TPS solve / mapping failed — log reason, reset mask
+            # TPS solve / mapping failed: log reason, reset mask
             # buffer, and re-run with bbox_warp on the same inputs.
             _tps_fallback_reason = repr(_tps_err)[:300]
             mask_obj.buf[:] = 0
@@ -1935,7 +1935,7 @@ def mesh_transfer_wing_from_reference(session,
             region_summaries = []
             method = "bbox_warp"
     if method == "bbox_warp":
-        # Bbox-warp method — preserves the source's spatial pattern.
+        # Bbox-warp method: preserves the source's spatial pattern.
         # Crop reference around the wing's tight silhouette bbox, warp
         # the crop to the model wing's bbox dimensions, then sample
         # every model wing pixel at its bbox-relative position.
@@ -2091,7 +2091,7 @@ def mesh_transfer_wing_from_reference(session,
             "bands":        band_records,
         }
     elif method == "landmark":
-        # Manual-landmark TPS — set via the `landmarks` kwarg as a
+        # Manual-landmark TPS: set via the `landmarks` kwarg as a
         # list of {"src": [x, y], "tgt": [x, y]} pairs. Use this when
         # automatic correspondence (polar / TPS-auto / regions) misses
         # an anatomical feature you can place by eye.
@@ -2163,7 +2163,7 @@ def mesh_transfer_wing_from_reference(session,
         # to the model wing's tip; sample the source at the SAME
         # (r/r_max_source(θ), θ) relative to the source wing's tip.
         # r_max(θ) is the silhouette's outer radius along angle θ, so
-        # we collapse each wing into the same normalised polar shell
+        # we collapse each wing into the same normalized polar shell
         # and a band at "halfway between wing tip and wing root" maps
         # to its anatomical equivalent regardless of wing shape.
         try:
@@ -2298,7 +2298,7 @@ def mesh_transfer_wing_from_reference(session,
     elif method == "flow":
         # bbox-warp base + Farneback dense optical flow refinement.
         # The alignment target is each wing's "distance-from-silhouette-
-        # edge" scalar field — that's the one signal that exists on
+        # edge" scalar field: that's the one signal that exists on
         # both wings and shares semantic meaning (iridescent bands in
         # the Blue Morpho roughly follow iso-distance contours), so
         # aligning these fields locks the source's bands onto the
@@ -2332,7 +2332,7 @@ def mesh_transfer_wing_from_reference(session,
         base_bf   = (_np.asarray(bf_pil.resize((mbw, mbh), _PIL.NEAREST)) > 0)
         # ---- tight target wing mask in bbox coords -------------------
         tgt_bbox = model_mask[my_min:my_max + 1, mx_min:mx_max + 1].astype(bool)
-        # ---- distance fields (normalised) ----------------------------
+        # ---- distance fields (normalized) ----------------------------
         src_dt = _edt(base_bf).astype(_np.float32)
         tgt_dt = _edt(tgt_bbox).astype(_np.float32)
         if src_dt.max() > 0: src_dt /= src_dt.max()
@@ -2388,7 +2388,7 @@ def mesh_transfer_wing_from_reference(session,
             "model_bbox":          [mx_min, my_min, mx_max, my_max],
         }
     elif method == "sweep":
-        # Legacy 'sweep' method — zig-zag row-major. Pattern is lost.
+        # Legacy 'sweep' method: zig-zag row-major. Pattern is lost.
         sort_idx = _np.lexsort((model_xs, model_ys))
         model_ys = model_ys[sort_idx]; model_xs = model_xs[sort_idx]
         sort_idx = _np.lexsort((ref_xs, ref_ys))
@@ -2426,7 +2426,7 @@ def mesh_transfer_wing_from_reference(session,
     # paint_only_empty restoration: overwrite any pixel that was already
     # painted before this call back to its pre-paint state. Net effect:
     # this transfer's new color only lands in pixels that were
-    # previously empty. Useful for layering — e.g. bbox-warp first to
+    # previously empty. Useful for layering: e.g. bbox-warp first to
     # fill the bulk, then landmark TPS to fill the gaps.
     preserved_overwrites = 0
     if paint_only_empty and _pre_alpha is not None:
@@ -2470,7 +2470,7 @@ def mesh_transfer_wing_from_reference(session,
                 "sample from that pixel.\n\n"
                 "After baking the tool optionally clears the PaintMask "
                 "(default ON) so PBR shading takes over from the screen-"
-                "space overlay — that's what lets `mesh.generate_normal_"
+                "space overlay: that's what lets `mesh.generate_normal_"
                 "map_from_albedo` actually catch light through the PBR "
                 "shader on subsequent renders. Saves the UV-mapped PNG "
                 "under ``~/.elysium/textures/<placement>_<part>_baked.png``.",
@@ -2545,7 +2545,7 @@ def mesh_bake_paint_mask_to_uv_albedo(session, id: str, part: str,
     uw = max(8, int(uv_w)); uh = max(8, int(uv_h))
     uc = (u * (uw - 1)).astype(_np.int64)
     # Use v directly (not 1-v): the PBR sampler in this codebase reads
-    # texture row = v * (H-1) — confirmed by checking
+    # texture row = v * (H-1): confirmed by checking
     # _sample_material_textures + the mesh's existing wing albedo
     # binding. Flipping V here produces a black wing because the chart
     # lands on transparent rows of the baked PNG.
@@ -2658,7 +2658,7 @@ def mesh_generate_normal_map_from_albedo(session, id: str, part: str,
     gx = _sobel(lum, axis=1, mode="reflect") / 255.0
     gy = _sobel(lum, axis=0, mode="reflect") / 255.0
     s = float(strength)
-    # Tangent-space normal: (-gx, -gy, 1/strength) normalised.
+    # Tangent-space normal: (-gx, -gy, 1/strength) normalized.
     nx = -gx * s
     ny = -gy * s
     nz = _np.ones_like(nx)
@@ -2683,7 +2683,7 @@ def mesh_generate_normal_map_from_albedo(session, id: str, part: str,
     # The framework's PBR material has a `normal_map` slot reached
     # through `pbr_normal_map_map` on Placement (per the existing
     # field_map in material.set_texture). For per-part overrides we
-    # use mesh_part_textures[part] with a slot-specific key — but the
+    # use mesh_part_textures[part] with a slot-specific key: but the
     # current MeshObject build path only honours albedo overrides per
     # part. To get the normal map into the actual render we bind it
     # via the whole-placement `pbr_normal_map` field too; the .3ds
@@ -2756,7 +2756,7 @@ def mesh_transfer_polar_with_normal_map(session,
 
 
 # ──────────────────────────────────────────────────────────────────────
-# Manual landmark workflow — save / load JSON presets + a thin wrapper
+# Manual landmark workflow: save / load JSON presets + a thin wrapper
 # that runs the landmark TPS transfer end-to-end.
 # ──────────────────────────────────────────────────────────────────────
 
@@ -2940,14 +2940,14 @@ def mesh_transfer_bbox_then_landmark_gaps(session,
 
 
 # ---------------------------------------------------------------------------
-# Phase 1m — generic bridge-tool aliases.
+# Phase 1m: generic bridge-tool aliases.
 #
 # The wing-named bridge tools above keep their original IDs so any saved
 # scripts / Aether transcripts / external automation continues to work.
 # Each gets a generic alias under a part-targeted name so the
 # user-facing tool catalog (which the AI agent reads) doesn't expose the
 # butterfly demo's vocabulary. Aliases are thin `dataclasses.replace`
-# clones of the original Tool — same function pointer, just a new name +
+# clones of the original Tool: same function pointer, just a new name +
 # trimmed-down description noting the generic naming.
 # ---------------------------------------------------------------------------
 

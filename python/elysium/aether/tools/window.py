@@ -1,4 +1,4 @@
-"""window.* tools — chrome, size, background, theme, studio."""
+"""window.* tools: chrome, size, background, theme, studio."""
 from __future__ import annotations
 
 from . import register_tool

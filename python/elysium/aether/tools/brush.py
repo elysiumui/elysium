@@ -1,8 +1,8 @@
-"""brush.* — paintbrush palette & texture-stamp ("texture slurp") tools.
+"""brush.*: paintbrush palette & texture-stamp ("texture slurp") tools.
 
 Lets the agent (and, by extension, anything driving the Designer's
 bridge) pick a small *tileable* RGBA tile and paint with it using the
-existing Brush tool — same workflow as: slurp a swatch from a photo,
+existing Brush tool: same workflow as: slurp a swatch from a photo,
 stash it in the palette, then drag the brush across the canvas to lay
 that tile down with a soft-edged circular stamp.
 """
@@ -25,7 +25,7 @@ def _set_active(designer, tile, name: str, scale: float,
                   auto_radius: bool = True) -> None:
     """Make `tile` the brush's active stamp. When auto_radius=True (the
     default) also size the brush footprint to match the tile so a
-    slurped Npx swatch paints an N-px brush — preserving the user's
+    slurped Npx swatch paints an N-px brush: preserving the user's
     intent that pattern size on the model = pattern size on the source."""
     import numpy as _np
     # Force opaque alpha on the active tile so paint is additive only.
@@ -56,7 +56,7 @@ def _set_active(designer, tile, name: str, scale: float,
                 "(absolute file path). Once set, the Brush tool paints with "
                 "that texture instead of `brush_color`; switch back to solid "
                 "color with brush.clear_texture. `scale` (default 1.0) "
-                "stretches the tile in placement-pixel units — 0.5 = pattern "
+                "stretches the tile in placement-pixel units: 0.5 = pattern "
                 "twice as dense, 2.0 = pattern twice as large.",
     input_schema={"type": "object",
                    "properties": {"name":  {"type": "string"},
@@ -130,7 +130,7 @@ def brush_slurp(session, src: str, name: str,
     Critical invariants for the "paint colors and patterns onto the
     model without changing its shape" workflow:
 
-    1. The slurped tile is forced FULLY OPAQUE — alpha set to 255
+    1. The slurped tile is forced FULLY OPAQUE: alpha set to 255
        across the whole crop. The brush must never paint with the
        source's alpha (which would let transparent-source pixels
        erase the underlying model).
@@ -148,7 +148,7 @@ def brush_slurp(session, src: str, name: str,
         src, name=name, crop_rect=crop_rect, tile=bool(seamless),
         saturation=0.0, contrast=0.0)
     tile = _load_rgba(str(out_path))
-    # Force the slurped tile fully opaque — the brush paints additively,
+    # Force the slurped tile fully opaque: the brush paints additively,
     # never punches holes. If the source had alpha-keyed background,
     # those pixels still carry useful RGB; promote them to alpha=255.
     if tile.shape[-1] == 4:
@@ -233,7 +233,7 @@ def brush_read(session) -> dict:
                 "local pixels: [0,0] = top-left of the bbox. `from` and "
                 "`to` define the stroke endpoints; pass equal points for a "
                 "single dab. Honours brush_radius, brush_opacity, "
-                "brush_hardness, brush_texture_scale. Additive only — no "
+                "brush_hardness, brush_texture_scale. Additive only: no "
                 "alpha cutout, never erases the underlying model.",
     input_schema={
         "type": "object",

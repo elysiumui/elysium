@@ -1,4 +1,4 @@
-"""Tool registry — every operation the agent can perform.
+"""Tool registry: every operation the agent can perform.
 
 Tools are pure functions with JSONSchema-typed signatures. The
 registry validates incoming calls, dispatches them against the live

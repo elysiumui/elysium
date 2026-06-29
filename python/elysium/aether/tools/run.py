@@ -1,4 +1,4 @@
-"""run.* — launch the user app, screenshot it, drive synthetic input,
+"""run.*: launch the user app, screenshot it, drive synthetic input,
 read frame stats from the existing Inspector channel."""
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def run_snapshot(session) -> dict:
                    "required": ["events"]},
 )
 def run_simulate_input(session, events: list) -> dict:
-    # v1 surface — records the events; the runtime-side consumer
+    # v1 surface: records the events; the runtime-side consumer
     # ships in Phase 4.2 alongside the daemon. For now, append to
     # the per-session journal so the agent can reason about them.
     session.simulated_events.extend(events)

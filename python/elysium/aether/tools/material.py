@@ -1,4 +1,4 @@
-"""material.* — PBR material setup on Mesh3D / PBRSphere placements."""
+"""material.*: PBR material setup on Mesh3D / PBRSphere placements."""
 from __future__ import annotations
 
 from . import register_tool
@@ -129,7 +129,7 @@ def material_clear(session, id: str) -> dict:
     p = session.lookup(id)
     designer = session.designer
     cleared: list = []
-    # PBR texture slots — empty path = no binding.
+    # PBR texture slots: empty path = no binding.
     for slot in ("albedo", "metallic_rough", "normal", "ao", "emissive"):
         field = "pbr_" + slot + "_map"
         if getattr(p, field, ""):
