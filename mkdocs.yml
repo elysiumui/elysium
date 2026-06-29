@@ -90,6 +90,7 @@ nav:
       - Borderless and shaped windows: guides/borderless-and-shaped.md
       - Windowing: guides/windowing.md
       - Components overview: guides/components-overview.md
+      - App shell: guides/app-shell.md
       - Layout: guides/layout.md
       - Animation: guides/animation.md
       - Reactive bindings: guides/reactive.md

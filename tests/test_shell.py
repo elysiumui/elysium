@@ -403,3 +403,26 @@ def test_dock_renders_with_drag_overlay():
     dm.on_drag(cz[0] + cz[2] / 2, cz[1] + cz[3] / 2)
     assert _render(dm, 900, 600)[:4] == b"\x89PNG"
     dm.on_release()
+
+
+# --- app-shell demo smoke (Phase 4) ---------------------------------------
+
+def test_app_shell_demo_builds_and_paints():
+    import importlib.util
+    from elysium._native import _native as n
+    spec = importlib.util.spec_from_file_location(
+        "app_shell_demo", "examples/app-shell-demo/main.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    T.set_theme(T.studio_dark())
+    shell = mod.build_shell(1280, 800)
+    # docks span all four areas
+    assert shell["docks"].find("editor")[0] == "center"
+    assert shell["docks"].find("console")[0] == "bottom"
+    # paint the whole shell headlessly
+    dl = n.DisplayList()
+    dl.clear(0.1, 0.11, 0.14, 1.0)
+    mod.paint_shell(dl, shell, 1280, 800)
+    layer = n.SkiaLayer(1280, 800)
+    layer.execute(dl)
+    assert bytes(layer.encode_png())[:4] == b"\x89PNG"

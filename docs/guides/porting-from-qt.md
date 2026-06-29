@@ -77,6 +77,38 @@ host = D.DialogHost(win)
 See `examples/qt-parity-demo/` for a complete borderless CRUD app (validated
 form + sortable/editable table + dialogs) that exercises every Tier-1 feature.
 
+## App shell (Tier 4)
+
+The `QMainWindow` structural widgets live in `elysium.shell`. See the
+[App-shell guide](app-shell.md) and `examples/app-shell-demo/` (a docking IDE).
+
+| Qt | Elysium | Notes |
+| --- | --- | --- |
+| `QMenuBar` / `QMenu` | `shell.MenuBar` (+ `components.Menu`/`MenuItem`) | persistent bar; titles open dropdowns with shortcuts |
+| `QToolBar` / `QToolButton` | `shell.ToolBar` / `shell.ToolButton` | separators + a flexible `"spacer"`; pluggable icon painter; checked/disabled |
+| `QTabWidget` | `shell.TabWidget` | content-width tabs, closable, content routing |
+| `QSplitter` | `shell.Splitter` | H/V draggable divider, min-size clamped, `pane_rects()` |
+| `QStatusBar` | `shell.StatusBar` | transient message + right-aligned permanent sections |
+| `QGroupBox` | `shell.GroupBox` | titled bordered container; `content_rect()` for children |
+| `QDockWidget` | `shell.DockWidget` | a titled, dockable panel (id + content) |
+| `QMainWindow` docking | `shell.DockManager` | left/right/bottom/centre areas, per-area tabbing, splitter resize, drag-to-redock with drop zones, layout `serialize()`/`restore()` |
+
+```python
+from elysium.shell import DockManager, DockWidget, MenuBar, StatusBar
+
+docks = DockManager(x=0, y=0, w=1280, h=720)
+docks.add(DockWidget(id="explorer", title="Explorer", content=tree), "left")
+docks.add(DockWidget(id="editor",   title="main.py",  content=editor), "center")
+docks.add(DockWidget(id="console",  title="Console",  content=log),    "bottom")
+
+# per frame: docks.paint(dl); route presses via docks.on_press/on_drag/on_release
+layout = docks.serialize()           # persist via elysium.settings.Settings
+docks.restore(layout, registry={...})  # id -> DockWidget
+```
+
+Floating a dock out to a separate OS window is a tracked follow-up; docked +
+tabbed + drag-to-redock + persisted layouts are available now.
+
 ## Class map — Tier 2 (scale, services, native)
 
 | Qt | Elysium | Notes |
