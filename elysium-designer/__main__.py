@@ -23565,6 +23565,101 @@ def _icon_tb_tl_set_breakdown(ctx: IconCtx) -> None:
                     acc, 1.6)
 
 
+# ---------------------------------------------------------------------------
+# Bundled SVG icon overrides.
+#
+# Designers redraw glyphs in an external editor and drop one `<kind>.svg`
+# per icon into `assets/icons/` (48×48 artboard, path-data only,
+# `currentColor` + optional *-opacity for duotone). Those replace the
+# hand-drawn painters above, so the whole set can be art-directed without
+# touching code. See `docs-designer/icon-redesign/` for the catalog and the
+# hard import requirements.
+# ---------------------------------------------------------------------------
+def _parse_svg_icon_ops(svg_text: str) -> list:
+    """Flatten a redesigned icon SVG into draw ops the toolbox can replay.
+
+    Supports `<path>` (fill and/or stroke, `currentColor` + `*-opacity`) and
+    stand-alone `<circle>`. Coordinates stay in the 48×48 artboard space; the
+    painter scales them into the button. Returns ``[]`` on any failure so a
+    bad file falls back to the original painter rather than blanking the icon.
+    """
+    import xml.etree.ElementTree as ET
+
+    def _f(v, default):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return default
+
+    try:
+        root = ET.fromstring(svg_text)
+    except Exception:
+        return []
+
+    ops: list = []
+    for el in root.iter():
+        tag = el.tag.rsplit("}", 1)[-1]
+        a = el.attrib
+        if tag == "circle":
+            cx, cy, r = _f(a.get("cx"), 0.0), _f(a.get("cy"), 0.0), _f(a.get("r"), 0.0)
+            d = (f"M {cx - r} {cy} a {r} {r} 0 1 0 {2 * r} 0 "
+                 f"a {r} {r} 0 1 0 {-2 * r} 0 Z")
+        elif tag == "path":
+            d = a.get("d")
+        else:
+            continue
+        if not d:
+            continue
+        fill = a.get("fill", "none")
+        if fill and fill != "none":
+            ops.append(("fill", d, _f(a.get("fill-opacity"), 1.0), 0.0))
+        stroke = a.get("stroke", "none")
+        if stroke and stroke != "none":
+            ops.append(("stroke", d, _f(a.get("stroke-opacity"), 1.0),
+                        _f(a.get("stroke-width"), 1.6)))
+    return ops
+
+
+def _make_svg_icon_painter(ops):
+    """Build an icon painter that maps the 48×48 artboard into the icon's
+    button box and replays `ops` in the theme foreground (`ctx.fg`), so the
+    glyph recolours with the theme. Duotone is honoured via per-op opacity."""
+    def _painter(ctx, _ops=ops):
+        dl, fg = ctx.dl, ctx.fg
+        dl.save_with_transform(ctx.x, ctx.y, ctx.w / 48.0, ctx.h / 48.0, 0.0)
+        try:
+            for mode, d, alpha, width in _ops:
+                col = themes.with_alpha(fg, alpha)
+                if mode == "fill":
+                    dl.fill_path(d, col)
+                else:
+                    dl.stroke_path(d, col, width)
+        finally:
+            dl.restore()
+    return _painter
+
+
+def _load_bundled_svg_icons() -> int:
+    """Override hand-drawn glyphs with redesigned SVGs under `assets/icons/`.
+    Returns the count replaced; never raises (a bad file is skipped)."""
+    icon_dir = Path(__file__).resolve().parent / "assets" / "icons"
+    if not icon_dir.is_dir():
+        return 0
+    n = 0
+    for svg in sorted(icon_dir.glob("*.svg")):
+        try:
+            ops = _parse_svg_icon_ops(svg.read_text(encoding="utf-8"))
+        except Exception:
+            ops = []
+        if ops:
+            _ICON_PAINTERS[svg.stem] = _make_svg_icon_painter(ops)
+            n += 1
+    return n
+
+
+_SVG_ICONS_LOADED = _load_bundled_svg_icons()
+
+
 def _default_skin_path() -> Path | None:
     """When launched without a CLI argument (e.g. double-click from
     Finder on a packaged build), look for a sensible default skin to
