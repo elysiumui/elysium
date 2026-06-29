@@ -9,13 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
-- **App-shell widgets** (`elysium.shell`, Tier 4 Phase 1 — Qt `QMainWindow`
-  parity): `GroupBox` (titled bordered container with a content rect),
-  `StatusBar` (transient message + right-aligned permanent sections), `Splitter`
-  (draggable two-pane divider, H/V, min-size clamped), and `MenuBar` (persistent
-  in-window menu bar over the existing `Menu`/`MenuItem`). Immediate-mode
-  Components that recolour with the theme. `ToolBar`/`TabWidget`/`DockWidget`
-  land in later phases.
+- **App-shell widgets** (`elysium.shell`, Tier 4 — Qt `QMainWindow` parity).
+  Immediate-mode Components that recolour with the theme:
+  - `GroupBox` (titled bordered container with a content rect), `StatusBar`
+    (transient message + right-aligned permanent sections), `Splitter`
+    (draggable two-pane divider, H/V, min-size clamped), `MenuBar` (persistent
+    in-window menu bar over the existing `Menu`/`MenuItem`).
+  - `ToolButton`/`ToolBar` (icon/text tool strips with separators + a flexible
+    spacer; pluggable icon painter; checked/disabled states), `TabWidget`
+    (content-width closable tabs + content routing).
+  - `DockWidget`/`DockManager` (`QDockWidget` parity): left/right/bottom/centre
+    dock areas, per-area tabbing, splitter resize between areas, drag-a-tab to
+    re-dock with drop-zone overlays, and layout save/restore via `serialize()` /
+    `restore()` (wire to `elysium.settings`).
 - **Studio theme + design tokens** (Designer redesign, part A1): new
   `elysium.theme.studio_dark()` / `studio_light()` built-ins (the clean
   professional "Studio" direction), plus new `Theme` tokens — a spacing scale

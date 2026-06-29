@@ -266,3 +266,140 @@ def test_tabwidget_paints_active_content():
     content = tw.tabs[2][1]
     cx, cy, cw, ch = tw.content_rect()
     assert content.x == cx and content.w == cw
+
+
+# --- DockManager / DockWidget (Phase 3) -----------------------------------
+
+from elysium.shell import DockWidget, DockManager  # noqa: E402
+
+
+def _dockmgr():
+    from elysium.components import Label
+    dm = DockManager(x=0, y=0, w=900, h=600)
+    dm.add(DockWidget(id="explorer", title="Explorer", content=Label(text="")), "left")
+    dm.add(DockWidget(id="outline", title="Outline", content=Label(text="")), "left")
+    dm.add(DockWidget(id="props", title="Properties", content=Label(text="")), "right")
+    dm.add(DockWidget(id="editor", title="main.py", content=Label(text="")), "center")
+    dm.add(DockWidget(id="console", title="Console", content=Label(text="")), "bottom")
+    return dm
+
+
+def test_dock_area_rects_partition_without_overlap():
+    dm = _dockmgr()
+    lx, ly, lw, lh = dm.area_rect("left")
+    rx, ry, rw, rh = dm.area_rect("right")
+    cx, cy, cw, ch = dm.area_rect("center")
+    bx, by, bw, bh = dm.area_rect("bottom")
+    assert (lx, lw) == (0, 220)
+    assert rx + rw == 900 and rw == 260
+    # center sits between left and right columns (with handles)
+    assert cx == 220 + dm.handle
+    assert cx + cw == rx - dm.handle
+    # bottom spans the centre width, pinned to the bottom edge
+    assert (bx, bw) == (cx, cw)
+    assert by + bh == 600
+    # centre stops above the bottom area
+    assert cy + ch == by - dm.handle
+
+
+def test_dock_empty_area_takes_no_space():
+    dm = DockManager(x=0, y=0, w=800, h=600)
+    dm.add(DockWidget(id="c", title="C"), "center")
+    cx, cy, cw, ch = dm.area_rect("center")
+    assert (cx, cy, cw, ch) == (0, 0, 800, 600)  # no docks → centre fills all
+
+
+def test_dock_tabs_within_area():
+    dm = _dockmgr()
+    tabs = dm.tab_rects("left")
+    assert len(tabs) == 2  # Explorer + Outline tabbed in the left area
+    xs = [tx for _i, tx, _tw in tabs]
+    assert xs == sorted(xs)
+
+
+def test_dock_hit_tab_and_close_and_handle():
+    dm = _dockmgr()
+    # tab hit selects
+    i, tx, tw = dm.tab_rects("left")[1]
+    assert dm.on_press(tx + 4, dm.area_rect("left")[1] + 4) is True
+    assert dm.active["left"] == 1
+    # close button hit
+    assert dm.hit(tx + tw - 6, dm.area_rect("left")[1] + 4)[0] == "close"
+    # handle hit
+    hr = dm.handle_rect("left")
+    assert dm.hit(hr[0] + 1, hr[1] + 10)[0] == "handle"
+
+
+def test_dock_resize_left_clamps():
+    dm = _dockmgr()
+    hr = dm.handle_rect("left")
+    dm.on_press(hr[0] + 1, hr[1] + 10)
+    assert dm._resize == "left"
+    dm.on_drag(400, 300)            # drag right
+    assert dm.sizes["left"] == pytest.approx(min(400, 900 * 0.6))
+    dm.on_drag(-100, 300)          # drag far left → clamps to min
+    assert dm.sizes["left"] == dm.min_area
+    dm.on_release()
+    assert dm._resize is None
+
+
+def test_dock_drag_tab_to_zone_redocks():
+    dm = _dockmgr()
+    # start dragging the Properties tab (right area)
+    i, tx, tw = dm.tab_rects("right")[0]
+    ry = dm.area_rect("right")[1]
+    dm.on_press(tx + 4, ry + 4)
+    # move into the bottom drop zone
+    zones = dm.drop_zones()
+    bz = zones["bottom"]
+    dm.on_drag(bz[0] + bz[2] / 2, bz[1] + bz[3] / 2)
+    assert dm._drag["armed"] is True
+    assert dm._hover_zone == "bottom"
+    dm.on_release()
+    # Properties moved out of right and into bottom
+    assert dm.find("props")[0] == "bottom"
+    assert all(dw.id != "props" for dw in dm.areas["right"])
+
+
+def test_dock_tiny_drag_does_not_redock():
+    dm = _dockmgr()
+    i, tx, tw = dm.tab_rects("right")[0]
+    ry = dm.area_rect("right")[1]
+    dm.on_press(tx + 4, ry + 4)
+    dm.on_drag(tx + 6, ry + 5)   # within threshold
+    dm.on_release()
+    assert dm.find("props")[0] == "right"  # stayed put (was just a click)
+
+
+def test_dock_serialize_restore_roundtrips():
+    dm = _dockmgr()
+    dm.active["left"] = 1
+    dm.sizes["right"] = 300.0
+    blob = dm.serialize()
+    assert blob["areas"]["left"] == ["explorer", "outline"]
+    assert blob["sizes"]["right"] == 300.0
+    # rebuild into a fresh manager from a registry
+    registry = {dw.id: dw for lst in dm.areas.values() for dw in lst}
+    dm2 = DockManager(x=0, y=0, w=900, h=600)
+    dm2.restore(blob, registry)
+    assert [dw.id for dw in dm2.areas["left"]] == ["explorer", "outline"]
+    assert dm2.active["left"] == 1
+    assert dm2.sizes["right"] == 300.0
+    assert dm2.find("console")[0] == "bottom"
+
+
+def test_dock_renders():
+    dm = _dockmgr()
+    assert _render(dm, 900, 600)[:4] == b"\x89PNG"
+
+
+def test_dock_renders_with_drag_overlay():
+    dm = _dockmgr()
+    i, tx, tw = dm.tab_rects("right")[0]
+    ry = dm.area_rect("right")[1]
+    dm.on_press(tx + 4, ry + 4)
+    zones = dm.drop_zones()
+    cz = zones["center"]
+    dm.on_drag(cz[0] + cz[2] / 2, cz[1] + cz[3] / 2)
+    assert _render(dm, 900, 600)[:4] == b"\x89PNG"
+    dm.on_release()

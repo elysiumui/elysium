@@ -228,6 +228,8 @@
     "config_dir"
   ],
   "elysium.shell": [
+    "DockManager",
+    "DockWidget",
     "GroupBox",
     "MenuBar",
     "Splitter",

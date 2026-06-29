@@ -36,7 +36,11 @@ __all__ = [
     "ToolButton",
     "ToolBar",
     "TabWidget",
+    "DockWidget",
+    "DockManager",
 ]
+
+DOCK_AREAS = ("left", "right", "bottom", "center")
 
 
 def _rect_path(x: float, y: float, w: float, h: float) -> str:
@@ -584,3 +588,300 @@ class TabWidget(Component):
                 content.x, content.y = crect[0], crect[1]
                 content.w, content.h = crect[2], crect[3]
                 content.paint(dl)
+
+
+# ---------------------------------------------------------------------------
+# DockWidget / DockManager — dockable, tabbed panels (Qt's QDockWidget).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class DockWidget(Component):
+    """A dockable panel: a ``title`` and a ``content`` (any object with
+    ``x/y/w/h`` + ``paint``). The :class:`DockManager` owns its placement; this
+    type is mostly an identity + content holder. ``id`` must be unique within a
+    manager (used for layout save/restore)."""
+
+    id: str = ""
+    title: str = ""
+    content: Any = None
+    closable: bool = True
+
+    def paint_content(self, dl: Any, rect: tuple[float, float, float, float]) -> None:
+        if self.content is not None and hasattr(self.content, "paint"):
+            self.content.x, self.content.y = rect[0], rect[1]
+            self.content.w, self.content.h = rect[2], rect[3]
+            self.content.paint(dl)
+
+
+@dataclass
+class DockManager(Component):
+    """Arranges :class:`DockWidget`\\ s into docked areas around a central area
+    (Qt's ``QMainWindow`` dock system).
+
+    Areas are ``"left"`` / ``"right"`` / ``"bottom"`` / ``"center"``. Each area
+    is a tabbed region (multiple widgets share it via a tab strip). Splitter
+    handles between the docked areas and the centre resize them. Dragging a
+    tab shows drop-zone overlays and re-docks the widget on release. The whole
+    layout serialises to/from a plain dict (wire to ``elysium.settings``).
+    """
+
+    areas: dict[str, list[DockWidget]] = field(
+        default_factory=lambda: {a: [] for a in DOCK_AREAS})
+    active: dict[str, int] = field(
+        default_factory=lambda: {a: 0 for a in DOCK_AREAS})
+    sizes: dict[str, float] = field(
+        default_factory=lambda: {"left": 220.0, "right": 260.0, "bottom": 160.0})
+    handle: float = 6.0
+    tab_h: float = 28.0
+    min_area: float = 80.0
+    _drag: dict | None = field(default=None, init=False, repr=False)
+    _resize: str | None = field(default=None, init=False, repr=False)
+    _hover_zone: str | None = field(default=None, init=False, repr=False)
+
+    # --- structure --------------------------------------------------------
+
+    def add(self, dw: DockWidget, area: str = "center") -> DockWidget:
+        self.areas.setdefault(area, []).append(dw)
+        return dw
+
+    def find(self, dock_id: str) -> tuple[str, int] | None:
+        for area, lst in self.areas.items():
+            for i, dw in enumerate(lst):
+                if dw.id == dock_id:
+                    return (area, i)
+        return None
+
+    def move(self, dw: DockWidget, area: str) -> None:
+        for lst in self.areas.values():
+            if dw in lst:
+                lst.remove(dw)
+        self.areas.setdefault(area, []).append(dw)
+        self.active[area] = len(self.areas[area]) - 1
+
+    def close(self, area: str, idx: int) -> None:
+        lst = self.areas.get(area, [])
+        if 0 <= idx < len(lst):
+            del lst[idx]
+            if self.active.get(area, 0) >= len(lst):
+                self.active[area] = max(0, len(lst) - 1)
+
+    # --- geometry ---------------------------------------------------------
+
+    def _eff(self, area: str) -> float:
+        """Effective size of a docked area (0 when empty)."""
+        if area == "center" or not self.areas.get(area):
+            return 0.0
+        return self.sizes.get(area, 0.0)
+
+    def area_rect(self, area: str) -> tuple[float, float, float, float]:
+        x, y, w, h = self.x, self.y, self.w, self.h
+        L, R, B = self._eff("left"), self._eff("right"), self._eff("bottom")
+        hl = self.handle if L else 0.0
+        hr = self.handle if R else 0.0
+        hb = self.handle if B else 0.0
+        if area == "left":
+            return (x, y, L, h)
+        if area == "right":
+            return (x + w - R, y, R, h)
+        cx = x + L + hl
+        cw = max(0.0, w - L - hl - R - hr)
+        if area == "bottom":
+            return (cx, y + h - B, cw, B)
+        # center
+        return (cx, y, cw, max(0.0, h - B - hb))
+
+    def handle_rect(self, area: str) -> tuple[float, float, float, float] | None:
+        if self._eff(area) <= 0:
+            return None
+        ax, ay, aw, ah = self.area_rect(area)
+        hsz = self.handle
+        if area == "left":
+            return (ax + aw, ay, hsz, ah)
+        if area == "right":
+            return (ax - hsz, ay, hsz, ah)
+        if area == "bottom":
+            return (ax, ay - hsz, aw, hsz)
+        return None
+
+    def content_rect(self, area: str) -> tuple[float, float, float, float]:
+        ax, ay, aw, ah = self.area_rect(area)
+        return (ax, ay + self.tab_h, aw, max(0.0, ah - self.tab_h))
+
+    def tab_rects(self, area: str) -> list[tuple[int, float, float]]:
+        """``(index, x, width)`` for each tab in ``area``."""
+        t = current_theme()
+        ax, _ay, _aw, _ah = self.area_rect(area)
+        out: list[tuple[int, float, float]] = []
+        cx = ax
+        for i, dw in enumerate(self.areas.get(area, [])):
+            tw = len(dw.title) * t.font_size_caption * 0.6 + 26
+            if dw.closable:
+                tw += 16
+            out.append((i, cx, tw))
+            cx += tw
+        return out
+
+    # --- hit-testing ------------------------------------------------------
+
+    def hit(self, mx: float, my: float):
+        for area in DOCK_AREAS:
+            if not self.areas.get(area):
+                continue
+            hr = self.handle_rect(area)
+            if hr and hr[0] - 3 <= mx <= hr[0] + hr[2] + 3 \
+                    and hr[1] - 3 <= my <= hr[1] + hr[3] + 3:
+                return ("handle", area, -1)
+        for area in DOCK_AREAS:
+            ax, ay, aw, _ah = self.area_rect(area)
+            if not (ax <= mx <= ax + aw and ay <= my <= ay + self.tab_h):
+                continue
+            for i, tx, tw in self.tab_rects(area):
+                if tx <= mx <= tx + tw:
+                    dw = self.areas[area][i]
+                    if dw.closable and mx >= tx + tw - 18:
+                        return ("close", area, i)
+                    return ("tab", area, i)
+        return None
+
+    def on_press(self, mx: float, my: float) -> bool:
+        h = self.hit(mx, my)
+        if h is None:
+            return False
+        kind, area, idx = h
+        if kind == "handle":
+            self._resize = area
+            return True
+        if kind == "close":
+            self.close(area, idx)
+            return True
+        if kind == "tab":
+            self.active[area] = idx
+            self._drag = {"area": area, "idx": idx, "mx": mx, "my": my,
+                          "armed": False}
+            return True
+        return False
+
+    def on_drag(self, mx: float, my: float) -> None:
+        if self._resize is not None:
+            self._resize_area(self._resize, mx, my)
+            return
+        if self._drag is not None:
+            # Arm the drag only after a small threshold so a click still selects.
+            if (abs(mx - self._drag["mx"]) + abs(my - self._drag["my"])) > 6:
+                self._drag["armed"] = True
+            if self._drag["armed"]:
+                self._hover_zone = self._zone_at(mx, my)
+
+    def on_release(self) -> None:
+        if self._drag is not None and self._drag.get("armed") and self._hover_zone:
+            dw = self.areas[self._drag["area"]][self._drag["idx"]]
+            self.move(dw, self._hover_zone)
+        self._drag = None
+        self._resize = None
+        self._hover_zone = None
+
+    def _resize_area(self, area: str, mx: float, my: float) -> None:
+        if area == "left":
+            self.sizes["left"] = self._clamp(mx - self.x)
+        elif area == "right":
+            self.sizes["right"] = self._clamp(self.x + self.w - mx)
+        elif area == "bottom":
+            self.sizes["bottom"] = self._clamp(self.y + self.h - my)
+
+    def _clamp(self, v: float) -> float:
+        return min(max(v, self.min_area), max(self.min_area, self.w * 0.6))
+
+    # --- drop zones -------------------------------------------------------
+
+    def drop_zones(self) -> dict[str, tuple[float, float, float, float]]:
+        """Edge/centre drop targets (for the drag overlay), keyed by area."""
+        cx, cy, cw, ch = self.area_rect("center")
+        d = min(cw, ch) * 0.28
+        return {
+            "left":   (cx, cy, d, ch),
+            "right":  (cx + cw - d, cy, d, ch),
+            "bottom": (cx, cy + ch - d, cw, d),
+            "center": (cx + d, cy + d, max(0.0, cw - 2 * d),
+                       max(0.0, ch - 2 * d)),
+        }
+
+    def _zone_at(self, mx: float, my: float) -> str | None:
+        # Centre wins ties; then edges.
+        zones = self.drop_zones()
+        for area in ("center", "left", "right", "bottom"):
+            zx, zy, zw, zh = zones[area]
+            if zx <= mx <= zx + zw and zy <= my <= zy + zh:
+                return area
+        return None
+
+    # --- persistence ------------------------------------------------------
+
+    def serialize(self) -> dict:
+        return {
+            "areas": {a: [dw.id for dw in self.areas.get(a, [])]
+                      for a in DOCK_AREAS},
+            "active": dict(self.active),
+            "sizes": dict(self.sizes),
+        }
+
+    def restore(self, data: dict, registry: dict[str, DockWidget]) -> None:
+        """Rebuild from :meth:`serialize` output. ``registry`` maps id → the
+        live ``DockWidget`` (unknown ids are skipped)."""
+        self.areas = {a: [registry[i] for i in data.get("areas", {}).get(a, [])
+                          if i in registry] for a in DOCK_AREAS}
+        self.active = {a: int(data.get("active", {}).get(a, 0))
+                       for a in DOCK_AREAS}
+        self.sizes.update({k: float(v) for k, v in data.get("sizes", {}).items()})
+
+    # --- paint ------------------------------------------------------------
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        for area in DOCK_AREAS:
+            widgets = self.areas.get(area, [])
+            if not widgets:
+                continue
+            ax, ay, aw, ah = self.area_rect(area)
+            # Panel + tab strip.
+            dl.fill_path(_rect_path(ax, ay, aw, ah),
+                         t.surface_variant if area != "center"
+                         else lighten(t.surface, 0.01))
+            dl.fill_path(_rect_path(ax, ay, aw, self.tab_h),
+                         lighten(t.surface, 0.02))
+            act = self.active.get(area, 0)
+            for i, tx, tw in self.tab_rects(area):
+                dw = widgets[i]
+                active = i == act
+                if active:
+                    dl.fill_path(_rect_path(tx, ay, tw, self.tab_h),
+                                 t.surface_variant)
+                    dl.fill_path(_rect_path(tx, ay, tw, 2.0), t.primary)
+                col = t.on_surface if active else t.on_surface_muted
+                dl.draw_text(dw.title, tx + 10, ay + self.tab_h * 0.64,
+                             t.font_size_caption, col)
+                if dw.closable:
+                    cc, cm = tx + tw - 11, ay + self.tab_h / 2.0
+                    dl.stroke_path(
+                        f"M {cc-3} {cm-3} L {cc+3} {cm+3} M {cc+3} {cm-3} "
+                        f"L {cc-3} {cm+3}", with_alpha(t.on_surface_muted, 0.8), 1.3)
+            dl.fill_path(_rect_path(ax, ay + self.tab_h - 1, aw, 1.0),
+                         with_alpha(t.edge, 0.6))
+            # Active widget content.
+            if widgets:
+                widgets[min(act, len(widgets) - 1)].paint_content(
+                    dl, self.content_rect(area))
+            # Resize handle.
+            hr = self.handle_rect(area)
+            if hr:
+                dl.fill_path(_rect_path(*hr), with_alpha(t.edge, 0.5))
+        # Drag drop-zone overlay.
+        if self._drag is not None and self._drag.get("armed"):
+            zones = self.drop_zones()
+            for area, rect in zones.items():
+                hot = area == self._hover_zone
+                dl.fill_path(_rect_path(*rect),
+                             with_alpha(t.primary, 0.28 if hot else 0.08))
+                if hot:
+                    dl.stroke_path(_rounded_rect(rect[0] + 1, rect[1] + 1,
+                                                 rect[2] - 2, rect[3] - 2, 4),
+                                   with_alpha(t.primary, 0.9), 1.5)
