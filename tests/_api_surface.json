@@ -95,6 +95,9 @@
     "TreeRow",
     "get_default_atlas"
   ],
+  "elysium.components.completer": [
+    "Completer"
+  ],
   "elysium.components.dataentry": [
     "CalendarWidget",
     "DateEdit",

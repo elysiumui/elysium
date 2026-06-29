@@ -23,6 +23,7 @@ PUBLIC_MODULES = [
     "elysium.components.dataentry",
     "elysium.components.scroll",
     "elysium.components.virtual",
+    "elysium.components.completer",
     "elysium.layout",
     "elysium.theme",
     "elysium.anim",
