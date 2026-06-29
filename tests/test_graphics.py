@@ -148,3 +148,82 @@ def test_scene_paints_all_item_types():
     s.add(TextItem(x=10, y=140, w=200, h=20, text="scene", size=14))
     s.items[0].selected = True
     assert _render(s)[:4] == b"\x89PNG"
+
+
+# --- GraphicsView (Phase 2) ------------------------------------------------
+
+from elysium.graphics import GraphicsView  # noqa: E402
+
+
+def _view_with_scene():
+    s = Scene()
+    s.add(RectItem(x=0, y=0, w=50, h=50))         # near origin
+    s.add(RectItem(x=1000, y=1000, w=50, h=50))   # far away
+    return GraphicsView(scene=s, x=0, y=0, w=400, h=300)
+
+
+def test_view_coord_roundtrip():
+    v = GraphicsView(x=10, y=20, w=400, h=300, pan_x=100, pan_y=50, zoom=2.0)
+    vx, vy = v.to_view(130, 80)
+    assert (vx, vy) == (10 + (130 - 100) * 2, 20 + (80 - 50) * 2)
+    sx, sy = v.to_scene(vx, vy)
+    assert sx == pytest.approx(130) and sy == pytest.approx(80)
+
+
+def test_view_zoom_at_keeps_focal_point_fixed():
+    v = GraphicsView(x=0, y=0, w=400, h=300, zoom=1.0)
+    focal = (250, 150)
+    before = v.to_scene(*focal)
+    v.zoom_at(*focal, 2.0)
+    after = v.to_scene(*focal)
+    assert v.zoom == pytest.approx(2.0)
+    assert after[0] == pytest.approx(before[0])
+    assert after[1] == pytest.approx(before[1])
+
+
+def test_view_zoom_clamped():
+    v = GraphicsView(w=400, h=300, zoom=1.0, min_zoom=0.5, max_zoom=4.0)
+    v.set_zoom(100)
+    assert v.zoom == 4.0
+    v.set_zoom(0.001)
+    assert v.zoom == 0.5
+
+
+def test_view_pan_drag():
+    v = GraphicsView(w=400, h=300, zoom=2.0)
+    v.begin_pan(100, 100)
+    v.drag_pan(120, 110)        # moved +20,+10 screen px
+    v.end_pan()
+    # content followed the cursor → pan shifted by -delta/zoom
+    assert v.pan_x == pytest.approx(-10) and v.pan_y == pytest.approx(-5)
+
+
+def test_view_fit_frames_scene():
+    v = _view_with_scene()
+    v.fit(margin=10)
+    # the whole scene bbox (0..1050) now fits within the viewport
+    vis = v.visible_scene_rect()
+    sb = v.scene.bounding_rect()
+    assert vis[0] <= sb[0] + 1 and vis[1] <= sb[1] + 1
+    assert vis[0] + vis[2] >= sb[0] + sb[2] - 1
+    assert vis[1] + vis[3] >= sb[1] + sb[3] - 1
+
+
+def test_view_culls_offscreen_items():
+    v = _view_with_scene()      # zoom 1, viewport 400×300 at origin
+    vis = v.visible_items()
+    assert len(vis) == 1        # only the near rect is on-screen
+    v.fit(margin=10)            # now both fit
+    assert len(v.visible_items()) == 2
+
+
+def test_view_renders():
+    v = _view_with_scene()
+    v.scene.items[0].selected = True
+    from elysium._native import _native as n
+    dl = n.DisplayList()
+    dl.clear(0.1, 0.11, 0.14, 1.0)
+    v.paint(dl)
+    layer = n.SkiaLayer(400, 300)
+    layer.execute(dl)
+    assert bytes(layer.encode_png())[:4] == b"\x89PNG"

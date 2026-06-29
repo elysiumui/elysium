@@ -28,7 +28,15 @@ __all__ = [
     "PathItem",
     "TextItem",
     "Scene",
+    "GraphicsView",
 ]
+
+
+def _rects_intersect(a: tuple[float, float, float, float],
+                     b: tuple[float, float, float, float]) -> bool:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return not (ax > bx + bw or ax + aw < bx or ay > by + bh or ay + ah < by)
 
 
 def _ellipse_path(cx: float, cy: float, rx: float, ry: float) -> str:
@@ -312,3 +320,128 @@ class Scene:
         for it in ordered:
             if it.visible and it.selected:
                 it.paint_selection(dl)
+
+
+# ---------------------------------------------------------------------------
+# GraphicsView — a pan/zoom viewport onto a Scene (Qt's QGraphicsView).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GraphicsView:
+    """A rectangular viewport (``x/y/w/h`` in screen space) that pans and zooms
+    over a :class:`Scene` and renders it (with off-screen culling).
+
+    Coordinate model: a scene point maps to the screen as
+    ``screen = view_origin + (scene - pan) * zoom``, where ``(pan_x, pan_y)`` is
+    the scene coordinate shown at the view's top-left. :meth:`to_view` /
+    :meth:`to_scene` convert between the spaces; pointer handlers should map
+    screen coords to scene coords with :meth:`to_scene` before querying the
+    scene.
+    """
+
+    scene: Scene = field(default_factory=Scene)
+    x: float = 0.0
+    y: float = 0.0
+    w: float = 0.0
+    h: float = 0.0
+    pan_x: float = 0.0
+    pan_y: float = 0.0
+    zoom: float = 1.0
+    min_zoom: float = 0.1
+    max_zoom: float = 8.0
+    background: Color | None = None
+    _panning: bool = field(default=False, init=False, repr=False)
+    _pan_last: tuple[float, float] = field(default=(0.0, 0.0), init=False,
+                                           repr=False)
+
+    # --- coordinate mapping ----------------------------------------------
+
+    def to_view(self, sx: float, sy: float) -> tuple[float, float]:
+        return (self.x + (sx - self.pan_x) * self.zoom,
+                self.y + (sy - self.pan_y) * self.zoom)
+
+    def to_scene(self, vx: float, vy: float) -> tuple[float, float]:
+        return (self.pan_x + (vx - self.x) / self.zoom,
+                self.pan_y + (vy - self.y) / self.zoom)
+
+    def visible_scene_rect(self) -> tuple[float, float, float, float]:
+        sx, sy = self.to_scene(self.x, self.y)
+        return (sx, sy, self.w / self.zoom, self.h / self.zoom)
+
+    def contains_view(self, vx: float, vy: float) -> bool:
+        return (self.x <= vx <= self.x + self.w
+                and self.y <= vy <= self.y + self.h)
+
+    # --- pan / zoom -------------------------------------------------------
+
+    def set_zoom(self, zoom: float) -> None:
+        self.zoom = min(max(zoom, self.min_zoom), self.max_zoom)
+
+    def zoom_at(self, vx: float, vy: float, factor: float) -> None:
+        """Zoom by ``factor`` while keeping the scene point under ``(vx, vy)``
+        fixed on screen (cursor-anchored zoom)."""
+        sx, sy = self.to_scene(vx, vy)
+        self.set_zoom(self.zoom * factor)
+        # Re-pan so (sx, sy) maps back to (vx, vy).
+        self.pan_x = sx - (vx - self.x) / self.zoom
+        self.pan_y = sy - (vy - self.y) / self.zoom
+
+    def pan_by(self, dvx: float, dvy: float) -> None:
+        """Pan by a screen-pixel delta."""
+        self.pan_x -= dvx / self.zoom
+        self.pan_y -= dvy / self.zoom
+
+    def begin_pan(self, vx: float, vy: float) -> None:
+        self._panning = True
+        self._pan_last = (vx, vy)
+
+    def drag_pan(self, vx: float, vy: float) -> None:
+        if not self._panning:
+            return
+        self.pan_by(vx - self._pan_last[0], vy - self._pan_last[1])
+        self._pan_last = (vx, vy)
+
+    def end_pan(self) -> None:
+        self._panning = False
+
+    def fit(self, margin: float = 24.0,
+            rect: tuple[float, float, float, float] | None = None) -> None:
+        """Pan + zoom so ``rect`` (or the whole scene) fills the viewport with a
+        ``margin`` (screen px) border."""
+        r = rect if rect is not None else self.scene.bounding_rect()
+        rx, ry, rw, rh = r
+        if rw <= 0 or rh <= 0 or self.w <= 0 or self.h <= 0:
+            return
+        zx = (self.w - 2 * margin) / rw
+        zy = (self.h - 2 * margin) / rh
+        self.set_zoom(min(zx, zy))
+        # Centre the rect in the viewport.
+        self.pan_x = rx + rw / 2.0 - (self.w / 2.0) / self.zoom
+        self.pan_y = ry + rh / 2.0 - (self.h / 2.0) / self.zoom
+
+    # --- culling + paint --------------------------------------------------
+
+    def visible_items(self) -> list[Item]:
+        """Scene items (back-to-front) that intersect the viewport — i.e. what
+        :meth:`paint` actually draws after culling."""
+        vis = self.visible_scene_rect()
+        return [it for it in self.scene.z_sorted()
+                if it.visible and _rects_intersect(it.scene_bounds(), vis)]
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        bg = self.background if self.background is not None else t.surface
+        dl.fill_path(_rounded_rect(self.x, self.y, self.w, self.h, 0), bg)
+        # Clip to the viewport (screen space), then apply the scene transform.
+        dl.push_clip(self.x, self.y, self.w, self.h)
+        dl.save_with_transform(self.x - self.pan_x * self.zoom,
+                               self.y - self.pan_y * self.zoom,
+                               self.zoom, self.zoom, 0.0)
+        items = self.visible_items()
+        for it in items:
+            it.paint(dl)
+        for it in items:
+            if it.selected:
+                it.paint_selection(dl)
+        dl.restore()
+        dl.pop_clip()

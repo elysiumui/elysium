@@ -137,6 +137,7 @@
   ],
   "elysium.graphics": [
     "EllipseItem",
+    "GraphicsView",
     "Item",
     "LineItem",
     "PathItem",
