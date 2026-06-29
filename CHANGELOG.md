@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-06-29
+
+### Fixed
+
+- **Designer release build** now succeeds on all platforms (the published distro
+  had been stale ~a month). `scripts/build-designer.spec` anchored its
+  PyInstaller `datas` source paths to `REPO_ROOT` (they were resolved against
+  the spec dir and failed); dropped stale hidden imports (`aether.tools.render`,
+  the removed `elysium.ai.*` providers → `elysium.ai.enhance`); and added the
+  missing `scripts/windows-installer.iss` (+ a robust iscc invocation with a
+  portable-zip fallback) so the Windows installer step stops failing.
+
+### Documentation
+
+- Added `examples/butterfly/BLUE_MORPHO_INTRO_SPEC.md` — a 3D model + animation
+  spec for the Blue Morpho logo-intro asset, written against the Designer's
+  Mesh3D pipeline.
+
 ## [1.1.0] - 2026-06-29
 
 ### Documentation
