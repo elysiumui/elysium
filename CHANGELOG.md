@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-29
+
 ### Documentation
 
 - New API reference pages for every public module added since 1.0 (`shell`,
