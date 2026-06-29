@@ -13644,84 +13644,23 @@ class Designer:
         # A rect fill here would paint OVER the rounded-corner zone
         # at the top of the window, squaring off the otherwise
         # rounded chrome.
-        chrome_r = 22.0
+        chrome_r = 14.0
         strip_path = _round_top(0, 0, WIDTH, TITLE_STRIP_H, chrome_r)
-        breath_a = 0.5 + 0.5 * math.sin(self._anim_clock_t * 2.5)
-        breath_b = 0.5 + 0.5 * math.sin(self._anim_clock_t * 1.6)
-        # 1. Translucent base body  vertical gradient that fades
-        # toward transparent so the chromatic halo behind dominates.
-        body_top = themes.with_alpha(
-            themes.mix(themes.lighten(t.surface, 0.10),
-                       t.primary, 0.10),
-            0.42 + 0.06 * breath_a)
-        body_bot = themes.with_alpha(t.surface, 0.16)
-        dl.fill_path_linear_gradient(
-            strip_path, (0, 0), (0, TITLE_STRIP_H),
-            body_top, body_bot)
-        # 2. Iridescent chromatic wash  horizontal primary→accent
-        # gradient at low alpha so the strip picks up the alien-
-        # luminous tint from the chrome below.
-        cleft = (t.primary if breath_b < 0.5 else t.accent)
-        cright = (t.accent if breath_b < 0.5 else t.primary)
-        dl.fill_path_linear_gradient(
-            strip_path, (0, 0), (WIDTH, 0),
-            themes.with_alpha(cleft, 0.22),
-            themes.with_alpha(cright, 0.22))
-        # 3. Top half-strip specular  the wet-glass reflection.
-        gloss_h = TITLE_STRIP_H * 0.58
-        gloss_peak = ((0.32 if not t.is_dark else 0.18)
-                       + 0.10 * breath_a)
-        gloss_path = _round_top(0, 0, WIDTH, gloss_h, chrome_r)
-        dl.fill_path_linear_gradient(
-            gloss_path, (0, 0), (0, gloss_h),
-            themes.with_alpha((255, 255, 255, 255), gloss_peak),
-            themes.with_alpha((255, 255, 255, 255), 0.0))
-        # 4. Inner bottom shadow  3D bevel cue. Safe to use _rect
-        # here because the bottom strip slice (y=65%..100% of the
-        # title strip) is well BELOW the rounded-corner zone at
-        # y=0..chrome_r.
-        dl.fill_path_linear_gradient(
-            _rect(0, TITLE_STRIP_H * 0.65, WIDTH,
-                  TITLE_STRIP_H * 0.35),
-            (0, TITLE_STRIP_H * 0.65), (0, TITLE_STRIP_H),
-            themes.with_alpha((0, 0, 0, 255), 0.0),
-            themes.with_alpha((0, 0, 0, 255), 0.12))
-        # 5. Crisp 1-px chromatic top-edge rim. Inset by chrome_r
-        # so it follows the rounded corner curve  the rim along
-        # the actual top edge would clip OUT of the rounded
-        # corners.
-        rim_col = themes.mix((255, 255, 255, 255),
-                              themes.mix(t.primary, t.accent,
-                                          breath_b),
-                              0.35)
-        dl.fill_path(_rect(chrome_r, 0, WIDTH - 2 * chrome_r, 1),
-                     themes.with_alpha(rim_col, 0.55))
-        # 6. Bottom separator hairline (clear of the rounded
-        # corners by definition  no inset needed).
+        # Studio: a flat slate title strip with a hairline bottom separator.
+        # (Replaced the breathing wet-glass passes — gloss / chromatic wash /
+        # colour-cycling aura — with a calm, professional bar.) Rounded top
+        # corners via _round_top so the chrome's rounded corners stay clean.
+        dl.fill_path(strip_path, _shade(t, 0.04))
         dl.fill_path(_rect(0, TITLE_STRIP_H - 1, WIDTH, 1),
-                     themes.with_alpha((0, 0, 0, 255), 0.22))
-
-        # Title text (centred). Regular weight, deep-midnight blue
-        # with a soft chromatic aura that breathes  the colour
-        # cycles ever so slightly with the rim chroma so the title
-        # feels luminescent.
+                     themes.with_alpha(t.edge, 0.8))
+        # Title text — centred, muted, no glow.
         title_str = f"Elysium Designer — {self.skin_path.name}"
         title_size = 12.0
         approx_w = len(title_str) * title_size * 0.55
         title_x = (WIDTH - approx_w) / 2.0
         title_y = TITLE_STRIP_H / 2.0 + 5
-        # Soft chromatic aura behind the title (2-px halo).
-        aura_col = themes.mix(t.primary, t.accent, breath_b)
-        for ox, oy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-            dl.draw_text(title_str, title_x + ox, title_y + oy,
-                         title_size,
-                         themes.with_alpha(aura_col, 0.18))
-        # The deep-midnight title itself  hint of the accent
-        # cycle mixed in so the colour breathes too.
-        deep_blue = themes.mix((28, 42, 110, 235),
-                                t.primary, 0.15 * breath_a)
         dl.draw_text(title_str, title_x, title_y, title_size,
-                     deep_blue)
+                     t.on_surface_muted)
         # Window controls. macOS = round traffic lights on the left;
         # Windows / Linux = right-aligned − □ ✕ caption buttons matching
         # the native Win 11 chrome (so a Windows beta tester doesn't see
