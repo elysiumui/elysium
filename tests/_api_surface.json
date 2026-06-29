@@ -27,7 +27,14 @@
   ],
   "elysium.accessibility": [
     "A11yPrefs",
+    "AccessibleNode",
+    "Announcer",
+    "Role",
+    "announce",
+    "announcer",
     "current",
+    "focus_ring_style",
+    "paint_focus_ring",
     "subscribe",
     "variant_for"
   ],

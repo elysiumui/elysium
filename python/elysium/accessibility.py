@@ -185,4 +185,172 @@ def _read_linux() -> A11yPrefs:
     )
 
 
-__all__ = ["A11yPrefs", "current", "subscribe", "variant_for"]
+# ---------------------------------------------------------------------------
+# Semantic accessibility: roles, nodes, live regions, focus rings.
+# ---------------------------------------------------------------------------
+
+class Role:
+    """Accessibility roles (accesskit-aligned names) a component reports so
+    screen readers describe it correctly."""
+    BUTTON = "button"
+    TOGGLE_BUTTON = "toggleButton"
+    CHECK_BOX = "checkBox"
+    RADIO_BUTTON = "radioButton"
+    SWITCH = "switch"
+    SLIDER = "slider"
+    TEXT_INPUT = "textInput"
+    LABEL = "label"
+    LINK = "link"
+    HEADING = "heading"
+    IMAGE = "image"
+    LIST = "list"
+    LIST_ITEM = "listItem"
+    MENU = "menu"
+    MENU_BAR = "menuBar"
+    MENU_ITEM = "menuItem"
+    TAB = "tab"
+    TAB_LIST = "tabList"
+    TAB_PANEL = "tabPanel"
+    TOOLBAR = "toolbar"
+    DIALOG = "dialog"
+    GROUP = "group"
+    STATUS = "status"
+    PROGRESS_INDICATOR = "progressIndicator"
+    TREE = "tree"
+    TREE_ITEM = "treeItem"
+    TABLE = "table"
+    ROW = "row"
+    CELL = "cell"
+    COLUMN_HEADER = "columnHeader"
+    COMBO_BOX = "comboBox"
+
+
+@dataclass
+class AccessibleNode:
+    """A semantic description of a widget for the accessibility tree (the shape
+    the accesskit bridge consumes). Build one per widget; ``None`` fields are
+    omitted from :meth:`to_dict`."""
+    role: str = Role.GROUP
+    label: str = ""
+    value: str | None = None
+    description: str = ""
+    focusable: bool = False
+    focused: bool = False
+    disabled: bool = False
+    checked: bool | None = None
+    expanded: bool | None = None
+    bounds: tuple[float, float, float, float] | None = None
+    row_index: int | None = None
+    col_index: int | None = None
+    col_header: str | None = None
+    children: list | None = None
+
+    def to_dict(self) -> dict:
+        out: dict = {"role": self.role}
+        if self.label:
+            out["label"] = self.label
+        if self.value is not None:
+            out["value"] = self.value
+        if self.description:
+            out["description"] = self.description
+        if self.focusable:
+            out["focusable"] = True
+        if self.focused:
+            out["focused"] = True
+        if self.disabled:
+            out["disabled"] = True
+        if self.checked is not None:
+            out["checked"] = self.checked
+        if self.expanded is not None:
+            out["expanded"] = self.expanded
+        if self.bounds is not None:
+            out["bounds"] = list(self.bounds)
+        if self.row_index is not None:
+            out["row_index"] = self.row_index
+        if self.col_index is not None:
+            out["col_index"] = self.col_index
+        if self.col_header:
+            out["col_header"] = self.col_header
+        if self.children:
+            out["children"] = [c.to_dict() if isinstance(c, AccessibleNode)
+                               else c for c in self.children]
+        return out
+
+
+@dataclass
+class Announcer:
+    """A live-region announcer: queues text for a screen reader (``polite`` by
+    default, ``assertive`` to interrupt). Route :meth:`set_sink` to the accesskit
+    bridge in a real app; the in-memory log makes it testable."""
+    _log: list | None = None
+    _sink: Callable[[dict], None] | None = None
+
+    def __post_init__(self) -> None:
+        if self._log is None:
+            self._log = []
+
+    def set_sink(self, fn: Callable[[dict], None] | None) -> None:
+        self._sink = fn
+
+    def announce(self, text: str, assertive: bool = False) -> None:
+        msg = {"text": text, "live": "assertive" if assertive else "polite"}
+        self._log.append(msg)
+        if self._sink is not None:
+            self._sink(msg)
+
+    def messages(self) -> list:
+        return [m["text"] for m in self._log]
+
+    def last(self) -> str | None:
+        return self._log[-1]["text"] if self._log else None
+
+    def clear(self) -> None:
+        self._log.clear()
+
+
+_ANNOUNCER = Announcer()
+
+
+def announcer() -> Announcer:
+    """The process-wide default announcer."""
+    return _ANNOUNCER
+
+
+def announce(text: str, assertive: bool = False) -> None:
+    """Announce via the default :func:`announcer`."""
+    _ANNOUNCER.announce(text, assertive)
+
+
+def focus_ring_style(prefs: A11yPrefs | None = None) -> tuple:
+    """``(stroke_width, inflate, alpha)`` for a focus ring — thicker and fully
+    opaque under high-contrast so keyboard focus is unmistakable."""
+    p = prefs or current()
+    if p.high_contrast or p.increase_contrast:
+        return (2.5, 3.0, 1.0)
+    return (1.5, 2.0, 0.75)
+
+
+def _ring_path(x: float, y: float, w: float, h: float, r: float) -> str:
+    return (f"M {x + r} {y} L {x + w - r} {y} Q {x + w} {y} {x + w} {y + r} "
+            f"L {x + w} {y + h - r} Q {x + w} {y + h} {x + w - r} {y + h} "
+            f"L {x + r} {y + h} Q {x} {y + h} {x} {y + h - r} "
+            f"L {x} {y + r} Q {x} {y} {x + r} {y} Z")
+
+
+def paint_focus_ring(dl, x: float, y: float, w: float, h: float, color,
+                     radius: float = 6.0, prefs: A11yPrefs | None = None) -> None:
+    """Draw a consistent keyboard-focus ring around ``(x, y, w, h)``, honouring
+    high-contrast prefs."""
+    from elysium.theme import with_alpha
+    width, inflate, alpha = focus_ring_style(prefs)
+    dl.stroke_path(
+        _ring_path(x - inflate, y - inflate, w + 2 * inflate, h + 2 * inflate,
+                   radius + inflate),
+        with_alpha(color, alpha), width)
+
+
+__all__ = [
+    "A11yPrefs", "current", "subscribe", "variant_for",
+    "Role", "AccessibleNode", "Announcer", "announcer", "announce",
+    "focus_ring_style", "paint_focus_ring",
+]
