@@ -78,18 +78,14 @@ HIDDEN_IMPORTS = [
     "elysium.aether.tools.mesh",
     "elysium.aether.tools.meta",
     "elysium.aether.tools.placement",
-    "elysium.aether.tools.render",
     "elysium.aether.tools.run",
     "elysium.aether.tools.shape",
     "elysium.aether.tools.snapshot",
     "elysium.aether.tools.tester",
     "elysium.aether.tools.texture",
     "elysium.aether.tools.window",
-    # AI providers.
-    "elysium.ai.anthropic",
-    "elysium.ai.openai",
-    "elysium.ai.ollama",
-    "elysium.ai.stub",
+    # AI helpers.
+    "elysium.ai.enhance",
     # Native PyO3 module.
     "elysium._native",
     "elysium._native._native",
