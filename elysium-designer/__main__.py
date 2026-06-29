@@ -22990,152 +22990,97 @@ def _draw_toolbox_icon(dl, kind: str, x, y, w, h, t) -> None:
 
 @icon_painter("tool_select")
 def _icon_tool_select(ctx: IconCtx) -> None:
-    """Maya-style select arrow (Q): the existing pointer + a small
-    3-px crosshair at the heel so the resting icon reads as
-    selection + active-tip, matching Maya's selectArrow."""
+    """Select (Q) — monoline pointer. Studio uniform 1.6px outline."""
     cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
-    # Arrow body (same path as the legacy tool_select branch).
-    dl.fill_path(f"M {cx-7} {cy-9} L {cx+5} {cy+3} L {cx-1} {cy+3} "
-                  f"L {cx+2} {cy+9} L {cx-1} {cy+10} L {cx-4} {cy+4} "
-                  f"L {cx-7} {cy+7} Z", fg)
-    # Tiny crosshair tucked at the arrow heel (upper-left).
-    hx, hy = cx - 7, cy - 9
-    dl.stroke_path(f"M {hx-3} {hy} L {hx+3} {hy}",
-                    themes.with_alpha(fg, 0.7), 1.0)
-    dl.stroke_path(f"M {hx} {hy-3} L {hx} {hy+3}",
-                    themes.with_alpha(fg, 0.7), 1.0)
+    dl.stroke_path(
+        f"M {cx-6} {cy-9} L {cx-6} {cy+6} L {cx-2} {cy+2} "
+        f"L {cx+1} {cy+9} L {cx+3} {cy+8} L {cx} {cy+1} "
+        f"L {cx+5} {cy+1} Z", fg, 1.6)
 
 
 @icon_painter("tool_move")
 def _icon_tool_move(ctx: IconCtx) -> None:
-    """Maya-style move tool (W): 4-way arrow cross."""
+    """Move (W) — 4-way arrow, monoline."""
     cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
-    # Vertical shaft + horizontal shaft.
-    dl.stroke_path(f"M {cx} {cy-10} L {cx} {cy+10}", fg, 1.8)
-    dl.stroke_path(f"M {cx-10} {cy} L {cx+10} {cy}", fg, 1.8)
-    # 4 arrowheads.
-    dl.fill_path(f"M {cx} {cy-12} L {cx-3} {cy-7} L {cx+3} {cy-7} Z", fg)
-    dl.fill_path(f"M {cx} {cy+12} L {cx-3} {cy+7} L {cx+3} {cy+7} Z", fg)
-    dl.fill_path(f"M {cx-12} {cy} L {cx-7} {cy-3} L {cx-7} {cy+3} Z", fg)
-    dl.fill_path(f"M {cx+12} {cy} L {cx+7} {cy-3} L {cx+7} {cy+3} Z", fg)
-    # Center dot.
-    dl.filled_circle(cx, cy, 1.5, themes.with_alpha(fg, 0.85))
+    dl.stroke_path(f"M {cx} {cy-10} L {cx} {cy+10}", fg, 1.6)
+    dl.stroke_path(f"M {cx-10} {cy} L {cx+10} {cy}", fg, 1.6)
+    # Outline chevron arrowheads (no heavy fills).
+    dl.stroke_path(f"M {cx-3} {cy-7} L {cx} {cy-10} L {cx+3} {cy-7}", fg, 1.6)
+    dl.stroke_path(f"M {cx-3} {cy+7} L {cx} {cy+10} L {cx+3} {cy+7}", fg, 1.6)
+    dl.stroke_path(f"M {cx-7} {cy-3} L {cx-10} {cy} L {cx-7} {cy+3}", fg, 1.6)
+    dl.stroke_path(f"M {cx+7} {cy-3} L {cx+10} {cy} L {cx+7} {cy+3}", fg, 1.6)
 
 
 @icon_painter("tool_scale")
 def _icon_tool_scale(ctx: IconCtx) -> None:
-    """Maya-style scale tool (R): two opposite corner-squares
-    connected by a diagonal with arrowheads at the outer corners."""
+    """Scale (R) — corner handles + diagonal, monoline."""
     cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
-    # NW corner square (filled).
-    dl.fill_path(_rect(cx - 11, cy - 11, 5, 5), fg)
-    # SE corner square (filled).
-    dl.fill_path(_rect(cx + 6, cy + 6, 5, 5), fg)
-    # Diagonal connector.
-    dl.stroke_path(f"M {cx-7} {cy-7} L {cx+7} {cy+7}", fg, 1.6)
-    # Outer arrowheads (NW and SE).
-    dl.fill_path(f"M {cx-12} {cy-12} L {cx-6} {cy-10} L {cx-10} {cy-6} Z", fg)
-    dl.fill_path(f"M {cx+12} {cy+12} L {cx+10} {cy+6} L {cx+6} {cy+10} Z", fg)
+    dl.stroke_path(_rect(cx - 10, cy - 10, 5, 5), fg, 1.6)
+    dl.stroke_path(_rect(cx + 5, cy + 5, 5, 5), fg, 1.6)
+    dl.stroke_path(f"M {cx-5} {cy-5} L {cx+5} {cy+5}", fg, 1.6)
 
 
 @icon_painter("tool_lasso_select")
 def _icon_tool_lasso_select(ctx: IconCtx) -> None:
     """Lasso Select (Shift+Q): an irregular closed loop drawn with
     cubic-bezier segments + a small dashed terminator tail."""
-    cx, cy, dl, acc = ctx.cx, ctx.cy, ctx.dl, ctx.acc
-    # Closed loop (4 cubic segments).
+    cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
+    # Closed loop (4 cubic segments), monoline.
     dl.stroke_path(
         f"M {cx-9} {cy-2} "
         f"C {cx-13} {cy-9} {cx-2} {cy-12} {cx+5} {cy-9} "
         f"C {cx+12} {cy-5} {cx+11} {cy+4}  {cx+6} {cy+8} "
         f"C {cx+1} {cy+12} {cx-7} {cy+10} {cx-9} {cy+5} "
         f"C {cx-11} {cy+2} {cx-11} {cy+0}  {cx-9} {cy-2} Z",
-        acc, 1.5)
-    # Dashed terminator tail at upper-right (the "free end" of the lasso).
-    dl.stroke_path(f"M {cx+5} {cy-9} L {cx+8} {cy-12}",
-                    themes.with_alpha(acc, 0.85), 1.0)
-    dl.stroke_path(f"M {cx+9} {cy-11} L {cx+10} {cy-12}",
-                    themes.with_alpha(acc, 0.55), 1.0)
+        fg, 1.6)
+    # Free-end tail at upper-right.
+    dl.stroke_path(f"M {cx+5} {cy-9} L {cx+9} {cy-12}",
+                    themes.with_alpha(fg, 0.7), 1.4)
 
 
 @icon_painter("tool_paint_select")
 def _icon_tool_paint_select(ctx: IconCtx) -> None:
-    """Paint Select: a vertical brush silhouette with a small "S"
-    letter on the bristle ferrule, suggesting brush + selection."""
-    cx, cy, dl, fg, acc = ctx.cx, ctx.cy, ctx.dl, ctx.fg, ctx.acc
-    # Bristle block (trapezoid splaying at the top).
+    """Paint Select — monoline brush silhouette."""
+    cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
+    # Bristle block (trapezoid) + ferrule line.
     dl.stroke_path(
         f"M {cx-5} {cy-3} L {cx+5} {cy-3} L {cx+6} {cy-11} "
-        f"L {cx-6} {cy-11} Z", fg, 1.4)
-    # Ferrule (where the "S" sits).
-    dl.fill_path(_rect(cx - 5, cy - 3, 10, 5), themes.with_alpha(fg, 0.35))
-    dl.stroke_path(_rect(cx - 5, cy - 3, 10, 5), fg, 1.0)
-    dl.draw_text("S", cx - 3, cy + 1, 9, acc)
+        f"L {cx-6} {cy-11} Z", fg, 1.6)
+    dl.stroke_path(f"M {cx-5} {cy-3} L {cx+5} {cy-3}", fg, 1.6)
     # Handle.
-    dl.stroke_path(_rect(cx - 3, cy + 2, 6, 9), fg, 1.4)
+    dl.stroke_path(_rect(cx - 3, cy + 1, 6, 10), fg, 1.6)
 
 
 @icon_painter("tool_pivot_edit")
 def _icon_tool_pivot_edit(ctx: IconCtx) -> None:
-    """Pivot Edit (D-drag or Insert): a crosshair with a small ↻ arc
-    at the origin, telling the user "this is what rotates around"."""
-    cx, cy, dl, fg, acc = ctx.cx, ctx.cy, ctx.dl, ctx.fg, ctx.acc
-    # Crosshair.
-    dl.stroke_path(f"M {cx-10} {cy} L {cx+10} {cy}", fg, 1.5)
-    dl.stroke_path(f"M {cx} {cy-10} L {cx} {cy+10}", fg, 1.5)
-    # Center pivot dot in accent so it reads as the "pin".
-    dl.filled_circle(cx, cy, 2.0, acc)
-    # Small ↻ arc at upper-right.
-    dl.stroke_path(
-        f"M {cx+5} {cy-7} A 4 4 0 1 1 {cx+1} {cy-3}",
-        themes.with_alpha(fg, 0.85), 1.2)
-    # Arrowhead on the arc.
-    dl.fill_path(f"M {cx+1} {cy-3} L {cx+3} {cy-5} L {cx+3} {cy-1} Z",
-                  themes.with_alpha(fg, 0.85))
+    """Pivot Edit — crosshair + centre pin, monoline."""
+    cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
+    dl.stroke_path(f"M {cx-10} {cy} L {cx+10} {cy}", fg, 1.6)
+    dl.stroke_path(f"M {cx} {cy-10} L {cx} {cy+10}", fg, 1.6)
+    dl.stroke_path(_ellipse_d(cx, cy, 3.5, 3.5), fg, 1.6)
 
 
 @icon_painter("tool_anchor")
 def _icon_tool_anchor(ctx: IconCtx) -> None:
-    """Vertex / Anchor tool — three small square handles connected by
-    a polyline, showing the user this tool lets them grab the anchor
-    points of a polygon and drag them. Active dot is highlighted in
-    the accent colour."""
-    cx, cy, dl, fg, acc = ctx.cx, ctx.cy, ctx.dl, ctx.fg, ctx.acc
-    # Three anchor points (rough triangle).
+    """Vertex / Anchor — polyline + handle squares, monoline."""
+    cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
     pts = [(cx - 7, cy - 4), (cx + 6, cy - 6), (cx, cy + 7)]
-    # Polyline connecting them.
-    d = f"M {pts[0][0]} {pts[0][1]} L {pts[1][0]} {pts[1][1]} L {pts[2][0]} {pts[2][1]} Z"
-    dl.stroke_path(d, themes.with_alpha(fg, 0.55), 1.2)
-    # Square handles — accent on the "active" one (top-right).
-    for i, (px, py) in enumerate(pts):
-        col = acc if i == 1 else fg
-        dl.fill_path(_rect(px - 3, py - 3, 6, 6), (255, 255, 255, 255))
-        dl.stroke_path(_rect(px - 3.5, py - 3.5, 7, 7), col, 1.3)
+    dl.stroke_path(
+        f"M {pts[0][0]} {pts[0][1]} L {pts[1][0]} {pts[1][1]} "
+        f"L {pts[2][0]} {pts[2][1]} Z", themes.with_alpha(fg, 0.6), 1.6)
+    for (px, py) in pts:
+        dl.stroke_path(_rect(px - 2.5, py - 2.5, 5, 5), fg, 1.6)
 
 
 @icon_painter("tool_gizmo")
 def _icon_tool_gizmo(ctx: IconCtx) -> None:
-    """Rotate (E) — KEEP the existing 3-ellipse gizmo glyph
-    unchanged (yellow yaw / cyan pitch / green roll) and OVERLAY a
-    small ↻ arc in the upper-right corner so the resting icon reads
-    as 'tool' rather than 'live manipulator handle'. The arc sits
-    outside the existing ellipse bounds so it never overlaps the
-    yaw / pitch / roll arcs."""
+    """Rotate (E) — monoline circular-arrows glyph (replaces the old
+    multi-colour 3-ellipse manipulator for a cohesive Studio set)."""
     cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
-    yaw_col   = (230, 200,  60, 255)
-    pitch_col = ( 70, 200, 220, 255)
-    roll_col  = ( 80, 200,  80, 255)
-    # Original 3 ellipses — identical to the legacy `tool_gizmo` branch.
-    dl.stroke_path(_ellipse_d(cx, cy, 11, 4),  yaw_col,   1.4)
-    dl.stroke_path(_ellipse_d(cx, cy,  4, 11), pitch_col, 1.4)
-    dl.stroke_path(_ellipse_d(cx, cy,  9,  9), roll_col,  1.2)
-    # New: small ↻ arc tucked into the upper-right corner of the bbox.
-    ax_, ay_ = cx + 9, cy - 9
-    dl.stroke_path(
-        f"M {ax_-3} {ay_+1} A 2.5 2.5 0 1 1 {ax_+1} {ay_+2}",
-        fg, 1.2)
-    # 2-px arrowhead on the arc.
-    dl.fill_path(f"M {ax_+1} {ay_+2} L {ax_-1} {ay_+3} L {ax_-1} {ay_} Z", fg)
+    # Ring + two chevron arrowheads = a clean rotate glyph.
+    dl.stroke_path(_ellipse_d(cx, cy, 9, 9), fg, 1.6)
+    dl.stroke_path(f"M {cx+5} {cy-8} L {cx+9} {cy-7} L {cx+8} {cy-3}", fg, 1.6)
+    dl.stroke_path(f"M {cx-5} {cy+8} L {cx-9} {cy+7} L {cx-8} {cy+3}", fg, 1.6)
 
 
 # ---------------------------------------------------------------------------
