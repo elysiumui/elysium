@@ -109,3 +109,44 @@ def test_apply_uses_widget_id_and_classes():
     w = _Widget()
     sheet.apply(w)
     assert w.label == "Primary"
+
+
+# --- per-widget fonts (Tier 7 Phase 4) -------------------------------------
+
+def test_label_per_widget_font_and_weight_render():
+    from elysium import theme as T
+    from elysium.components import Label
+    from elysium._native import _native as n
+    T.set_theme(T.studio_dark())
+    for kwargs in ({}, {"weight": 700}, {"font_family": "Helvetica"},
+                   {"font_family": "Helvetica", "weight": 600, "align": "center"}):
+        dl = n.DisplayList()
+        dl.clear(0, 0, 0, 0)
+        lbl = Label(x=4, y=4, w=160, h=24, text="Heading", size=16, **kwargs)
+        lbl.paint(dl)
+        layer = n.SkiaLayer(180, 32)
+        layer.execute(dl)
+        assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+    T.set_theme(T.light())
+
+
+def test_default_label_keeps_draw_text_path():
+    # A plain Label (no font/weight override) must not touch the paragraph path,
+    # so existing golden snapshots stay byte-identical.
+    from elysium.components import Label
+
+    class _Probe:
+        def __init__(self): self.text_calls = 0; self.para_calls = 0
+        def draw_text(self, *a, **k): self.text_calls += 1
+        def draw_paragraph(self, *a, **k): self.para_calls += 1
+        def __getattr__(self, n): return lambda *a, **k: None
+
+    from elysium import theme as T
+    T.set_theme(T.studio_dark())
+    p = _Probe()
+    Label(x=0, y=0, w=100, h=20, text="plain").paint(p)
+    assert p.text_calls == 1 and p.para_calls == 0
+    p2 = _Probe()
+    Label(x=0, y=0, w=100, h=20, text="bold", weight=700).paint(p2)
+    assert p2.para_calls == 1 and p2.text_calls == 0
+    T.set_theme(T.light())

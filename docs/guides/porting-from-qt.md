@@ -148,6 +148,19 @@ An editable `RichTextEdit` (caret/selection over styled runs) and per-paragraph
 block styles are tracked follow-ups; the document model, layout, read-only view,
 hyperlinks, command stack, and DnD are available now.
 
+## Styling & accessibility (Tier 7)
+
+The polish layer — see the [Styling & accessibility guide](styling-and-a11y.md).
+
+| Qt | Elysium | Notes |
+| --- | --- | --- |
+| `setStyleSheet` (QSS) | `styling.StyleSheet` | selector → property overrides; type / `#id` / `.class` / `:state`, CSS specificity |
+| `QCompleter` | `components.completer.Completer` | prefix → contains → fuzzy, history, keyboard nav, popover |
+| `QAccessible` roles | `accessibility.Role` + `AccessibleNode` | `to_dict()` → accesskit-bridge shape; table `row_index`/`col_index`/`col_header` |
+| live regions / announcements | `accessibility.Announcer` / `announce()` | polite/assertive; pluggable sink |
+| focus rings | `accessibility.paint_focus_ring` | honours high-contrast prefs |
+| `QWidget.setFont` | `Label(font_family=…, weight=…)` (+ `theme.set_ui_font`) | per-widget override (opt-in) over the app-wide font |
+
 ## Class map — Tier 2 (scale, services, native)
 
 | Qt | Elysium | Notes |

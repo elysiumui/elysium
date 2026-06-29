@@ -9,6 +9,17 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **Styling & accessibility** (Tier 7 — Qt QSS / `QCompleter` / `QAccessible`):
+  - `elysium.styling.StyleSheet` — a QSS-like selector→property resolver
+    (type / `#id` / `.class` / `:state`, CSS specificity, `resolve` + `apply`).
+  - `elysium.components.completer.Completer` — autocomplete popup (prefix →
+    contains → fuzzy, history-first, keyboard nav, prefix highlight).
+  - `elysium.accessibility` gained a semantic layer: `Role` constants,
+    `AccessibleNode` (→ accesskit-bridge `to_dict`, incl. table row/col/header),
+    a live-region `Announcer` + `announce()`, and `paint_focus_ring` (scales
+    with high-contrast prefs).
+  - Per-widget fonts: `Label(font_family=…, weight=…)` (opt-in; the default path
+    is unchanged so goldens don't move).
 - **Documents & editing** (Tier 6 — Qt `QUndoStack` / `QTextDocument` / `QDrag`):
   - `elysium.commands` — `Command` (+ `FunctionCommand` / `MacroCommand`) and an
     `UndoStack` (undo/redo, merge/coalesce by `merge_id`, macros, history limit,
