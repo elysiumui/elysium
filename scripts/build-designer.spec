@@ -41,20 +41,21 @@ DESIGNER_ENTRY = REPO_ROOT / "elysium-designer" / "__main__.py"
 # Bundle every file under examples/butterfly/ so the lead tutorial works
 # out of the box. The user can delete or replace these via the File menu.
 TUTORIAL_ASSETS = [
-    ("examples/butterfly", "examples/butterfly"),
+    (str(REPO_ROOT / "examples" / "butterfly"), "examples/butterfly"),
 ]
 
 # Bundle every brush preset + thumbnail so the first launch experience has
 # the full library available.
 BRUSH_ASSETS = [
-    ("python/elysium/brush/builtin", "elysium/brush/builtin"),
+    (str(REPO_ROOT / "python" / "elysium" / "brush" / "builtin"),
+     "elysium/brush/builtin"),
 ]
 
 # Designer-specific data files: menus.py is read at runtime to compose the
 # menu bar; the maya-migration + brush-system docs ship inside the app for
 # the in-app Help menu.
 DESIGNER_DATA = [
-    ("elysium-designer/menus.py", "elysium-designer"),
+    (str(REPO_ROOT / "elysium-designer" / "menus.py"), "elysium-designer"),
 ]
 
 # Hidden imports: PyInstaller's static analysis misses dynamically imported
