@@ -29,5 +29,6 @@ pub use render_thread::{spawn_render_thread, RenderControl};
 pub use skia_bridge::SkiaBridge;
 pub use skia_layer::SkiaLayer;
 pub use skia_layer::{font_vmetrics, measure_text_run, text_caret_x, text_hit_index};
+pub use skia_layer::{register_ui_font_from_file, set_ui_font_family};
 pub use surface::{SurfaceRenderer, SurfaceTarget};
 pub use texture_cache::TextureCache;

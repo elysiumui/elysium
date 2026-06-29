@@ -57,6 +57,8 @@ fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(text::measure_text_run, m)?)?;
     m.add_function(wrap_pyfunction!(text::text_caret_x, m)?)?;
     m.add_function(wrap_pyfunction!(text::text_hit_index, m)?)?;
+    m.add_function(wrap_pyfunction!(text::set_ui_font, m)?)?;
+    m.add_function(wrap_pyfunction!(text::register_ui_font, m)?)?;
     m.add_function(wrap_pyfunction!(wgsl::validate_wgsl, m)?)?;
     m.add_function(wrap_pyfunction!(compute::render_pbr_compute, m)?)?;
 

@@ -41,3 +41,18 @@ pub fn text_caret_x(text: &str, size: f32, char_index: usize) -> f32 {
 pub fn text_hit_index(text: &str, size: f32, px: f32) -> usize {
     ely_render::text_hit_index(text, size, px)
 }
+
+/// Set the app-wide UI font family by name (matched against installed fonts).
+/// Empty string clears the preference. Affects all `draw_text` rendering +
+/// the shaping primitives above, so caret geometry stays consistent.
+#[pyfunction]
+pub fn set_ui_font(family: &str) {
+    ely_render::set_ui_font_family(family);
+}
+
+/// Register a UI font from a TTF/OTF file so it is used regardless of what is
+/// installed on the machine. Returns True on success.
+#[pyfunction]
+pub fn register_ui_font(path: &str) -> bool {
+    ely_render::register_ui_font_from_file(path)
+}

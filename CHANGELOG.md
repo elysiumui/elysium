@@ -7,6 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+### Added
+
+- **Studio theme + design tokens** (Designer redesign, part A1): new
+  `elysium.theme.studio_dark()` / `studio_light()` built-ins (the clean
+  professional "Studio" direction), plus new `Theme` tokens — a spacing scale
+  (`space_xs..xl`), state opacities (`opacity_disabled/hover/focus`), and
+  `font_family`. Exported the previously-internal `oled()` theme.
+- **App-wide UI font:** `elysium.theme.set_ui_font(family_or_path)` and native
+  `set_ui_font` / `register_ui_font` — set a preferred UI font family or
+  register a bundled `.ttf`/`.otf`. `set_theme` now applies the theme's
+  `font_family`. The no-preference default is unchanged (opt-in).
+
 ## [1.0.0]
 
 First stable release. Elysium commits to a stable public API under strict

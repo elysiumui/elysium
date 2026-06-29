@@ -260,7 +260,11 @@
     "lighten",
     "midnight_glass",
     "mix",
+    "oled",
     "set_theme",
+    "set_ui_font",
+    "studio_dark",
+    "studio_light",
     "with_alpha"
   ],
   "elysium.windowing": [

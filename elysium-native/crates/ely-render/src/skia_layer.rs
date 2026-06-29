@@ -113,10 +113,63 @@ pub fn text_hit_index(text: &str, size: f32, px: f32) -> usize {
     idx
 }
 
-/// Skia-safe 0.78 doesn't expose `Typeface::default()` directly; this
-/// helper builds a default Font via the platform FontMgr.
+// App-set UI font. A typeface registered from a bundled file (`register_ui_
+// font_from_file`) wins; otherwise a preferred family name (`set_ui_font_
+// family`) is matched against installed fonts; otherwise a modern system
+// UI-font stack, then the platform default.
+static UI_TYPEFACE: std::sync::OnceLock<RwLock<Option<skia_safe::Typeface>>> =
+    std::sync::OnceLock::new();
+static UI_FAMILY: std::sync::OnceLock<RwLock<String>> = std::sync::OnceLock::new();
+
+fn ui_typeface_slot() -> &'static RwLock<Option<skia_safe::Typeface>> {
+    UI_TYPEFACE.get_or_init(|| RwLock::new(None))
+}
+fn ui_family_slot() -> &'static RwLock<String> {
+    UI_FAMILY.get_or_init(|| RwLock::new(String::new()))
+}
+
+/// Set the preferred UI font family by name (matched against installed fonts).
+/// Empty string clears the preference.
+pub fn set_ui_font_family(name: &str) {
+    *ui_family_slot().write() = name.to_string();
+}
+
+/// Register a UI font from a TTF/OTF file so it is used regardless of what is
+/// installed on the machine. Returns true on success.
+pub fn register_ui_font_from_file(path: &str) -> bool {
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    match skia_safe::FontMgr::new().new_from_data(&bytes, None) {
+        Some(tf) => {
+            *ui_typeface_slot().write() = Some(tf);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Skia-safe 0.78 doesn't expose `Typeface::default()` directly; this helper
+/// builds the UI Font, honouring an app-set font (see above) then falling back
+/// to a modern system stack and finally the platform default.
 fn default_font(size: f32) -> skia_safe::Font {
+    // 1) A bundled/registered typeface wins.
+    if let Some(tf) = ui_typeface_slot().read().clone() {
+        return skia_safe::Font::new(tf, size);
+    }
     let mgr = skia_safe::FontMgr::new();
+    // 2) An app-set family name, if installed.
+    {
+        let fam = ui_family_slot().read();
+        if !fam.is_empty() {
+            if let Some(tf) = mgr.match_family_style(fam.as_str(), skia_safe::FontStyle::normal()) {
+                return skia_safe::Font::new(tf, size);
+            }
+        }
+    }
+    // 3) No app preference → the original platform-default chain, so apps that
+    //    don't opt into a UI font (and the checked-in golden snapshots) render
+    //    exactly as before. The modern font is opt-in via the theme/set_ui_font.
     let typeface = mgr
         .legacy_make_typeface(None, skia_safe::FontStyle::normal())
         .or_else(|| mgr.match_family_style("Helvetica", skia_safe::FontStyle::normal()))
@@ -125,7 +178,6 @@ fn default_font(size: f32) -> skia_safe::Font {
         skia_safe::Font::new(tf, size)
     } else {
         // Last resort: pull whatever the platform serves as a fallback.
-        // If that also fails the caller's text just won't render.
         let tf = mgr
             .match_family_style("", skia_safe::FontStyle::normal())
             .expect("no usable typeface available");

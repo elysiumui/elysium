@@ -167,6 +167,20 @@ class Theme:
     font_size_body:    float = 14.0
     font_size_title:   float = 18.0
     font_size_display: float = 28.0
+    font_family:       str = ""        # "" → platform default UI font
+
+    # Spacing scale (8px-grid based) — components pull padding/gaps from here
+    # instead of hard-coding, so density is themeable.
+    space_xs: float = 4.0
+    space_sm: float = 8.0
+    space_md: float = 12.0
+    space_lg: float = 16.0
+    space_xl: float = 24.0
+
+    # State opacities — disabled dimming, hover wash, focus-ring strength.
+    opacity_disabled: float = 0.40
+    opacity_hover:    float = 0.08
+    opacity_focus:    float = 0.40
 
     # Hover / pressed colour deltas — components mix toward these.
     def hover_color(self, base: Color) -> Color:
@@ -275,6 +289,44 @@ def oled() -> Theme:
     )
 
 
+def studio_dark() -> Theme:
+    """Studio — clean professional dark. Slate-neutral surfaces, one confident
+    iris accent, hairline edges, crisp 8px radii, roomy 8px-grid spacing. The
+    Designer's default look and the recommended app theme."""
+    base = Theme.from_primary((0x6C, 0x7C, 0xFF, 0xFF), dark=True, name="Studio Dark")
+    return replace(
+        base,
+        surface=(0x1B, 0x1E, 0x24, 0xFF),
+        surface_variant=(0x2A, 0x2F, 0x39, 0xFF),
+        on_surface=(0xE8, 0xEB, 0xF0, 0xFF),
+        on_surface_muted=(0x9A, 0xA3, 0xB2, 0xFF),
+        edge=(0x2C, 0x32, 0x3C, 0xFF),
+        overlay=(0x0A, 0x0C, 0x10, 0xB0),
+        accent=(0x8A, 0x78, 0xFF, 0xFF),
+        radius_small=5.0, radius_medium=8.0, radius_large=14.0,
+        shadow_close=Shadow(blur=6.0, offset=(0.0, 1.0), color=(0, 0, 0, 70)),
+        shadow_medium=Shadow(blur=14.0, offset=(0.0, 4.0), color=(0, 0, 0, 90)),
+        shadow_far=Shadow(blur=30.0, offset=(0.0, 14.0), color=(0, 0, 0, 120)),
+        font_family="Inter",
+    )
+
+
+def studio_light() -> Theme:
+    """Studio — clean professional light (the 'Daylight' variant). Bright
+    neutral surfaces, soft edges, the same crisp 8px geometry."""
+    base = Theme.from_primary((0x5B, 0x3F, 0xF5, 0xFF), dark=False, name="Studio Light")
+    return replace(
+        base,
+        surface=(0xF6, 0xF8, 0xFB, 0xFF),
+        surface_variant=(0xFF, 0xFF, 0xFF, 0xFF),
+        on_surface=(0x2A, 0x33, 0x42, 0xFF),
+        on_surface_muted=(0x6B, 0x74, 0x84, 0xFF),
+        edge=(0xDF, 0xE4, 0xEC, 0xFF),
+        radius_small=5.0, radius_medium=8.0, radius_large=14.0,
+        font_family="Inter",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Global current-theme.
 # ---------------------------------------------------------------------------
@@ -289,15 +341,46 @@ def current_theme() -> Theme:
 
 
 def set_theme(theme: Theme) -> None:
-    """Swap the active theme. Components paint with the new theme on next frame."""
+    """Swap the active theme. Components paint with the new theme on next frame.
+    Also applies the theme's ``font_family`` app-wide (best-effort)."""
     global _current
     with _current_lock:
         _current = theme
+    if theme.font_family:
+        try:
+            set_ui_font(theme.font_family)
+        except Exception:
+            pass
+
+
+def set_ui_font(spec: str) -> bool:
+    """Set the app-wide UI font. ``spec`` is either a family name (matched
+    against installed fonts) or a path to a ``.ttf``/``.otf`` file to register
+    so it renders regardless of what's installed. Returns True if a font file
+    was successfully registered; setting a family name always returns True.
+    No-op (returns False) when the native extension is unavailable."""
+    try:
+        from elysium._native import _native as _n  # type: ignore[attr-defined]
+    except Exception:
+        return False
+    import os
+    if (os.sep in spec or (os.altsep and os.altsep in spec)
+            or spec.lower().endswith((".ttf", ".otf"))):
+        try:
+            return bool(_n.register_ui_font(spec))
+        except Exception:
+            return False
+    try:
+        _n.set_ui_font(spec)
+    except Exception:
+        return False
+    return True
 
 
 __all__ = [
     "Color", "Theme", "Shadow", "MotionPreset",
     "hsla", "mix", "with_alpha", "lighten", "darken",
-    "light", "dark", "midnight_glass", "frost",
-    "current_theme", "set_theme",
+    "light", "dark", "oled", "midnight_glass", "frost",
+    "studio_dark", "studio_light",
+    "current_theme", "set_theme", "set_ui_font",
 ]
