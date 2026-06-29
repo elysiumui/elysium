@@ -23,7 +23,7 @@ Later phases add ``ToolBar``/``ToolButton``, ``TabWidget``, and
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from elysium.theme import current_theme, lighten, with_alpha
 from elysium.components import Component, Menu, MenuItem, _rounded_rect
@@ -33,6 +33,9 @@ __all__ = [
     "StatusBar",
     "Splitter",
     "MenuBar",
+    "ToolButton",
+    "ToolBar",
+    "TabWidget",
 ]
 
 
@@ -311,3 +314,273 @@ class MenuBar(Component):
             dl.draw_text(title, cx + self.item_pad, self.y + self.h * 0.66,
                          t.font_size_body, t.on_surface)
         # NOTE: the host paints open_menu() last so it overlays siblings.
+
+
+# ---------------------------------------------------------------------------
+# ToolButton / ToolBar — icon/text tool strips (Qt's QToolBar/QToolButton).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ToolButton(Component):
+    """A compact icon (and/or label) button for toolbars. ``icon`` is a painter
+    ``(dl, cx, cy, size, color) -> None`` so any glyph source can be plugged in
+    (a lambda, a framework ``GlyphAtlas``, or the Designer's icon registry).
+    ``checked`` renders the toggled/active state."""
+
+    label: str = ""
+    icon: Callable[[Any, float, float, float, Any], None] | None = None
+    checked: bool = False
+    enabled: bool = True
+    tooltip: str = ""
+    on_click: Callable[[], None] | None = None
+    icon_size: float = 18.0
+    radius: float = 7.0
+
+    def click(self) -> None:
+        if self.enabled and self.on_click is not None:
+            self.on_click()
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        if self.checked:
+            dl.fill_path(_rounded_rect(self.x, self.y, self.w, self.h, self.radius),
+                         with_alpha(t.primary, 0.20))
+        elif self._hover_t > 0.01 and self.enabled:
+            dl.fill_path(_rounded_rect(self.x, self.y, self.w, self.h, self.radius),
+                         with_alpha(t.on_surface, 0.07 * self._hover_t))
+        fg = t.primary if self.checked else t.on_surface
+        if not self.enabled:
+            fg = with_alpha(fg, t.opacity_disabled)
+        cx = self.x + self.w / 2.0
+        cy = self.y + self.h / 2.0
+        if self.icon is not None:
+            iy = cy if not self.label else self.y + self.h * 0.40
+            self.icon(dl, cx, iy, self.icon_size, fg)
+            if self.label:
+                approx = len(self.label) * t.font_size_caption * 0.55
+                dl.draw_text(self.label, cx - approx / 2.0,
+                             self.y + self.h - 6, t.font_size_caption, fg)
+        elif self.label:
+            approx = len(self.label) * t.font_size_body * 0.55
+            dl.draw_text(self.label, cx - approx / 2.0,
+                         cy + t.font_size_body * 0.35, t.font_size_body, fg)
+
+
+_SEPARATOR = "separator"
+_SPACER = "spacer"
+
+
+@dataclass
+class ToolBar(Component):
+    """A strip of :class:`ToolButton`\\ s with separators and a flexible spacer.
+
+    ``items`` is a list of ``ToolButton`` | ``"separator"`` | ``"spacer"``.
+    Call :meth:`layout` (or :meth:`paint`, which lays out first) to assign each
+    button's geometry; :meth:`hit` maps a point to a button. ``"spacer"`` pushes
+    everything after it to the far edge.
+    """
+
+    items: list[Any] = field(default_factory=list)
+    orientation: str = "horizontal"
+    button: float = 30.0
+    gap: float = 4.0
+    pad: float = 6.0
+    icon_size: float = 18.0
+
+    @property
+    def _buttons(self) -> list[ToolButton]:
+        return [it for it in self.items if isinstance(it, ToolButton)]
+
+    def layout(self) -> None:
+        horiz = self.orientation == "horizontal"
+        # First pass: total fixed extent + spacer count.
+        fixed = 0.0
+        spacers = 0
+        for it in self.items:
+            if it == _SPACER:
+                spacers += 1
+            elif it == _SEPARATOR:
+                fixed += self.gap * 2 + 1
+            elif isinstance(it, ToolButton):
+                fixed += self.button + self.gap
+        avail = (self.w if horiz else self.h) - 2 * self.pad
+        spacer_px = max(0.0, (avail - fixed) / spacers) if spacers else 0.0
+        cur = (self.x if horiz else self.y) + self.pad
+        cross = (self.y if horiz else self.x)
+        for it in self.items:
+            if it == _SPACER:
+                cur += spacer_px
+            elif it == _SEPARATOR:
+                cur += self.gap * 2 + 1
+            elif isinstance(it, ToolButton):
+                if horiz:
+                    it.x, it.y = cur, cross + (self.h - self.button) / 2.0
+                else:
+                    it.x, it.y = cross + (self.w - self.button) / 2.0, cur
+                it.w = it.h = self.button
+                it.icon_size = self.icon_size
+                cur += self.button + self.gap
+
+    def hit(self, mx: float, my: float) -> ToolButton | None:
+        for b in self._buttons:
+            if b.enabled and b.hit_test(mx, my):
+                return b
+        return None
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        self.layout()
+        dl.fill_path(_rect_path(self.x, self.y, self.w, self.h),
+                     lighten(t.surface, 0.02))
+        # Bottom (horizontal) / right (vertical) hairline.
+        if self.orientation == "horizontal":
+            dl.fill_path(_rect_path(self.x, self.y + self.h - 1, self.w, 1.0),
+                         with_alpha(t.edge, 0.7))
+        else:
+            dl.fill_path(_rect_path(self.x + self.w - 1, self.y, 1.0, self.h),
+                         with_alpha(t.edge, 0.7))
+        # Separators (re-walk to know their positions relative to buttons).
+        horiz = self.orientation == "horizontal"
+        cur = (self.x if horiz else self.y) + self.pad
+        avail = (self.w if horiz else self.h) - 2 * self.pad
+        spacers = sum(1 for it in self.items if it == _SPACER)
+        fixed = sum((self.gap * 2 + 1) if it == _SEPARATOR
+                    else (self.button + self.gap) if isinstance(it, ToolButton)
+                    else 0.0 for it in self.items)
+        spacer_px = max(0.0, (avail - fixed) / spacers) if spacers else 0.0
+        for it in self.items:
+            if it == _SPACER:
+                cur += spacer_px
+            elif it == _SEPARATOR:
+                sx = cur + self.gap
+                if horiz:
+                    dl.fill_path(_rect_path(sx, self.y + 6, 1.0, self.h - 12),
+                                 with_alpha(t.edge, 0.9))
+                else:
+                    dl.fill_path(_rect_path(self.x + 6, sx, self.w - 12, 1.0),
+                                 with_alpha(t.edge, 0.9))
+                cur += self.gap * 2 + 1
+            elif isinstance(it, ToolButton):
+                it.paint(dl)
+                cur += self.button + self.gap
+
+
+# ---------------------------------------------------------------------------
+# TabWidget — a tab strip + routed content panel (Qt's QTabWidget).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TabWidget(Component):
+    """A tab strip with content-width tabs plus a content panel that routes to
+    the active tab. ``tabs`` is ``[(title, content), ...]`` where ``content`` is
+    any object with ``x/y/w/h`` + ``paint(dl)`` (typically a Component) or
+    ``None``. Set ``closable`` for per-tab close buttons.
+
+    The host calls :meth:`on_click` to switch/close tabs, then :meth:`paint`,
+    which lays the active content into :meth:`content_rect` and paints it.
+    """
+
+    tabs: list[tuple[str, Any]] = field(default_factory=list)
+    current: int = 0
+    tab_h: float = 32.0
+    closable: bool = False
+    on_change: Callable[[int], None] | None = None
+    on_close: Callable[[int], None] | None = None
+
+    def tab_rects(self) -> list[tuple[int, str, float, float]]:
+        t = current_theme()
+        out: list[tuple[int, str, float, float]] = []
+        cx = self.x
+        for i, (title, _content) in enumerate(self.tabs):
+            tw = len(title) * t.font_size_body * 0.6 + 28
+            if self.closable:
+                tw += 18
+            out.append((i, title, cx, tw))
+            cx += tw
+        return out
+
+    def content_rect(self) -> tuple[float, float, float, float]:
+        return (self.x, self.y + self.tab_h, self.w,
+                max(0.0, self.h - self.tab_h))
+
+    def _close_rect(self, tx: float, tw: float) -> tuple[float, float, float, float]:
+        s = 14.0
+        return (tx + tw - s - 8, self.y + (self.tab_h - s) / 2.0, s, s)
+
+    def hit_tab(self, mx: float, my: float) -> tuple[str, int] | None:
+        """Returns ``("close", i)`` if a tab's close button was hit, else
+        ``("tab", i)`` for the tab body, else ``None``."""
+        if not (self.y <= my <= self.y + self.tab_h):
+            return None
+        for i, _title, tx, tw in self.tab_rects():
+            if tx <= mx <= tx + tw:
+                if self.closable:
+                    cxr = self._close_rect(tx, tw)
+                    if (cxr[0] <= mx <= cxr[0] + cxr[2]
+                            and cxr[1] <= my <= cxr[1] + cxr[3]):
+                        return ("close", i)
+                return ("tab", i)
+        return None
+
+    def on_click(self, mx: float, my: float) -> bool:
+        hit = self.hit_tab(mx, my)
+        if hit is None:
+            return False
+        kind, i = hit
+        if kind == "close":
+            self.close(i)
+        else:
+            self.select(i)
+        return True
+
+    def select(self, idx: int) -> None:
+        if 0 <= idx < len(self.tabs) and idx != self.current:
+            self.current = idx
+            if self.on_change is not None:
+                self.on_change(idx)
+
+    def close(self, idx: int) -> None:
+        if not (0 <= idx < len(self.tabs)):
+            return
+        if self.on_close is not None:
+            self.on_close(idx)
+        del self.tabs[idx]
+        if self.current >= len(self.tabs):
+            self.current = max(0, len(self.tabs) - 1)
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        # Tab strip background + content panel.
+        dl.fill_path(_rect_path(self.x, self.y, self.w, self.tab_h),
+                     lighten(t.surface, 0.02))
+        crect = self.content_rect()
+        dl.fill_path(_rounded_rect(crect[0], crect[1], crect[2], crect[3],
+                                   t.radius_small), t.surface_variant)
+        for i, title, tx, tw in self.tab_rects():
+            active = i == self.current
+            if active:
+                dl.fill_path(_rect_path(tx, self.y, tw, self.tab_h),
+                             t.surface_variant)
+                # Top accent bar marks the active tab.
+                dl.fill_path(_rect_path(tx, self.y, tw, 2.0), t.primary)
+            color = t.on_surface if active else t.on_surface_muted
+            dl.draw_text(title, tx + 12, self.y + self.tab_h * 0.64,
+                         t.font_size_body, color)
+            if self.closable:
+                cxr = self._close_rect(tx, tw)
+                cc = cxr[0] + cxr[2] / 2.0
+                cm = cxr[1] + cxr[3] / 2.0
+                xcol = with_alpha(t.on_surface_muted, 0.9)
+                dl.stroke_path(
+                    f"M {cc-3} {cm-3} L {cc+3} {cm+3} M {cc+3} {cm-3} "
+                    f"L {cc-3} {cm+3}", xcol, 1.3)
+        # Hairline under the strip, except beneath the active tab.
+        dl.fill_path(_rect_path(self.x, self.y + self.tab_h - 1, self.w, 1.0),
+                     with_alpha(t.edge, 0.6))
+        # Route + paint the active content.
+        if 0 <= self.current < len(self.tabs):
+            content = self.tabs[self.current][1]
+            if content is not None and hasattr(content, "paint"):
+                content.x, content.y = crect[0], crect[1]
+                content.w, content.h = crect[2], crect[3]
+                content.paint(dl)

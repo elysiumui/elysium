@@ -231,7 +231,10 @@
     "GroupBox",
     "MenuBar",
     "Splitter",
-    "StatusBar"
+    "StatusBar",
+    "TabWidget",
+    "ToolBar",
+    "ToolButton"
   ],
   "elysium.testing": [
     "ALT",

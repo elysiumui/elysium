@@ -166,3 +166,103 @@ def test_menubar_renders():
     layer = n.SkiaLayer(400, 200)
     layer.execute(dl)
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
+# --- ToolBar / ToolButton (Phase 2) ---------------------------------------
+
+from elysium.shell import ToolButton, ToolBar, TabWidget  # noqa: E402
+
+
+def _dot_icon(dl, cx, cy, size, color):
+    from elysium.components import _rounded_rect
+    dl.fill_path(_rounded_rect(cx - size / 2, cy - size / 2, size, size, 3), color)
+
+
+def test_toolbutton_click_respects_enabled():
+    fired = []
+    b = ToolButton(label="Run", on_click=lambda: fired.append(1))
+    b.click()
+    assert fired == [1]
+    b.enabled = False
+    b.click()
+    assert fired == [1]  # disabled → no fire
+
+
+def test_toolbar_layout_positions_buttons_and_spacer():
+    a = ToolButton(icon=_dot_icon)
+    b = ToolButton(icon=_dot_icon)
+    c = ToolButton(icon=_dot_icon)
+    tb = ToolBar(x=0, y=0, w=400, h=36, button=30, gap=4, pad=6,
+                 items=[a, "separator", b, "spacer", c])
+    tb.layout()
+    # a then b are left-packed; c is pushed to the right by the spacer
+    assert a.x == 6
+    assert b.x > a.x
+    assert c.x > b.x + 100  # spacer opened a big gap
+    assert a.w == a.h == 30
+    assert _render(tb, 400, 40)[:4] == b"\x89PNG"
+
+
+def test_toolbar_hit_returns_button():
+    a = ToolButton(icon=_dot_icon)
+    tb = ToolBar(x=0, y=0, w=200, h=36, items=[a])
+    tb.layout()
+    assert tb.hit(a.x + 5, a.y + 5) is a
+    assert tb.hit(190, 5) is None
+
+
+def test_toolbar_vertical_orientation():
+    a = ToolButton(icon=_dot_icon)
+    b = ToolButton(icon=_dot_icon)
+    tb = ToolBar(x=0, y=0, w=36, h=300, orientation="vertical", items=[a, b])
+    tb.layout()
+    assert a.x == b.x        # same column
+    assert b.y > a.y         # stacked downward
+
+
+# --- TabWidget (Phase 2) ---------------------------------------------------
+
+def _tabwidget(closable=False):
+    from elysium.components import Label
+    tabs = [("Code", Label(text="code")),
+            ("Preview", Label(text="preview")),
+            ("Console", Label(text="console"))]
+    return TabWidget(x=0, y=0, w=400, h=240, tabs=tabs, closable=closable)
+
+
+def test_tabwidget_content_rect_below_strip():
+    tw = _tabwidget()
+    cx, cy, cw, ch = tw.content_rect()
+    assert cy == tw.y + tw.tab_h
+    assert ch == tw.h - tw.tab_h
+
+
+def test_tabwidget_click_switches_tab():
+    tw = _tabwidget()
+    changed = []
+    tw.on_change = lambda i: changed.append(i)
+    _, _, tx, _w = tw.tab_rects()[1]
+    assert tw.on_click(tx + 5, tw.y + 5) is True
+    assert tw.current == 1 and changed == [1]
+
+
+def test_tabwidget_close_removes_tab():
+    tw = _tabwidget(closable=True)
+    closed = []
+    tw.on_close = lambda i: closed.append(i)
+    _, _, tx, twd = tw.tab_rects()[0]
+    cxr = tw._close_rect(tx, twd)
+    handled = tw.on_click(cxr[0] + 2, cxr[1] + 2)
+    assert handled is True
+    assert closed == [0]
+    assert [t[0] for t in tw.tabs] == ["Preview", "Console"]
+
+
+def test_tabwidget_paints_active_content():
+    tw = _tabwidget()
+    tw.current = 2
+    assert _render(tw, 400, 240)[:4] == b"\x89PNG"
+    # active content got laid into the content rect
+    content = tw.tabs[2][1]
+    cx, cy, cw, ch = tw.content_rect()
+    assert content.x == cx and content.w == cw
