@@ -95,16 +95,12 @@ jobs:
               print(f"Coverage summary unavailable: {e}\n")
           PY
 
-      # Per-platform screenshot diff. Goldens are checked in under
-      # tests/snapshots/<platform>/ and the diff job picks the right
-      # set based on the runner OS. New platforms regenerate via the
-      # `UPDATE_GOLDENS=1 pytest tests/snapshots` workflow_dispatch.
-      - name: Screenshot diff
-        if: hashFiles('tests/snapshots/**') != ''
-        env:
-          PYTHONUNBUFFERED: "1"
-        run: pytest tests/snapshots -q
-
+      # The golden-image visual tests live in tests/test_visual.py (+ the
+      # parametrized butterfly/designer snapshots) and already run in the
+      # pytest step above; they read goldens from tests/snapshots/<platform>/
+      # and self-skip where that platform's set isn't checked in. No separate
+      # snapshot step is needed (a bare `pytest tests/snapshots` collects
+      # nothing and exits 5).
       - name: Upload diff artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
