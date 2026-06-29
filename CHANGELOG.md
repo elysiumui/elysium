@@ -9,6 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **Documents & editing** (Tier 6 — Qt `QUndoStack` / `QTextDocument` / `QDrag`):
+  - `elysium.commands` — `Command` (+ `FunctionCommand` / `MacroCommand`) and an
+    `UndoStack` (undo/redo, merge/coalesce by `merge_id`, macros, history limit,
+    clean-state index, `on_change`); `Action`, one shared trigger for a menu
+    item + toolbar button + shortcut (`to_menu_item()` / `to_tool_button()`).
+  - `elysium.text.richtext` — `RichDocument` of styled `Run`s + inline `Image`s
+    + paragraph `Break`s, word-wrapped + baseline-aligned via `measure_text_run`;
+    `RichTextView` renders through the Skia paragraph path (real bold weight +
+    italic slant axis) with hyperlink hit-testing.
+  - `elysium.dnd` — `MimeData` / `DropZone` / `DragController` for in-app
+    widget-to-widget drag-and-drop (press→threshold→drag, accepting-zone
+    highlight, drag ghost, delivered drop). `examples/notes-demo/` ties all
+    three together (rich-text notes, undoable drag-reorder).
 - **Interactive 2D canvas** (`elysium.graphics`, Tier 5 — Qt `QGraphicsScene` /
   `QGraphicsView` / `QGraphicsItem` parity):
   - `Scene` owning a z-ordered list of `Item`s with scene-space bounds,

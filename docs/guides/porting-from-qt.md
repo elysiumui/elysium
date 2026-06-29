@@ -128,6 +128,26 @@ flowchart editor).
 Per-item rotation/scale transforms and arbitrary-path `contains` hit-testing are
 tracked follow-ups; bounds / ellipse / line hit-tests are exact today.
 
+## Documents & editing (Tier 6)
+
+Undo/redo, rich text, and drag-and-drop — see the
+[Documents & editing guide](documents.md) and `examples/notes-demo/`.
+
+| Qt | Elysium | Notes |
+| --- | --- | --- |
+| `QUndoStack` | `commands.UndoStack` | push/undo/redo, merge by `merge_id`, macros, limit, clean index, `on_change` |
+| `QUndoCommand` | `commands.Command` (+ `FunctionCommand`, `MacroCommand`) | `redo`/`undo` + `merge_with` |
+| `QAction` | `commands.Action` | one trigger for menu + toolbar + shortcut; `to_menu_item()` / `to_tool_button()` |
+| `QTextDocument` | `text.richtext.RichDocument` | styled `Run`s + inline `Image` + `Break`; `layout(width)` |
+| `QTextCharFormat` | `Run(bold=…, italic=…, size=…, color=…, family=…, underline=…, link=…)` | bold = weight, italic = slant axis (real font styling) |
+| `QTextBrowser` (read) | `text.richtext.RichTextView` | word-wrap, baseline-aligned mixed sizes, `link_at`/`on_click` hyperlinks |
+| `QMimeData` | `dnd.MimeData` | typed payloads + a `TEXT` slot |
+| `QDrag` / drop events | `dnd.DragController` (+ `dnd.DropZone`) | press→threshold→drag, hovered accepting zone, ghost, delivered drop |
+
+An editable `RichTextEdit` (caret/selection over styled runs) and per-paragraph
+block styles are tracked follow-ups; the document model, layout, read-only view,
+hyperlinks, command stack, and DnD are available now.
+
 ## Class map — Tier 2 (scale, services, native)
 
 | Qt | Elysium | Notes |

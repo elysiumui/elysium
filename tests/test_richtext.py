@@ -102,3 +102,31 @@ def test_view_renders_styled_document():
     layer = n.SkiaLayer(400, 200)
     layer.execute(dl)
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
+# --- notes-app demo smoke (Tier 6 Phase 4) ---------------------------------
+
+def test_notes_demo_reorder_undo_and_paint():
+    import importlib.util
+    import sys
+    from elysium._native import _native as n
+    spec = importlib.util.spec_from_file_location(
+        "notes_demo", "examples/notes-demo/main.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["notes_demo"] = mod   # dataclasses need the module registered
+    spec.loader.exec_module(mod)
+    app = mod.build_app(900, 600)
+    titles = [nt.title for nt in app["notes"]]
+    assert app["undo_action"].enabled is False     # nothing to undo yet
+    app["reorder"](0, 2)                            # move first note to the end
+    assert [nt.title for nt in app["notes"]] == titles[1:] + titles[:1]
+    assert app["undo_action"].enabled is True
+    app["undo"].undo()                              # reorder is undoable
+    assert [nt.title for nt in app["notes"]] == titles
+    # paint the whole app headlessly
+    dl = n.DisplayList()
+    dl.clear(0.1, 0.11, 0.14, 1.0)
+    mod.paint_app(dl, app, 900, 600)
+    layer = n.SkiaLayer(900, 600)
+    layer.execute(dl)
+    assert bytes(layer.encode_png())[:4] == b"\x89PNG"
