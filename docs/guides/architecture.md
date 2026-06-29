@@ -89,8 +89,8 @@ edit JSON by hand for full understanding.
 ```python
 import elysium as ely
 
-app = ely.App(title="…", identifier="…")   # construct
-window = app.window(transparent=True, …)   # create window
+app = ely.App(title="My App", identifier="com.example.app")   # construct
+window = app.window(transparent=True)   # create window
 window.load_skin("path/")                  # load skin
 # (register handlers, signals, effects here)
 app.run()                                  # event loop blocks here

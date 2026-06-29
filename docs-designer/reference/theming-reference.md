@@ -84,7 +84,7 @@ custom = Theme(
     name="Custom",
     background=hsla(260, 0.40, 0.08),
     surface=hsla(260, 0.30, 0.14),
-    ...
+    # ...remaining theme tokens...
 )
 set_theme(custom)
 ```

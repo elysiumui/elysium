@@ -130,6 +130,7 @@ def on_query(event):
 
 @launcher.on("window.key")
 def on_key(event):
+    global launcher
     if not event.pressed:
         return
     if event.code == "ArrowDown":
@@ -140,7 +141,6 @@ def on_key(event):
         run(filtered()[highlight()])
     elif event.code == "Escape":
         launcher.close()
-        global launcher
         launcher = None
 
 
@@ -154,8 +154,8 @@ def run(command: dict):
 ```python
 @launcher.on("window.focus.lost")
 def lost(event):
-    launcher.close()
     global launcher
+    launcher.close()
     launcher = None
 ```
 

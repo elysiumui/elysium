@@ -106,7 +106,7 @@ project".
 
 ## Determinism
 
-```python
+```python no-check
 result = await ai.generate_skin(prompt="...", seed=42)
 ```
 

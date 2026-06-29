@@ -79,7 +79,7 @@ intact. The model is deliberately conservative.
 
 To review before committing:
 
-```python
+```python no-check
 diff = await ai.modify_skin("aurora_clock.esk/", "...")
 print(diff.preview())   # unified diff
 diff.apply("aurora_clock.esk/", only=["background", "glow", "dial"])
