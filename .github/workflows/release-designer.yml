@@ -136,14 +136,22 @@ jobs:
           } else {
             Write-Host "WARN: no signing certificate provided"
           }
-          # Use Inno Setup if available; fallback to zipping the dist tree
-          # so the upload always produces an artifact.
+          # Build the installer with Inno Setup. If iscc is missing or fails,
+          # fall back to a portable zip so a Windows artifact always uploads.
+          $base = "${{ matrix.artifact_name }}" -replace '\.exe$',''
+          $installer = "dist\\${{ matrix.artifact_name }}"
+          $built = $false
           if (Get-Command iscc.exe -ErrorAction SilentlyContinue) {
-            iscc.exe scripts\\windows-installer.iss `
-              /F"${{ matrix.artifact_name }}".Replace(".exe","")
+            iscc.exe scripts\\windows-installer.iss /F"$base"
+            if (Test-Path $installer) { $built = $true }
+            else { Write-Host "WARN: Inno Setup did not produce $installer" }
           } else {
-            Compress-Archive -Path dist\\ElysiumDesigner.exe `
-              -DestinationPath "dist\\${{ matrix.artifact_name }}".Replace(".exe", ".zip")
+            Write-Host "WARN: iscc.exe not found"
+          }
+          if (-not $built) {
+            Write-Host "Falling back to a portable zip."
+            Compress-Archive -Force -Path dist\\ElysiumDesigner.exe `
+              -DestinationPath "dist\\$base-portable.zip"
           }
 
       # --- Linux: AppImage + .deb + .rpm -------------------------------
@@ -175,6 +183,8 @@ jobs:
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/${{ matrix.artifact_name }}
+          files: |
+            dist/${{ matrix.artifact_name }}
+            dist/*-portable.zip
           generate_release_notes: true
           fail_on_unmatched_files: false
