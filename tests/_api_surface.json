@@ -275,6 +275,14 @@
     "Mask",
     "RegexValidator"
   ],
+  "elysium.text.richtext": [
+    "Break",
+    "Image",
+    "Placement",
+    "RichDocument",
+    "RichTextView",
+    "Run"
+  ],
   "elysium.theme": [
     "Color",
     "MotionPreset",

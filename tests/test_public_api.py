@@ -29,6 +29,7 @@ PUBLIC_MODULES = [
     "elysium.reactive",
     "elysium.input",
     "elysium.text",
+    "elysium.text.richtext",
     "elysium.dialogs",
     "elysium.modelview",
     "elysium.concurrency",
