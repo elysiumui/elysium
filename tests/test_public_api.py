@@ -45,6 +45,7 @@ PUBLIC_MODULES = [
     "elysium.accessibility",
     "elysium.shell",
     "elysium.graphics",
+    "elysium.charts",
     "elysium.commands",
     "elysium.styling",
 ]

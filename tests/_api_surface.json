@@ -51,6 +51,21 @@
     "run_animation_thread",
     "spring"
   ],
+  "elysium.charts": [
+    "AreaChart",
+    "BarChart",
+    "DonutChart",
+    "Legend",
+    "LineChart",
+    "PieChart",
+    "Series",
+    "Sparkline",
+    "chart_palette",
+    "format_compact",
+    "format_money",
+    "format_pct",
+    "nice_ticks"
+  ],
   "elysium.commands": [
     "Action",
     "Command",

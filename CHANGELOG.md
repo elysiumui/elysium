@@ -9,6 +9,15 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **Charts** (`elysium.charts`, Tier 8 — Qt QtCharts class): immediate-mode,
+  theme-recolouring chart widgets built purely on the existing `DisplayList`
+  (polylines + SVG-arc donut wedges, no native dependency) — `LineChart` /
+  `AreaChart` (incl. stacked), `BarChart` (stacked/grouped), `DonutChart` /
+  `PieChart`, `Sparkline`, and a `Legend`, with `Series` data, a categorical
+  `chart_palette`, `nice_ticks` axis helper, and `format_money` / `format_pct` /
+  `format_compact` number formatters. Closes the dashboard-charting gap for
+  data/finance apps.
+
 - **Styling & accessibility** (Tier 7 — Qt QSS / `QCompleter` / `QAccessible`):
   - `elysium.styling.StyleSheet` — a QSS-like selector→property resolver
     (type / `#id` / `.class` / `:state`, CSS specificity, `resolve` + `apply`).
