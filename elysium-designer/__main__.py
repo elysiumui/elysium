@@ -23027,28 +23027,29 @@ def _icon_tool_lasso_select(ctx: IconCtx) -> None:
     cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
     # Closed loop (4 cubic segments), monoline.
     dl.stroke_path(
-        f"M {cx-9} {cy-2} "
-        f"C {cx-13} {cy-9} {cx-2} {cy-12} {cx+5} {cy-9} "
-        f"C {cx+12} {cy-5} {cx+11} {cy+4}  {cx+6} {cy+8} "
-        f"C {cx+1} {cy+12} {cx-7} {cy+10} {cx-9} {cy+5} "
-        f"C {cx-11} {cy+2} {cx-11} {cy+0}  {cx-9} {cy-2} Z",
+        f"M {cx-1} {cy-9} "
+        f"C {cx+9} {cy-9} {cx+11} {cy+3} {cx+2} {cy+6} "
+        f"C {cx-7} {cy+9} {cx-11} {cy-2} {cx-3} {cy-7}",
         fg, 1.6)
-    # Free-end tail at upper-right.
-    dl.stroke_path(f"M {cx+5} {cy-9} L {cx+9} {cy-12}",
-                    themes.with_alpha(fg, 0.7), 1.4)
+    # The two rope ends cross near the top + dangle into a short free tail,
+    # so the loop reads as a lasso rather than a plain circle.
+    dl.stroke_path(f"M {cx-3} {cy-7} L {cx+1} {cy-4}", fg, 1.6)
+    dl.stroke_path(f"M {cx+2} {cy+6} L {cx+4} {cy+11}", fg, 1.6)
 
 
 @icon_painter("tool_paint_select")
 def _icon_tool_paint_select(ctx: IconCtx) -> None:
-    """Paint Select — monoline brush silhouette."""
+    """Paint Select — a diagonal brush over a painted selection stroke."""
     cx, cy, dl, fg = ctx.cx, ctx.cy, ctx.dl, ctx.fg
-    # Bristle block (trapezoid) + ferrule line.
+    # Handle (upper-right) running down to the ferrule.
+    dl.stroke_path(f"M {cx+8} {cy-9} L {cx-1} {cy}", fg, 1.6)
+    # Bristle head — a small wedge at the lower end of the handle.
     dl.stroke_path(
-        f"M {cx-5} {cy-3} L {cx+5} {cy-3} L {cx+6} {cy-11} "
-        f"L {cx-6} {cy-11} Z", fg, 1.6)
-    dl.stroke_path(f"M {cx-5} {cy-3} L {cx+5} {cy-3}", fg, 1.6)
-    # Handle.
-    dl.stroke_path(_rect(cx - 3, cy + 1, 6, 10), fg, 1.6)
+        f"M {cx-1} {cy} L {cx-6} {cy+5} L {cx-3} {cy+8} L {cx+2} {cy+3} Z",
+        fg, 1.6)
+    # Painted selection stroke underneath.
+    dl.stroke_path(f"M {cx-7} {cy+10} Q {cx} {cy+7} {cx+7} {cy+10}",
+                    themes.with_alpha(fg, 0.7), 1.6)
 
 
 @icon_painter("tool_pivot_edit")
