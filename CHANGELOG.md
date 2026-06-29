@@ -9,6 +9,15 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **Interactive 2D canvas** (`elysium.graphics`, Tier 5 Phase 1 — Qt
+  `QGraphicsScene`/`QGraphicsItem` parity): a `Scene` owning a z-ordered list of
+  `Item`s with scene-space bounds, shape-accurate hit-testing, and a `paint(dl)`
+  in scene coordinates. Built-in items `RectItem` / `EllipseItem` / `LineItem`
+  (distance hit-test) / `PathItem` / `TextItem`. Scene queries: `items_at`
+  (topmost-first), `items_in_rect` (intersect or contained — the rubber-band
+  query), `bounding_rect`, z-order raise/lower, and selection helpers. The
+  `GraphicsView` (pan/zoom/cull) + interaction (select/rubber-band/drag) land in
+  later phases.
 - **App-shell widgets** (`elysium.shell`, Tier 4 — Qt `QMainWindow` parity).
   Immediate-mode Components that recolour with the theme:
   - `GroupBox` (titled bordered container with a content rect), `StatusBar`

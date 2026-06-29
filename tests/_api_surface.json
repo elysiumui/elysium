@@ -135,6 +135,15 @@
     "FocusNode",
     "next_focus"
   ],
+  "elysium.graphics": [
+    "EllipseItem",
+    "Item",
+    "LineItem",
+    "PathItem",
+    "RectItem",
+    "Scene",
+    "TextItem"
+  ],
   "elysium.i18n": [
     "LTR",
     "RTL",
