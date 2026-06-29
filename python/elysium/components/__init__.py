@@ -158,6 +158,7 @@ class Label(Component):
     align: str = "left"
     font_family: str = ""   # per-widget font override (opt-in)
     weight: int = 400       # per-widget font weight
+    tabular: bool = False   # tabular (equal-width) numerals for aligned figures
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
@@ -174,7 +175,7 @@ class Label(Component):
         # Per-widget font / weight goes through the paragraph path (the only one
         # that takes a family + weight). The default path is unchanged
         # draw_text, so existing golden snapshots don't move.
-        if self.font_family or self.weight != 400:
+        if self.font_family or self.weight != 400 or self.tabular:
             from elysium._native import _native as _n
             try:
                 _adv, asc, _desc = _n.measure_text_run(self.text or "Ay", size)
@@ -183,7 +184,8 @@ class Label(Component):
             align_i = {"left": 0, "center": 1, "right": 2}.get(self.align, 0)
             box_w = self.w if self.w > 0 else approx_w + 8
             dl.draw_paragraph(self.text, self.x, ty - asc, box_w, size, color,
-                              align_i, self.font_family, self.weight, [], False)
+                              align_i, self.font_family, self.weight, [], False,
+                              self.tabular)
         else:
             dl.draw_text(self.text, tx, ty, size, color)
 

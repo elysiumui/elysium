@@ -184,7 +184,8 @@ impl PySkiaLayer {
     /// resulting block height in pixels. `align`: 0=left, 1=right,
     /// 2=center, 3=justify.
     #[pyo3(signature = (text, x, y, max_width, size, color, align=0,
-                        font_family="", weight=0, variation_axes=Vec::new(), rtl=false))]
+                        font_family="", weight=0, variation_axes=Vec::new(), rtl=false,
+                        tabular=false))]
     fn draw_paragraph(
         &mut self,
         text: &str,
@@ -198,6 +199,7 @@ impl PySkiaLayer {
         weight: i32,
         variation_axes: Vec<(String, f32)>,
         rtl: bool,
+        tabular: bool,
     ) -> f32 {
         self.inner.draw_paragraph(
             text,
@@ -211,6 +213,7 @@ impl PySkiaLayer {
             weight,
             &variation_axes,
             rtl,
+            tabular,
         )
     }
 

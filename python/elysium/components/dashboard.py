@@ -48,6 +48,7 @@ class MetricCard(Component):
     sub: str = ""
     icon: Callable[[Any, float, float, float, Any], None] | None = None
     spark: list[float] | None = None
+    tabular: bool = False        # tabular numerals for the big value
     radius: float = 12.0
 
     def _delta_color(self, t: Any):
@@ -69,8 +70,14 @@ class MetricCard(Component):
             self.icon(dl, ex + 6, self.y + pad + 4, 14, t.on_surface_muted)
             ex += 22
         dl.draw_text(self.label, ex, self.y + pad + 8, 11, t.on_surface_muted)
-        dl.draw_text(self.value, self.x + pad, self.y + pad + 36, 24,
-                     t.on_surface)
+        if self.tabular:
+            from elysium.components import Label
+            Label(x=self.x + pad, y=self.y + pad + 18, w=self.w - 2 * pad, h=26,
+                  text=self.value, size=24, color=t.on_surface,
+                  tabular=True).paint(dl)
+        else:
+            dl.draw_text(self.value, self.x + pad, self.y + pad + 36, 24,
+                         t.on_surface)
         # Delta badge.
         if self.delta:
             dc = self._delta_color(t)

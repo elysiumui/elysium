@@ -9,6 +9,17 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **Tabular numerals** — `DisplayList.draw_paragraph(..., tabular=True)` now
+  enables the OpenType `tnum`+`lnum` features (equal-width lining figures) so
+  monetary / metric columns reconcile to the digit. Opt in per widget via
+  `Label(tabular=True)` and `MetricCard(tabular=True)`. (Rust: threaded through
+  `ely-render`'s Skia paragraph layer via `TextStyle::add_font_feature`.)
+- **Reference apps** under `examples/`: `storeprofitlens-dashboard/` (KPI cards,
+  net-profit area chart, cost donut + legend, profit table, alert inbox) and
+  `variantproof-grid/` (Excel-grade `DataGrid` with frozen columns, pending
+  edits, validation badges, saved-views rail, pending-changes tray) — each with
+  a headless `build_*()`/`paint_*()` split and a smoke test.
+
 - **DataGrid** (`elysium.modelview.grid`, Tier 8 — Excel-grade editable grid over
   `ItemModel`): **frozen/pinned leading columns**, column **resize / reorder /
   show-hide**, **rectangular range selection**, **copy / paste TSV** (paste an

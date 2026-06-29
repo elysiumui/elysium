@@ -243,7 +243,8 @@ impl PyDisplayList {
 
     /// Wrapped paragraph. `align`: 0=left, 1=right, 2=center, 3=justify.
     #[pyo3(signature = (text, x, y, max_width, size, color, align=0,
-                        font_family="", weight=0, variation_axes=Vec::new(), rtl=false))]
+                        font_family="", weight=0, variation_axes=Vec::new(), rtl=false,
+                        tabular=false))]
     fn draw_paragraph(
         &mut self,
         text: &str,
@@ -257,6 +258,7 @@ impl PyDisplayList {
         weight: i32,
         variation_axes: Vec<(String, f32)>,
         rtl: bool,
+        tabular: bool,
     ) {
         self.inner.commands.push(DrawCommand::DrawParagraph {
             text: text.to_string(),
@@ -270,6 +272,7 @@ impl PyDisplayList {
             weight,
             variation_axes,
             rtl,
+            tabular,
         });
     }
 

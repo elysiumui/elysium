@@ -169,6 +169,10 @@ pub enum DrawCommand {
         /// bidi runs internally either way. Defaults to `false` (LTR).
         #[serde(default)]
         rtl: bool,
+        /// Tabular (lining, equal-width) numerals via the OpenType `tnum`+`lnum`
+        /// features, so monetary / metric columns align to the digit.
+        #[serde(default)]
+        tabular: bool,
     },
     /// Custom SkSL shader pass over a rounded rectangle. The Skia layer
     /// compiles + caches the SkSL once per unique `src` and binds the

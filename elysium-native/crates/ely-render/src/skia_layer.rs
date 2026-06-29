@@ -667,6 +667,7 @@ impl SkiaLayer {
         weight: i32,
         variation_axes: &[(String, f32)],
         rtl: bool,
+        tabular: bool,
     ) -> f32 {
         use skia_safe::font_arguments::variation_position::Coordinate;
         use skia_safe::textlayout::{
@@ -722,6 +723,11 @@ impl SkiaLayer {
                 },
             );
             ts.set_font_arguments(Some(&args));
+        }
+        // Tabular + lining numerals so figures align across rows/columns.
+        if tabular {
+            ts.add_font_feature("tnum", 1);
+            ts.add_font_feature("lnum", 1);
         }
 
         let mut builder = ParagraphBuilder::new(&ps, &font_collection);
@@ -985,6 +991,7 @@ impl SkiaLayer {
                     weight,
                     variation_axes,
                     rtl,
+                    tabular,
                 } => {
                     self.draw_paragraph(
                         text,
@@ -998,6 +1005,7 @@ impl SkiaLayer {
                         *weight,
                         variation_axes,
                         *rtl,
+                        *tabular,
                     );
                 }
                 C::SkslEffect {
