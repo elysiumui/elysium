@@ -44,6 +44,13 @@
     "run_animation_thread",
     "spring"
   ],
+  "elysium.commands": [
+    "Action",
+    "Command",
+    "FunctionCommand",
+    "MacroCommand",
+    "UndoStack"
+  ],
   "elysium.components": [
     "Accordion",
     "Avatar",
