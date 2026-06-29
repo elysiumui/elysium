@@ -227,3 +227,98 @@ def test_view_renders():
     layer = n.SkiaLayer(400, 300)
     layer.execute(dl)
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
+# --- SceneController interaction (Phase 3) ---------------------------------
+
+from elysium.graphics import SceneController  # noqa: E402
+
+
+def _controller():
+    s = Scene()
+    a = s.add(RectItem(x=20, y=20, w=80, h=60))
+    b = s.add(RectItem(x=160, y=40, w=80, h=60))
+    view = GraphicsView(scene=s, x=0, y=0, w=400, h=300, zoom=1.0)  # screen==scene
+    return SceneController(view=view), a, b
+
+
+def test_click_selects_topmost_and_clears_others():
+    c, a, b = _controller()
+    c.on_press(50, 40)        # inside a
+    c.on_release()
+    assert a.selected and not b.selected
+    c.on_press(190, 70)       # inside b
+    c.on_release()
+    assert b.selected and not a.selected
+
+
+def test_additive_click_toggles_multi_select():
+    c, a, b = _controller()
+    c.on_press(50, 40); c.on_release()
+    c.on_press(190, 70, additive=True); c.on_release()
+    assert a.selected and b.selected
+    c.on_press(190, 70, additive=True); c.on_release()   # toggle b off
+    assert a.selected and not b.selected
+
+
+def test_rubber_band_selects_intersecting():
+    c, a, b = _controller()
+    c.on_press(0, 0)                 # empty → band
+    assert c._mode == "band"
+    c.on_drag(300, 200)             # band covers both rects
+    c.on_release()
+    assert a.selected and b.selected
+
+
+def test_move_drag_moves_selection_with_snap():
+    c, a, b = _controller()
+    c.snap = 10
+    c.on_press(50, 40)              # select + grab a (a at 20,20)
+    c.on_drag(63, 52)              # delta (13,12) → snapped to (10,10)
+    c.on_release()
+    assert (a.x, a.y) == (30, 30)
+    assert not b.selected
+
+
+def test_resize_se_handle_changes_bounds():
+    c, a, b = _controller()
+    c.on_press(50, 40); c.on_release()     # select a (20,20,80,60)
+    handles = c.handle_rects()
+    assert set(handles) == set(("nw", "n", "ne", "e", "se", "s", "sw", "w"))
+    hx, hy, hw, hh = handles["se"]
+    c.on_press(hx + hw / 2, hy + hh / 2)   # grab SE handle
+    assert c._mode == "resize"
+    c.on_drag(140, 110)                    # drag SE corner to (140,110)
+    c.on_release()
+    assert a.x == 20 and a.y == 20
+    assert a.w == pytest.approx(120) and a.h == pytest.approx(90)
+
+
+def test_no_handles_for_line_or_multi_selection():
+    s = Scene()
+    ln = s.add(LineItem(x1=0, y1=0, x2=100, y2=100))
+    r = s.add(RectItem(x=10, y=10, w=40, h=40))
+    view = GraphicsView(scene=s, x=0, y=0, w=400, h=300)
+    c = SceneController(view=view)
+    ln.selected = True
+    assert c.handle_rects() == {}        # line is not resizable
+    ln.selected = False
+    r.selected = True
+    assert len(c.handle_rects()) == 8    # single resizable rect
+    ln.selected = True                   # now 2 selected
+    assert c.handle_rects() == {}        # multi-select → no handles
+
+
+def test_controller_overlay_renders():
+    c, a, b = _controller()
+    a.selected = True
+    c.on_press(0, 0); c.on_drag(120, 120)   # active rubber-band
+    from elysium._native import _native as n
+    dl = n.DisplayList()
+    dl.clear(0.1, 0.11, 0.14, 1.0)
+    c.view.paint(dl)
+    c.paint_overlay(dl)
+    layer = n.SkiaLayer(400, 300)
+    layer.execute(dl)
+    assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+    c.on_release()

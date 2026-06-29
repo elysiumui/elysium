@@ -29,6 +29,7 @@ __all__ = [
     "TextItem",
     "Scene",
     "GraphicsView",
+    "SceneController",
 ]
 
 
@@ -64,6 +65,7 @@ class Item:
     visible: bool = True
     selectable: bool = True
     selected: bool = False
+    resizable: bool = True
     opacity: float = 1.0
     data: dict = field(default_factory=dict)
 
@@ -157,6 +159,9 @@ class LineItem(Item):
 
     def __post_init__(self) -> None:
         self._sync_bounds()
+        # A line is defined by its endpoints; bounding-box resize handles would
+        # not reshape it, so it moves but doesn't resize via the controller.
+        self.resizable = False
 
     def _sync_bounds(self) -> None:
         self.x = min(self.x1, self.x2)
@@ -199,6 +204,11 @@ class PathItem(Item):
     fill: Color | None = None
     stroke: Color | None = None
     stroke_width: float = 1.5
+
+    def __post_init__(self) -> None:
+        # The path data is fixed in scene space; bbox resize wouldn't transform
+        # it, so a path item moves but doesn't resize via the controller.
+        self.resizable = False
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
@@ -445,3 +455,167 @@ class GraphicsView:
                 it.paint_selection(dl)
         dl.restore()
         dl.pop_clip()
+
+
+# ---------------------------------------------------------------------------
+# SceneController — selection / rubber-band / move / resize interaction.
+# ---------------------------------------------------------------------------
+
+_HANDLES = ("nw", "n", "ne", "e", "se", "s", "sw", "w")
+
+
+@dataclass
+class SceneController:
+    """The interaction layer over a :class:`GraphicsView`: click-select (with
+    additive multi-select), rubber-band selection, drag-to-move, and resize
+    handles for a single resizable selection. Optional grid ``snap``.
+
+    The host feeds it **screen-space** pointer coords; it maps to the scene via
+    the view. Call :meth:`paint_overlay` after the view paints, so the
+    rubber-band rect and handles draw on top in screen space.
+    """
+
+    view: GraphicsView
+    snap: float = 0.0
+    handle_size: float = 8.0
+    _mode: str = field(default="idle", init=False)        # idle|move|resize|band
+    _start: tuple[float, float] = field(default=(0.0, 0.0), init=False)
+    _band: tuple[float, float, float, float] | None = field(default=None, init=False)
+    _handle: str | None = field(default=None, init=False)
+    _orig: dict = field(default_factory=dict, init=False)
+
+    @property
+    def scene(self) -> Scene:
+        return self.view.scene
+
+    def selection(self) -> list[Item]:
+        return self.scene.selected_items()
+
+    def _snap(self, v: float) -> float:
+        return round(v / self.snap) * self.snap if self.snap > 0 else v
+
+    # --- resize handles (screen space) -----------------------------------
+
+    def handle_rects(self) -> dict[str, tuple[float, float, float, float]]:
+        """Screen-space handle squares for a single resizable selection (empty
+        otherwise). Handles are constant-size regardless of zoom."""
+        sel = self.selection()
+        if len(sel) != 1 or not sel[0].resizable:
+            return {}
+        it = sel[0]
+        bx, by, bw, bh = it.scene_bounds()
+        vx0, vy0 = self.view.to_view(bx, by)
+        vx1, vy1 = self.view.to_view(bx + bw, by + bh)
+        mx, my = (vx0 + vx1) / 2.0, (vy0 + vy1) / 2.0
+        s = self.handle_size
+        pts = {
+            "nw": (vx0, vy0), "n": (mx, vy0), "ne": (vx1, vy0),
+            "e": (vx1, my), "se": (vx1, vy1), "s": (mx, vy1),
+            "sw": (vx0, vy1), "w": (vx0, my),
+        }
+        return {k: (px - s / 2, py - s / 2, s, s) for k, (px, py) in pts.items()}
+
+    def _hit_handle(self, vx: float, vy: float) -> str | None:
+        for name, (hx, hy, hw, hh) in self.handle_rects().items():
+            if hx - 2 <= vx <= hx + hw + 2 and hy - 2 <= vy <= hy + hh + 2:
+                return name
+        return None
+
+    # --- pointer dispatch -------------------------------------------------
+
+    def on_press(self, vx: float, vy: float, additive: bool = False) -> bool:
+        if not self.view.contains_view(vx, vy):
+            return False
+        # 1. A resize handle of the current single selection.
+        handle = self._hit_handle(vx, vy)
+        if handle is not None:
+            self._mode = "resize"
+            self._handle = handle
+            it = self.selection()[0]
+            self._orig = {id(it): it.scene_bounds()}
+            return True
+        sx, sy = self.view.to_scene(vx, vy)
+        hit = self.scene.item_at(sx, sy)
+        # 2. An item → select (respect additive) + begin move.
+        if hit is not None and hit.selectable:
+            if additive:
+                hit.selected = not hit.selected
+            elif not hit.selected:
+                self.scene.clear_selection()
+                hit.selected = True
+            self._mode = "move"
+            self._start = (sx, sy)
+            self._orig = {id(it): (it.x, it.y) for it in self.selection()}
+            return True
+        # 3. Empty space → rubber-band (clear unless additive).
+        if not additive:
+            self.scene.clear_selection()
+        self._mode = "band"
+        self._start = (sx, sy)
+        self._band = (sx, sy, 0.0, 0.0)
+        return True
+
+    def on_drag(self, vx: float, vy: float) -> None:
+        sx, sy = self.view.to_scene(vx, vy)
+        if self._mode == "move":
+            dx = self._snap(sx - self._start[0])
+            dy = self._snap(sy - self._start[1])
+            for it in self.selection():
+                ox, oy = self._orig.get(id(it), (it.x, it.y))
+                it.move_by((ox + dx) - it.x, (oy + dy) - it.y)
+        elif self._mode == "resize":
+            self._apply_resize(sx, sy)
+        elif self._mode == "band":
+            x0, y0 = self._start
+            self._band = (min(x0, sx), min(y0, sy), abs(sx - x0), abs(sy - y0))
+
+    def on_release(self) -> None:
+        if self._mode == "band" and self._band is not None:
+            for it in self.scene.items_in_rect(*self._band):
+                if it.selectable:
+                    it.selected = True
+        self._mode = "idle"
+        self._handle = None
+        self._band = None
+        self._orig = {}
+
+    def _apply_resize(self, sx: float, sy: float, min_size: float = 8.0) -> None:
+        sel = self.selection()
+        if not sel:
+            return
+        it = sel[0]
+        ox, oy, ow, oh = self._orig[id(it)]
+        left, right, top, bottom = ox, ox + ow, oy, oy + oh
+        h = self._handle or ""
+        if "w" in h:
+            left = self._snap(sx)
+        if "e" in h:
+            right = self._snap(sx)
+        if "n" in h:
+            top = self._snap(sy)
+        if "s" in h:
+            bottom = self._snap(sy)
+        nx, nw = min(left, right), max(min_size, abs(right - left))
+        ny, nh = min(top, bottom), max(min_size, abs(bottom - top))
+        it.x, it.y, it.w, it.h = nx, ny, nw, nh
+
+    # --- overlay paint ----------------------------------------------------
+
+    def paint_overlay(self, dl: Any) -> None:
+        t = current_theme()
+        # Rubber-band (map the scene rect back to screen).
+        if self._band is not None:
+            bx, by, bw, bh = self._band
+            vx0, vy0 = self.view.to_view(bx, by)
+            vx1, vy1 = self.view.to_view(bx + bw, by + bh)
+            rx, ry = min(vx0, vx1), min(vy0, vy1)
+            rw, rh = abs(vx1 - vx0), abs(vy1 - vy0)
+            dl.fill_path(_rounded_rect(rx, ry, rw, rh, 1),
+                         with_alpha(t.primary, 0.12))
+            dl.stroke_path(_rounded_rect(rx, ry, rw, rh, 1),
+                           with_alpha(t.primary, 0.8), 1.0)
+        # Resize handles.
+        for _name, (hx, hy, hw, hh) in self.handle_rects().items():
+            dl.fill_path(_rounded_rect(hx, hy, hw, hh, 2), t.primary)
+            dl.stroke_path(_rounded_rect(hx, hy, hw, hh, 2),
+                           with_alpha((255, 255, 255, 255), 0.9), 1.0)

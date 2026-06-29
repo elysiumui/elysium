@@ -143,6 +143,7 @@
     "PathItem",
     "RectItem",
     "Scene",
+    "SceneController",
     "TextItem"
   ],
   "elysium.i18n": [
