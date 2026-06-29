@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -252,6 +253,7 @@ def test_cli_dev_snapshot_diff_catches_mtime_change(tmp_path):
 # --- Window.enable_hot_reload integration ------------------------------
 
 @native_only
+@pytest.mark.skipif(sys.platform == "win32", reason="hot-reload IPC is Unix-only")
 def test_enable_hot_reload_starts_ipc_server(tmp_path):
     """Calling `window.enable_hot_reload(socket)` actually starts a
     server we can connect to."""

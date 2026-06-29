@@ -1,7 +1,13 @@
 """Phase 2 tests — animation engine, reactive layer, texture cache."""
 from __future__ import annotations
 
+import sys
+
 import pytest
+
+# IPC uses a Unix domain socket; the Windows transport isn't wired yet.
+unix_ipc_only = pytest.mark.skipif(
+    sys.platform == "win32", reason="elysium IPC is Unix-only")
 
 
 # --- Animation engine -------------------------------------------------------
@@ -408,6 +414,7 @@ def _short_socket_path(suffix: str) -> str:
 
 
 @native_only
+@unix_ipc_only
 def test_ipc_server_round_trip():
     """Server starts, client connects, send Hello → ack ok."""
     from elysium._native import _native as _n  # type: ignore[attr-defined]
@@ -434,6 +441,7 @@ def test_ipc_server_round_trip():
 
 
 @native_only
+@unix_ipc_only
 def test_ipc_skin_changed_dispatch():
     """Multiple subscribers per message kind all fire."""
     from elysium._native import _native as _n  # type: ignore[attr-defined]
@@ -467,6 +475,8 @@ def test_display_list_image_transform_commands(tmp_path):
     fd = os.open(str(p), os.O_RDONLY)
     try:
         os.fsync(fd)
+    except OSError:
+        pass  # fsync of a read-only handle isn't permitted on Windows
     finally:
         os.close(fd)
 

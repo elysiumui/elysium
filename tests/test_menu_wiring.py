@@ -33,7 +33,7 @@ def _menu_actions() -> set[str]:
 
 
 def _dispatcher_coverage() -> tuple[set[str], set[str], set[str]]:
-    text = (DESIGNER_DIR / "__main__.py").read_text()
+    text = (DESIGNER_DIR / "__main__.py").read_text(encoding="utf-8")
     direct = set(re.findall(r'cmd\s*==\s*"([a-z0-9_.]+)"', text))
     tupled: set[str] = set()
     for m in re.finditer(r'cmd\s+in\s+\(([^)]+)\)', text):
@@ -85,7 +85,7 @@ def test_no_native_dialog_calls_from_dispatch_paths():
     Regression guard: scan the designer module for any direct
     `_n.open_file_dialog(` call. None should remain.
     """
-    text = (DESIGNER_DIR / "__main__.py").read_text()
+    text = (DESIGNER_DIR / "__main__.py").read_text(encoding="utf-8")
     direct_calls = [
         (i + 1, ln) for i, ln in enumerate(text.splitlines())
         if "_n.open_file_dialog(" in ln

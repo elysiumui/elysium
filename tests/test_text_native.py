@@ -7,6 +7,9 @@ headless CI without a live event loop.
 """
 from __future__ import annotations
 
+import os
+import sys
+
 import pytest
 
 
@@ -16,6 +19,14 @@ def _native_available() -> bool:
 
 
 native_only = pytest.mark.skipif(not _native_available(), reason="native extension not built")
+
+# The system clipboard needs a display server; headless Linux CI (no DISPLAY /
+# WAYLAND_DISPLAY) has none, so the X11 clipboard backend times out.
+needs_display = pytest.mark.skipif(
+    sys.platform.startswith("linux")
+    and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")),
+    reason="clipboard requires a display server",
+)
 
 SZ = 16.0
 
@@ -84,6 +95,7 @@ def test_cjk_codepoint_indexing():
 # --- Clipboard + IME (window-bound) -----------------------------------------
 
 @native_only
+@needs_display
 def test_clipboard_round_trip_unicode():
     import elysium as ely
     app = ely.App(title="t", identifier="dev.elysium.test.clip")

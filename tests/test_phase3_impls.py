@@ -224,4 +224,4 @@ def test_designer_module_file_present():
     import ast
     p = Path(__file__).parent.parent / "elysium-designer" / "__main__.py"
     assert p.exists(), "elysium-designer/__main__.py should be present"
-    ast.parse(p.read_text())
+    ast.parse(p.read_text(encoding="utf-8"))
