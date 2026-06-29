@@ -137,6 +137,11 @@
     "pick_folder",
     "save_file"
   ],
+  "elysium.dnd": [
+    "DragController",
+    "DropZone",
+    "MimeData"
+  ],
   "elysium.focus": [
     "Direction",
     "FocusNode",

@@ -38,6 +38,7 @@ PUBLIC_MODULES = [
     "elysium.i18n",
     "elysium.locale",
     "elysium.settings",
+    "elysium.dnd",
     "elysium.testing",
     "elysium.focus",
     "elysium.accessibility",
