@@ -71,8 +71,13 @@ jobs:
       - name: Install maturin & dev deps
         run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pytest-cov pillow numpy
 
-      - name: Build wheel & install in develop mode
-        run: maturin develop --release
+      # `maturin develop` needs an active virtualenv, which the setup-python
+      # runner doesn't provide. Build a wheel and pip-install it instead —
+      # works identically on macOS / Windows / Linux without a venv.
+      - name: Build wheel & install
+        run: |
+          maturin build --release --out dist
+          pip install --find-links dist --force-reinstall elysium
 
       - name: Run pytest (unit) with coverage
         run: pytest -q --ignore=tests/snapshots --cov=elysium --cov-report=term-missing --cov-report=xml
