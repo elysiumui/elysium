@@ -65,6 +65,23 @@ def test_register_missing_font_file_is_graceful():
     assert T.set_ui_font("/no/such/font.ttf") is False
 
 
+def test_button_studio_finish_renders_all_variants():
+    # The Studio button finish (tight shadow + hairline edge + subtle sheen)
+    # must render for every variant under the studio theme without error.
+    from elysium.components import Button
+    from elysium._native import _native as n
+    T.set_theme(T.studio_dark())
+    for variant in ("solid", "outline", "ghost", "glass", "danger"):
+        dl = n.DisplayList()
+        dl.clear(0.1, 0.11, 0.14, 1.0)
+        b = Button(x=12, y=12, w=120, h=36, label="OK", variant=variant)
+        b._hover_t = 0.5
+        b.paint(dl)
+        layer = n.SkiaLayer(150, 64)
+        layer.execute(dl)
+        assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
 def test_set_theme_applies_font_without_error():
     # studio_dark carries font_family="Inter"; applying it must be a no-op-safe
     # best-effort that never raises even if Inter isn't installed.

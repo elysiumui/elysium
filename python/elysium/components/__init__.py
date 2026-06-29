@@ -214,20 +214,22 @@ class Button(Component):
         r = self.radius if self.radius is not None else t.radius_medium
         ts = self.text_size if self.text_size is not None else t.font_size_body
 
-        # Smooth animated values.
-        scale  = 1.0 + 0.035 * self._hover_t - 0.04 * self._press_t
+        # Smooth animated values. Studio finish: restrained, crisp motion —
+        # a subtle lift, not a bounce.
+        scale  = 1.0 + 0.012 * self._hover_t - 0.02 * self._press_t
         # Apply scale around the centre by adjusting bbox.
         cw = self.w * scale
         ch = self.h * scale
         cx = self.x + (self.w - cw) / 2.0
         cy = self.y + (self.h - ch) / 2.0
 
-        # 1. Drop shadow (lifts on hover, sinks on press).
-        shadow_strength = (1.0 - self._press_t) * (0.6 + 0.4 * self._hover_t)
-        shadow_blur = t.shadow_medium.blur * (0.5 + 0.5 * self._hover_t)
-        shadow_off  = (0.0, 4.0 + 6.0 * self._hover_t - 4.0 * self._press_t)
-        shadow_col  = with_alpha(t.shadow_medium.color,
-                                 (t.shadow_medium.color[3] / 255.0) * shadow_strength)
+        # 1. Tight drop shadow (a hairline lift on hover, flat on press) — the
+        # Studio look is flat-but-tactile, not heavily floated.
+        shadow_strength = (1.0 - self._press_t) * (0.55 + 0.35 * self._hover_t)
+        shadow_blur = t.shadow_close.blur * (1.0 + 0.6 * self._hover_t)
+        shadow_off  = (0.0, 1.5 + 2.0 * self._hover_t - 1.0 * self._press_t)
+        shadow_col  = with_alpha(t.shadow_close.color,
+                                 (t.shadow_close.color[3] / 255.0) * shadow_strength)
 
         # 2. Body fill via gradient_card (top→bottom slight darken) +
         # variant-specific colours.
@@ -288,15 +290,21 @@ class Button(Component):
             dl.stroke_path(_rounded_rect(cx - 2, cy - 2, cw + 4, ch + 4, r + 2),
                            ring, 2.0)
 
-        # 4. Top-edge highlight on solid variants for the sculpted feel.
-        if self.variant in ("solid", "danger"):
-            highlight_alpha = 0.18 * (1.0 - self._press_t)
+        # 4. Studio finish on filled variants: a subtle top sheen + a crisp
+        #    hairline edge for a flat-but-tactile, defined button.
+        if self.variant in ("solid", "danger", "glass"):
+            highlight_alpha = 0.10 * (1.0 - self._press_t)
             dl.fill_path_linear_gradient(
-                _rounded_rect(cx + 1, cy + 1, cw - 2, ch * 0.45, r * 0.9),
-                (cx, cy), (cx, cy + ch * 0.45),
+                _rounded_rect(cx + 1, cy + 1, cw - 2, ch * 0.5, r * 0.9),
+                (cx, cy), (cx, cy + ch * 0.5),
                 with_alpha((255, 255, 255, 255), highlight_alpha),
                 with_alpha((255, 255, 255, 255), 0.0),
             )
+            # Hairline edge — light along the top, a touch of shade along the
+            # bottom, giving a thin tactile bevel without a heavy border.
+            dl.stroke_path(
+                _rounded_rect(cx + 0.5, cy + 0.5, cw - 1, ch - 1, r),
+                with_alpha((255, 255, 255, 255), 0.10 * (1.0 - self._press_t)), 1.0)
 
         # 5. Label, centered.
         if self.label:
