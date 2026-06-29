@@ -2,10 +2,17 @@
 
 > Python UI without the rectangles.
 
+**Status: 1.0 — production / stable.** The public API follows strict
+[semver](docs/guides/api-stability.md); see the [CHANGELOG](CHANGELOG.md).
+
 A GPU-accelerated framework for borderless, shaped, animated Python
 desktop applications. Skia + wgpu hybrid rendering, designer-and-
 developer split via `.esk` skin files, animation as a first-class
 citizen, and a dedicated authoring app (Elysium Designer).
+
+It targets Qt/PySide6 parity for desktop UI while deliberately staying
+focused on the UI layer — see the [scope statement](docs/resources/scope-and-batteries.md)
+for what's in and what's left to the Python ecosystem.
 
 ## Documentation
 
