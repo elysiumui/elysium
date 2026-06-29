@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+### Documentation
+
+- New API reference pages for every public module added since 1.0 (`shell`,
+  `graphics`, `charts`, `commands`, `styling`, `dnd`, `text.richtext`,
+  `components.completer` / `.daterange` / `.dashboard`, `modelview.grid`).
+- New guides: charts & dashboards, the data grid, wizards & flows, commands &
+  undo, rich text, drag-and-drop, completer, and a developer-handoff index.
+- An end-to-end tutorial ("Build a Shopify-style desktop app"), a component
+  gallery, an expanded Qt porting map, and a green `--strict` Designer site.
+
 ### Added
 
 - **Tabular numerals** — `DisplayList.draw_paragraph(..., tabular=True)` now

@@ -78,6 +78,7 @@ nav:
       - Troubleshooting: getting-started/troubleshooting.md
   - Tutorials:
       - Overview: tutorials/index.md
+      - Build a Shopify-style desktop app: tutorials/shopify-style-desktop-app.md
       - Aurora Clock Pro: tutorials/aurora-clock-pro.md
       - Borderless music widget: tutorials/borderless-music-widget.md
       - Particle pet: tutorials/particle-pet.md
@@ -86,6 +87,7 @@ nav:
       - Weather widget: tutorials/weather-widget.md
   - Guides:
       - Overview: guides/index.md
+      - Developer handoff: guides/developer-handoff.md
       - Architecture: guides/architecture.md
       - Borderless and shaped windows: guides/borderless-and-shaped.md
       - Windowing: guides/windowing.md
@@ -93,6 +95,13 @@ nav:
       - App shell: guides/app-shell.md
       - Interactive 2D canvas: guides/graphics.md
       - Documents and editing: guides/documents.md
+      - Charts and dashboards: guides/charts-and-dashboards.md
+      - The data grid: guides/data-grid.md
+      - Wizards and flows: guides/wizards-and-flows.md
+      - Commands and undo: guides/commands-and-undo.md
+      - Rich text: guides/rich-text.md
+      - Drag and drop: guides/drag-and-drop.md
+      - Completer: guides/completer.md
       - Styling and accessibility: guides/styling-and-a11y.md
       - Layout: guides/layout.md
       - Animation: guides/animation.md
@@ -159,13 +168,24 @@ nav:
       - Overview: api/index.md
       - elysium: api/elysium.md
       - elysium.components: api/components.md
+      - elysium.components.completer: api/completer.md
+      - elysium.components.daterange: api/daterange.md
+      - elysium.components.dashboard: api/dashboard.md
       - elysium.components.dataentry: api/dataentry.md
       - elysium.components.scroll: api/scroll.md
       - elysium.components.virtual: api/virtual.md
       - elysium.input: api/input.md
       - elysium.text: api/text.md
+      - elysium.text.richtext: api/richtext.md
       - elysium.dialogs: api/dialogs.md
       - elysium.modelview: api/modelview.md
+      - elysium.modelview.grid: api/grid.md
+      - elysium.shell: api/shell.md
+      - elysium.graphics: api/graphics.md
+      - elysium.charts: api/charts.md
+      - elysium.commands: api/commands.md
+      - elysium.styling: api/styling.md
+      - elysium.dnd: api/dnd.md
       - elysium.concurrency: api/concurrency.md
       - elysium.windowing: api/windowing.md
       - elysium.native: api/native.md
@@ -201,6 +221,7 @@ nav:
       - Scope and batteries: resources/scope-and-batteries.md
       - Comparison matrix: resources/comparison.md
       - Examples gallery: resources/examples-gallery.md
+      - Component gallery: resources/component-gallery.md
       - Glossary: resources/glossary.md
       - FAQ: resources/faq.md
       - Changelog: resources/changelog.md

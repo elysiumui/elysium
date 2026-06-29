@@ -185,6 +185,27 @@ The polish layer — see the [Styling & accessibility guide](styling-and-a11y.md
 See [Scale, scrolling & virtualization](scale-and-scroll.md) and
 [Threading, multi-window, native integration, i18n, settings & testing](threading-and-services.md).
 
+## Business-app widgets (Tier 8)
+
+The dashboard / bulk-editor class of app — charts, KPI tiles, an Excel-grade
+grid, wizards.
+
+| Qt | Elysium | Notes |
+| --- | --- | --- |
+| `QtCharts` (`QLineSeries` / `QAreaSeries` / `QBarSeries` / `QPieSeries`) | `charts.LineChart` / `AreaChart` / `BarChart` / `DonutChart` / `PieChart` | pure Python on the `DisplayList`; `Series`, `Legend`, `nice_ticks`, money/pct formatters |
+| sparkline (custom) | `charts.Sparkline` | inline mini line; used inside `MetricCard` |
+| KPI tile (hand-rolled) | `components.dashboard.MetricCard` | eyebrow + value + ▲/▼ delta + sparkline; direction-aware colour |
+| `QMessageBar` / persistent banners | `components.dashboard.Alert` / `NotificationInbox` | severity tint, action link, dismiss (≠ transient `Toast`) |
+| `QDateEdit` range / two `QDateEdit`s | `components.daterange.DateRangePicker` | presets (Today/Yesterday/7d/30d) + Custom → `(start, end)` |
+| `QButtonGroup` (exclusive) | `components.daterange.SegmentedControl` | single-choice segmented toggle |
+| `QWizard` / `QWizardPage` | `shell.Wizard` (+ `shell.Stepper`) | numbered header, routed content, Back/Next/Finish |
+| `QDockWidget` (floating) / slide-over | `shell.Drawer` | animated slide-out + scrim (left/right/bottom) |
+| `QTableView` + bulk edit / `QSqlTableModel` | `modelview.grid.DataGrid` | frozen cols, range select, copy/paste TSV, fill-down, per-cell validation + pending highlight, 100k rows |
+| tabular figures (`QFont` features) | `draw_paragraph(tabular=True)`, `Label(tabular=True)`, `MetricCard(tabular=True)` | OpenType `tnum`+`lnum` so money columns align |
+
+See [Charts and dashboards](charts-and-dashboards.md), [The data grid](data-grid.md)
+and [Wizards, steppers and drawers](wizards-and-flows.md).
+
 ## What's intentionally different
 
 * **Dialogs are borderless + themed**, not native chrome (except file dialogs,

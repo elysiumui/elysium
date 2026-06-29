@@ -5,6 +5,14 @@ repo_url: https://github.com/elysium-ui/elysium
 edit_uri: edit/main/docs-designer/
 docs_dir: docs-designer
 
+# `icon-redesign/README.md` would render to the same `index.html` as the
+# hand-authored gallery page in that folder, and `*.partial.md` files are
+# snippet includes (pulled in via pymdownx.snippets), not standalone pages.
+# Keep both out of the built site so `mkdocs build --strict` stays green.
+exclude_docs: |
+  icon-redesign/README.md
+  *.partial.md
+
 theme:
   name: material
   features:
