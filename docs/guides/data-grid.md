@@ -101,6 +101,54 @@ grid.set_col_visible("type", False) # hide (column chooser)
 grid.visible_cols()                 # the live, ordered, visible columns
 ```
 
+## Sorting
+
+Sorting is on by default (`DataGrid(sortable=True)`) and delegates to the model.
+Clicking a column header cycles **ascending → descending → unsorted**; the active
+column shows a ▴ / ▾ caret. It's configurable per column — set
+`Column(sortable=False)` to make a column unsortable, or `DataGrid(sortable=False)`
+to turn header-click sorting off entirely.
+
+```python
+grid = DataGrid(model=model, sortable=True)   # default
+grid.sort_by("price")                          # programmatic: asc → desc → off
+```
+
+Sorting changes the view order (cell state stays attached to its row, since it's
+keyed by row identity), so a pending edit follows its row as it moves.
+
+## Filtering
+
+A per-column filter row is optional — opt in with `DataGrid(filterable=True)` and
+a search box appears under each header. Typing narrows the body live (matching
+columns are AND-combined); a column opts out with `Column(filterable=False)`.
+
+```python
+grid = DataGrid(model=model, filterable=True)
+
+# programmatic (fully testable):
+grid.set_filter("vendor", "Crestline")    # case-insensitive substring by default
+grid.set_filter("type", "shirt")          # combine — rows must match both
+grid.active_filters()                      # {"vendor": "Crestline", "type": "shirt"}
+grid.clear_filters()
+
+# interactive: route input to the focused filter box
+grid.focus_filter("vendor")    # or set on a filter-box click via on_press
+grid.on_text("Crest")          # append typed text
+grid.on_backspace()            # delete a character
+```
+
+Pass a custom matcher to change the search semantics (exact, prefix, numeric
+range, …):
+
+```python
+grid = DataGrid(model=model, filterable=True,
+                filter_match=lambda value, query: str(value).startswith(query))
+```
+
+Filtering uses the model's `view()`, so `row_count()`, `visible_rows()` and
+`cell_at` all see the narrowed set automatically and virtualization still holds.
+
 ## Chrome around the grid
 
 `DataGrid` is just the grid surface. The reference app frames it with a

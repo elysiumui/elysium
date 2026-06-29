@@ -19,6 +19,14 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **DataGrid sorting & filtering** (both optional + configurable): click a
+  header to sort a column (asc → desc → unsorted, honouring `Column.sortable`
+  and the grid `sortable` flag), and opt into a per-column **filter row** with
+  `DataGrid(filterable=True)` — a live search box per `Column.filterable`
+  column, with a pluggable `filter_match`. Both delegate to `ItemModel`
+  (`toggle_sort` / `filter`), so virtualization and identity-keyed cell state
+  keep working.
+
 - **Tabular numerals** — `DisplayList.draw_paragraph(..., tabular=True)` now
   enables the OpenType `tnum`+`lnum` features (equal-width lining figures) so
   monetary / metric columns reconcile to the digit. Opt in per widget via

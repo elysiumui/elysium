@@ -34,6 +34,7 @@ class Column:
     width: float = 120.0
     align: str = "left"          # left | right | center
     sortable: bool = True
+    filterable: bool = True
     editable: bool = False
     delegate: Optional["Delegate"] = None
 

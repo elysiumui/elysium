@@ -176,3 +176,122 @@ def test_grid_renders_with_selection_and_badges():
     g.select(4, 3, extend=True)
     g.paste("x")                        # creates a validation error badge
     assert _render(g)[:4] == b"\x89PNG"
+
+
+# --- sorting ---------------------------------------------------------------
+
+def test_sort_by_cycles_asc_desc_unsorted():
+    g = _grid(rows=4)
+    base = [g.model.value(i, "price") for i in range(4)]   # [10,11,12,13]
+    g.sort_by("price")                                      # asc
+    assert g.model.sort_state == ("price", False)
+    assert [g.model.value(i, "price") for i in range(4)] == sorted(base)
+    g.sort_by("price")                                      # desc
+    assert g.model.sort_state == ("price", True)
+    assert [g.model.value(i, "price") for i in range(4)] == sorted(base, reverse=True)
+    g.sort_by("price")                                      # unsorted
+    assert g.model.sort_state[0] is None
+    assert [g.model.value(i, "price") for i in range(4)] == base
+
+
+def test_sort_respects_grid_and_column_flags():
+    g = _grid(rows=4)
+    g.sortable = False
+    g.sort_by("price")
+    assert g.model.sort_state[0] is None                    # grid-level off
+    g.sortable = True
+    g.model.columns[3].sortable = False                     # price not sortable
+    g.sort_by("price")
+    assert g.model.sort_state[0] is None
+
+
+def test_header_click_sorts():
+    g = _grid(rows=4, frozen=0)
+    assert g.on_press(8, g.header_h / 2) is True            # click "handle" header
+    assert g.model.sort_state == ("handle", False)
+    g.on_press(8, g.header_h / 2)
+    assert g.model.sort_state == ("handle", True)
+
+
+def test_sort_clears_positional_selection():
+    g = _grid(rows=4)
+    g.select(1, 0)
+    g.sort_by("price")
+    assert g.active is None and g.anchor is None
+
+
+# --- filtering -------------------------------------------------------------
+
+def test_set_filter_narrows_and_clears():
+    g = _grid(rows=8)
+    g.filterable = True
+    g.set_filter("handle", "item-")
+    assert g.model.row_count() == 8                         # all match
+    g.set_filter("sku", "SKU-3")
+    assert g.model.row_count() == 1
+    assert g.model.value(0, "sku") == "SKU-3"
+    assert g.active_filters() == {"handle": "item-", "sku": "SKU-3"}
+    g.clear_filters()
+    assert g.model.row_count() == 8
+    assert g.active_filters() == {}
+
+
+def test_filter_is_case_insensitive_substring():
+    g = _grid(rows=8)
+    g.filterable = True
+    g.set_filter("title", "item 5")                         # lower-case query
+    assert g.model.row_count() == 1
+    assert g.model.value(0, "title") == "Item 5"
+
+
+def test_filter_respects_column_filterable():
+    g = _grid(rows=8)
+    g.filterable = True
+    g.model.columns[3].filterable = False                   # price not filterable
+    g.set_filter("price", "10")
+    assert g.model.row_count() == 8                          # ignored
+    assert g.active_filters() == {}
+
+
+def test_on_text_and_backspace_drive_focused_filter():
+    g = _grid(rows=8)
+    g.filterable = True
+    g.focus_filter("title")
+    g.on_text("Item 2")
+    assert g.model.row_count() == 1
+    g.on_backspace()                                        # "Item " matches all
+    assert g.model.row_count() == 8
+    for _ in range(5):
+        g.on_backspace()                                    # empty → filter cleared
+    assert g.active_filters() == {}
+
+
+def test_custom_filter_match():
+    g = _grid(rows=8)
+    g.filterable = True
+    g.filter_match = lambda v, q: str(v) == q               # exact match
+    g.set_filter("sku", "SKU-2")
+    assert g.model.row_count() == 1
+    g.set_filter("sku", "SKU")                              # no exact match
+    assert g.model.row_count() == 0
+
+
+def test_filterable_offsets_body_geometry_and_hit_test():
+    g = _grid(rows=8)
+    assert g._body_top() == g.y + g.header_h
+    g.filterable = True
+    assert g._body_top() == g.y + g.header_h + g.filter_h
+    # a point in the filter strip hits a filter cell, not a body cell
+    fy = g.y + g.header_h + g.filter_h / 2
+    assert g.filter_cell_at(8, fy) == "handle"
+    assert g.cell_at(8, fy) is None
+
+
+def test_filter_focus_via_press_and_renders():
+    g = _grid(rows=8)
+    g.filterable = True
+    fy = g.y + g.header_h + g.filter_h / 2
+    assert g.on_press(8, fy) is True
+    assert g.filter_focus == "handle"
+    g.set_filter("title", "Item 1")
+    assert _render(g)[:4] == b"\x89PNG"

@@ -53,6 +53,8 @@ def build_editor(w: float, h: float) -> dict:
     rows = [dict(zip(_KEYS, r)) for r in _CATALOG] * 4  # ~32 rows
     grid = DataGrid(model=ItemModel(rows=rows, columns=cols),
                     frozen_cols=2,
+                    sortable=True,      # click a header to sort (asc→desc→off)
+                    filterable=True,    # per-column search row under the headers
                     formatter=lambda v, c: (f"${v:,.2f}" if c.key == "price"
                                             else str(v)))
     grid.validators["sku"] = lambda v: ("duplicate SKU" if str(v).endswith("DUP")

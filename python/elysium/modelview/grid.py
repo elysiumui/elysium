@@ -8,6 +8,14 @@ Excel block into a cell range), **fill-down**, **per-cell validation badges**,
 and **per-cell pending-edit highlighting**. Rows are virtualized (only the
 visible window paints), so a 100k-row catalog stays at frame rate.
 
+**Column sorting** (``sortable``, on by default) and a **per-column filter row**
+(``filterable``, off by default) are both optional and configurable: sorting
+honours each :class:`Column`'s ``sortable`` flag and cycles asc → desc →
+unsorted on a header click; filtering honours ``Column.filterable``, shows a
+search box under each header, and narrows the body live. Both delegate to the
+underlying :class:`ItemModel` (``toggle_sort`` / ``filter``), so cell state and
+virtualization keep working.
+
 Cell state (dirty / error) is keyed by the *row object identity*, so it stays
 correct across sorts and filters. ``copy()`` / ``paste(text)`` operate on plain
 TSV strings (so they're testable and clipboard-agnostic);
@@ -41,12 +49,18 @@ class DataGrid(Component):
     frozen_cols: int = 0
     scroll_x: float = 0.0
     scroll_y: float = 0.0
+    sortable: bool = True            # header-click column sorting (optional)
+    filterable: bool = False         # per-column search/filter row (optional)
+    filter_h: float = 26.0           # height of the filter row when filterable
+    filter_match: Optional[Callable[[Any, str], bool]] = None  # custom matcher
     validators: dict = field(default_factory=dict)   # col_key -> (value)->str|None
     formatter: Optional[Callable[[Any, Column], str]] = None
     anchor: Optional[tuple] = field(default=None)     # (row, col) selection start
     active: Optional[tuple] = field(default=None)     # (row, col) selection end
+    filter_focus: Optional[str] = field(default=None)  # focused filter column key
     _hidden: set = field(default_factory=set)
     _order: Optional[list] = field(default=None)
+    _filters: dict = field(default_factory=dict)      # col_key -> query string
     _dirty: set = field(default_factory=set)          # (id(row), key)
     _errors: dict = field(default_factory=dict)       # (id(row), key) -> message
     _resize_key: Optional[str] = field(default=None, init=False, repr=False)
@@ -100,19 +114,40 @@ class DataGrid(Component):
     def max_scroll_x(self) -> float:
         return max(0.0, self.content_width() - self.w)
 
+    def _filter_strip_h(self) -> float:
+        return self.filter_h if self.filterable else 0.0
+
+    def _head_total(self) -> float:
+        return self.header_h + self._filter_strip_h()
+
     def max_scroll_y(self) -> float:
         return max(0.0, self.model.row_count() * self.row_h
-                   - (self.h - self.header_h))
+                   - (self.h - self._head_total()))
 
     # --- geometry / hit-testing ------------------------------------------
 
     def _body_top(self) -> float:
-        return self.y + self.header_h
+        return self.y + self._head_total()
 
     def visible_rows(self) -> range:
         top = int(self.scroll_y / self.row_h)
-        count = int((self.h - self.header_h) / self.row_h) + 2
+        count = int((self.h - self._head_total()) / self.row_h) + 2
         return range(top, min(self.model.row_count(), top + count))
+
+    def _col_at_x(self, mx: float) -> Optional[int]:
+        """Visible-column index under screen-x ``mx`` (frozen band wins), or None."""
+        vis = self.visible_cols()
+        frozen_right = self.x + self._frozen_width()
+        for j in range(min(self.frozen_cols, len(vis))):
+            cx = self._col_x(j)
+            if cx <= mx <= cx + vis[j].width:
+                return j
+        if mx >= frozen_right:
+            for j in range(self.frozen_cols, len(vis)):
+                cx = self._col_x(j)
+                if cx <= mx <= cx + vis[j].width and cx >= frozen_right - 0.5:
+                    return j
+        return None
 
     def cell_at(self, mx: float, my: float) -> Optional[tuple]:
         """``(view_row, visible_col)`` for a screen point in the body, else None."""
@@ -123,19 +158,25 @@ class DataGrid(Component):
         row = int((my - bt + self.scroll_y) / self.row_h)
         if not (0 <= row < self.model.row_count()):
             return None
+        j = self._col_at_x(mx)
+        return None if j is None else (row, j)
+
+    def header_col_at(self, mx: float, my: float) -> Optional[int]:
+        """Visible-column index whose header label is under the point, or None."""
+        if not (self.y <= my <= self.y + self.header_h):
+            return None
+        return self._col_at_x(mx)
+
+    def filter_cell_at(self, mx: float, my: float) -> Optional[str]:
+        """Column *key* of the filter box under the point, or None."""
+        if not self.filterable:
+            return None
+        top = self.y + self.header_h
+        if not (top <= my <= top + self.filter_h):
+            return None
+        j = self._col_at_x(mx)
         vis = self.visible_cols()
-        frozen_right = self.x + self._frozen_width()
-        # Frozen band first (takes priority on overlap).
-        for j in range(min(self.frozen_cols, len(vis))):
-            cx = self._col_x(j)
-            if cx <= mx <= cx + vis[j].width:
-                return (row, j)
-        if mx >= frozen_right:
-            for j in range(self.frozen_cols, len(vis)):
-                cx = self._col_x(j)
-                if cx <= mx <= cx + vis[j].width and cx >= frozen_right - 0.5:
-                    return (row, j)
-        return None
+        return vis[j].key if j is not None and j < len(vis) else None
 
     def header_border_at(self, mx: float, my: float, grab: float = 4.0):
         """The column key whose right header border is under ``mx`` (for a
@@ -168,9 +209,22 @@ class DataGrid(Component):
         if border is not None:
             self._resize_key = border
             return True
+        # Header label click → sort (optional / per-column).
+        hc = self.header_col_at(mx, my)
+        if hc is not None:
+            self.sort_by(self.visible_cols()[hc].key)
+            return True
+        # Filter box click → focus it (optional / per-column).
+        fk = self.filter_cell_at(mx, my)
+        if fk is not None:
+            col = next((c for c in self.model.columns if c.key == fk), None)
+            self.filter_focus = fk if (col is None or col.filterable) else None
+            return True
         cell = self.cell_at(mx, my)
         if cell is None:
+            self.filter_focus = None
             return False
+        self.filter_focus = None
         self.select(cell[0], cell[1], extend=shift)
         return True
 
@@ -188,6 +242,74 @@ class DataGrid(Component):
 
     def on_release(self) -> None:
         self._resize_key = None
+
+    # --- sorting ----------------------------------------------------------
+
+    def sort_by(self, key: str) -> None:
+        """Cycle column ``key`` asc → desc → unsorted. No-op when sorting is
+        disabled (``self.sortable``) or the column is not ``Column.sortable``."""
+        if not self.sortable:
+            return
+        col = next((c for c in self.model.columns if c.key == key), None)
+        if col is None or not col.sortable:
+            return
+        self.model.toggle_sort(key)
+        self.anchor = self.active = None   # selection is positional; clear it
+
+    # --- filtering --------------------------------------------------------
+
+    def _default_match(self, value: Any, query: str) -> bool:
+        return query.lower() in ("" if value is None else str(value)).lower()
+
+    def active_filters(self) -> dict:
+        """The live ``{col_key: query}`` map (non-empty queries only)."""
+        return dict(self._filters)
+
+    def set_filter(self, key: str, query: str) -> None:
+        """Set (or clear, if ``query`` is empty) the search text for column
+        ``key`` and re-apply. No-op when the column is not ``Column.filterable``."""
+        col = next((c for c in self.model.columns if c.key == key), None)
+        if col is not None and not col.filterable:
+            return
+        if query:
+            self._filters[key] = query
+        else:
+            self._filters.pop(key, None)
+        self._apply_filters()
+
+    def clear_filters(self) -> None:
+        self._filters.clear()
+        self.filter_focus = None
+        self._apply_filters()
+
+    def _apply_filters(self) -> None:
+        flt = dict(self._filters)
+        match = self.filter_match or self._default_match
+        if not flt:
+            self.model.filter(None)
+        else:
+            def predicate(row: Any) -> bool:
+                return all(match(_get(row, k), q) for k, q in flt.items())
+            self.model.filter(predicate)
+        self.anchor = self.active = None   # the view changed; drop positional sel
+        self.scroll_y = min(self.scroll_y, self.max_scroll_y())
+
+    def focus_filter(self, key: Optional[str]) -> None:
+        self.filter_focus = key
+
+    def on_text(self, text: str) -> None:
+        """Append typed text to the focused filter box (no-op if none focused)."""
+        if self.filter_focus is None or not text:
+            return
+        cur = self._filters.get(self.filter_focus, "")
+        self.set_filter(self.filter_focus, cur + text)
+
+    def on_backspace(self) -> None:
+        """Delete the last character of the focused filter box."""
+        if self.filter_focus is None:
+            return
+        cur = self._filters.get(self.filter_focus, "")
+        self.set_filter(self.filter_focus, cur[:-1])
 
     # --- cell values + validation ----------------------------------------
 
@@ -304,7 +426,6 @@ class DataGrid(Component):
         t = current_theme()
         vis = self.visible_cols()
         bt = self._body_top()
-        body_h = self.h - self.header_h
         frozen_right = self.x + self._frozen_width()
         rng = self.selected_range()
         sort_key, sort_rev = self.model.sort_state
@@ -325,6 +446,29 @@ class DataGrid(Component):
                     title += " ▾" if sort_rev else " ▴"
                 dl.draw_text(title, cx + 8, self.y + self.header_h * 0.64,
                              t.font_size_caption, t.on_surface)
+                # Filter box (optional).
+                if self.filterable:
+                    fy = self.y + self.header_h
+                    dl.fill_path(_rect(cx, fy, cw, self.filter_h),
+                                 lighten(t.surface, 0.015))
+                    if col.filterable:
+                        bx, by = cx + 4, fy + 3
+                        bw, bh = cw - 8, self.filter_h - 6
+                        dl.fill_path(_rounded_rect(bx, by, bw, bh, 4), t.surface)
+                        q = self._filters.get(col.key, "")
+                        if self.filter_focus == col.key:
+                            dl.stroke_path(
+                                _rounded_rect(bx + 0.5, by + 0.5, bw - 1, bh - 1, 4),
+                                t.primary, 1.2)
+                        elif q:
+                            dl.stroke_path(
+                                _rounded_rect(bx + 0.5, by + 0.5, bw - 1, bh - 1, 4),
+                                with_alpha(t.primary, 0.5), 1.0)
+                        label = q if q else "Filter…"
+                        color = (t.on_surface if q
+                                 else with_alpha(t.on_surface_muted, 0.7))
+                        dl.draw_text(label, bx + 7, by + bh * 0.72,
+                                     t.font_size_caption, color)
                 # Body cells (virtualized).
                 for r in self.visible_rows():
                     ry = bt + r * self.row_h - self.scroll_y
@@ -363,9 +507,12 @@ class DataGrid(Component):
             paint_col_band(range(0, self.frozen_cols), clip=False)
             dl.fill_path(_rect(frozen_right - 1, self.y, 2, self.h),
                          with_alpha(t.edge, 1.0))
-        # Header bottom hairline.
+        # Header bottom hairline (+ a second below the filter strip).
         dl.fill_path(_rect(self.x, self.y + self.header_h - 1, self.w, 1),
                      with_alpha(t.edge, 0.8))
+        if self.filterable:
+            dl.fill_path(_rect(self.x, self._body_top() - 1, self.w, 1),
+                         with_alpha(t.edge, 0.8))
         # Active-cell outline.
         if self.active is not None:
             ar, ac = self.active
