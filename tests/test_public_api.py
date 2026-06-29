@@ -45,6 +45,7 @@ PUBLIC_MODULES = [
     "elysium.shell",
     "elysium.graphics",
     "elysium.commands",
+    "elysium.styling",
 ]
 
 _SNAPSHOT = Path(__file__).parent / "_api_surface.json"

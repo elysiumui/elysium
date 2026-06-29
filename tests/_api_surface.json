@@ -261,6 +261,10 @@
     "ToolBar",
     "ToolButton"
   ],
+  "elysium.styling": [
+    "Selector",
+    "StyleSheet"
+  ],
   "elysium.testing": [
     "ALT",
     "CTRL",
