@@ -91,6 +91,7 @@ nav:
       - Windowing: guides/windowing.md
       - Components overview: guides/components-overview.md
       - App shell: guides/app-shell.md
+      - Interactive 2D canvas: guides/graphics.md
       - Layout: guides/layout.md
       - Animation: guides/animation.md
       - Reactive bindings: guides/reactive.md

@@ -109,6 +109,25 @@ docks.restore(layout, registry={...})  # id -> DockWidget
 Floating a dock out to a separate OS window is a tracked follow-up; docked +
 tabbed + drag-to-redock + persisted layouts are available now.
 
+## Interactive 2D canvas (Tier 5)
+
+An item scene graph lives in `elysium.graphics` — see the
+[Interactive 2D canvas guide](graphics.md) and `examples/graphics-demo/` (a
+flowchart editor).
+
+| Qt | Elysium | Notes |
+| --- | --- | --- |
+| `QGraphicsScene` | `graphics.Scene` | z-ordered items; `items_at` / `items_in_rect` / `bounding_rect` / selection |
+| `QGraphicsItem` | `graphics.Item` | scene-space bounds + `contains()` + `paint(dl)` in scene coords; subclass for custom |
+| `QGraphicsRectItem` / `EllipseItem` / `LineItem` / `PathItem` / `SimpleTextItem` | `graphics.RectItem` / `EllipseItem` / `LineItem` / `PathItem` / `TextItem` | line uses a distance hit-test; ellipse uses the radius equation |
+| `QGraphicsView` | `graphics.GraphicsView` | pan/zoom (`zoom_at` is cursor-anchored), `fit()`, viewport culling |
+| view interaction (rubber-band, move, resize) | `graphics.SceneController` | select / Shift-multi-select / rubber-band / move (grid `snap`) / 8 resize handles |
+| `item.setPos` / `setZValue` | `item.move_by` / `item.z` (+ `scene.raise_to_top`) | |
+| `view.mapToScene` / `mapFromScene` | `view.to_scene` / `view.to_view` | map pointer coords before querying the scene |
+
+Per-item rotation/scale transforms and arbitrary-path `contains` hit-testing are
+tracked follow-ups; bounds / ellipse / line hit-tests are exact today.
+
 ## Class map — Tier 2 (scale, services, native)
 
 | Qt | Elysium | Notes |

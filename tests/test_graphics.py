@@ -322,3 +322,30 @@ def test_controller_overlay_renders():
     layer.execute(dl)
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
     c.on_release()
+
+
+# --- graphics demo smoke (Phase 4) -----------------------------------------
+
+def test_graphics_demo_builds_and_paints():
+    import importlib.util
+    from elysium._native import _native as n
+    spec = importlib.util.spec_from_file_location(
+        "graphics_demo", "examples/graphics-demo/main.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    ed = mod.build_editor(900, 600)
+    assert len(ed["scene"].items) >= 6
+    # exercise a select + move through the controller
+    box = next(it for it in ed["scene"].items if isinstance(it, RectItem))
+    cx, cy = box.center()
+    vx, vy = ed["view"].to_view(cx, cy)
+    ed["controller"].on_press(vx, vy)
+    ed["controller"].on_drag(vx + 24, vy + 24)
+    ed["controller"].on_release()
+    assert box.selected
+    dl = n.DisplayList()
+    dl.clear(0.1, 0.11, 0.14, 1.0)
+    mod.paint_editor(dl, ed, 900, 600)
+    layer = n.SkiaLayer(900, 600)
+    layer.execute(dl)
+    assert bytes(layer.encode_png())[:4] == b"\x89PNG"

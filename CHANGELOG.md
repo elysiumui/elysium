@@ -9,15 +9,19 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
-- **Interactive 2D canvas** (`elysium.graphics`, Tier 5 Phase 1 — Qt
-  `QGraphicsScene`/`QGraphicsItem` parity): a `Scene` owning a z-ordered list of
-  `Item`s with scene-space bounds, shape-accurate hit-testing, and a `paint(dl)`
-  in scene coordinates. Built-in items `RectItem` / `EllipseItem` / `LineItem`
-  (distance hit-test) / `PathItem` / `TextItem`. Scene queries: `items_at`
-  (topmost-first), `items_in_rect` (intersect or contained — the rubber-band
-  query), `bounding_rect`, z-order raise/lower, and selection helpers. The
-  `GraphicsView` (pan/zoom/cull) + interaction (select/rubber-band/drag) land in
-  later phases.
+- **Interactive 2D canvas** (`elysium.graphics`, Tier 5 — Qt `QGraphicsScene` /
+  `QGraphicsView` / `QGraphicsItem` parity):
+  - `Scene` owning a z-ordered list of `Item`s with scene-space bounds,
+    shape-accurate hit-testing, and a `paint(dl)` in scene coordinates. Built-in
+    items `RectItem` / `EllipseItem` / `LineItem` (distance hit-test) /
+    `PathItem` / `TextItem`. Scene queries: `items_at` (topmost-first),
+    `items_in_rect` (intersect or contained — the rubber-band query),
+    `bounding_rect`, z-order raise/lower, selection helpers.
+  - `GraphicsView` — a pan/zoom viewport with `to_view`/`to_scene` mapping,
+    cursor-anchored `zoom_at`, `fit()`, and off-screen culling.
+  - `SceneController` — select / Shift-multi-select / rubber-band / move (grid
+    `snap`) / 8 screen-space resize handles for a single selection.
+  - `examples/graphics-demo/` flowchart editor + `docs/guides/graphics.md`.
 - **App-shell widgets** (`elysium.shell`, Tier 4 — Qt `QMainWindow` parity).
   Immediate-mode Components that recolour with the theme:
   - `GroupBox` (titled bordered container with a content rect), `StatusBar`
