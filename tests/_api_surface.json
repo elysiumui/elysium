@@ -264,6 +264,9 @@
     "TreeNode",
     "TreeView"
   ],
+  "elysium.modelview.grid": [
+    "DataGrid"
+  ],
   "elysium.native": [
     "ALT",
     "CTRL",

@@ -35,6 +35,7 @@ PUBLIC_MODULES = [
     "elysium.text.richtext",
     "elysium.dialogs",
     "elysium.modelview",
+    "elysium.modelview.grid",
     "elysium.concurrency",
     "elysium.windowing",
     "elysium.native",

@@ -9,6 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **DataGrid** (`elysium.modelview.grid`, Tier 8 — Excel-grade editable grid over
+  `ItemModel`): **frozen/pinned leading columns**, column **resize / reorder /
+  show-hide**, **rectangular range selection**, **copy / paste TSV** (paste an
+  Excel block into a cell range), **fill-down**, **per-cell validation badges**
+  and **pending-edit highlighting** — with virtualized row painting (100k rows)
+  and cell state keyed by row identity (survives sort/filter). Complements the
+  existing read-oriented `TableView`. Closes the bulk-editor grid gap.
+
 - **Dashboard & flow widgets** (Tier 8): `components.dashboard.MetricCard` (KPI
   tile — eyebrow + big value + direction-aware delta badge + inline sparkline),
   `Alert` + `NotificationInbox` (a persistent "needs attention" panel, distinct
