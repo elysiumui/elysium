@@ -227,6 +227,12 @@
     "Settings",
     "config_dir"
   ],
+  "elysium.shell": [
+    "GroupBox",
+    "MenuBar",
+    "Splitter",
+    "StatusBar"
+  ],
   "elysium.testing": [
     "ALT",
     "CTRL",
