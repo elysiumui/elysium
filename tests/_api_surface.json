@@ -120,6 +120,11 @@
   "elysium.components.completer": [
     "Completer"
   ],
+  "elysium.components.dashboard": [
+    "Alert",
+    "MetricCard",
+    "NotificationInbox"
+  ],
   "elysium.components.dataentry": [
     "CalendarWidget",
     "DateEdit",
@@ -127,6 +132,12 @@
     "EditableComboBox",
     "SpinBox",
     "TimeEdit"
+  ],
+  "elysium.components.daterange": [
+    "DateRangePicker",
+    "PRESETS",
+    "SegmentedControl",
+    "preset_range"
   ],
   "elysium.components.scroll": [
     "ScrollBar",
@@ -278,13 +289,16 @@
   "elysium.shell": [
     "DockManager",
     "DockWidget",
+    "Drawer",
     "GroupBox",
     "MenuBar",
     "Splitter",
     "StatusBar",
+    "Stepper",
     "TabWidget",
     "ToolBar",
-    "ToolButton"
+    "ToolButton",
+    "Wizard"
   ],
   "elysium.styling": [
     "Selector",

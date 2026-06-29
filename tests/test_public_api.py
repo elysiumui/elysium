@@ -24,6 +24,8 @@ PUBLIC_MODULES = [
     "elysium.components.scroll",
     "elysium.components.virtual",
     "elysium.components.completer",
+    "elysium.components.daterange",
+    "elysium.components.dashboard",
     "elysium.layout",
     "elysium.theme",
     "elysium.anim",

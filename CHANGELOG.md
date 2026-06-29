@@ -9,6 +9,14 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Added
 
+- **Dashboard & flow widgets** (Tier 8): `components.dashboard.MetricCard` (KPI
+  tile — eyebrow + big value + direction-aware delta badge + inline sparkline),
+  `Alert` + `NotificationInbox` (a persistent "needs attention" panel, distinct
+  from transient Toast/Snackbar); `components.daterange.SegmentedControl` +
+  `DateRangePicker` (preset Today/Yesterday/7d/30d/Custom bar with range math);
+  and `shell.Drawer` (slide-out content panel), `shell.Stepper` / `shell.Wizard`
+  (numbered multi-step flow with Back/Next). For dashboards + import wizards.
+
 - **Charts** (`elysium.charts`, Tier 8 — Qt QtCharts class): immediate-mode,
   theme-recolouring chart widgets built purely on the existing `DisplayList`
   (polylines + SVG-arc donut wedges, no native dependency) — `LineChart` /

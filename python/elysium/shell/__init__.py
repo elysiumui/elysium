@@ -38,6 +38,9 @@ __all__ = [
     "TabWidget",
     "DockWidget",
     "DockManager",
+    "Drawer",
+    "Stepper",
+    "Wizard",
 ]
 
 DOCK_AREAS = ("left", "right", "bottom", "center")
@@ -885,3 +888,229 @@ class DockManager(Component):
                     dl.stroke_path(_rounded_rect(rect[0] + 1, rect[1] + 1,
                                                  rect[2] - 2, rect[3] - 2, 4),
                                    with_alpha(t.primary, 0.9), 1.5)
+
+
+# ---------------------------------------------------------------------------
+# Drawer — a slide-out content panel (Qt's QDockWidget floating, but content).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Drawer(Component):
+    """A panel that slides in from an edge over the area it covers (``x/y/w/h``
+    = the overlaid region, usually the whole window). ``content`` is any object
+    with ``x/y/w/h`` + ``paint``. The host ticks :meth:`update` for the slide
+    animation, paints it last, and routes clicks via :meth:`on_click`."""
+
+    side: str = "right"          # left | right | bottom
+    size: float = 360.0
+    open: bool = False
+    title: str = ""
+    content: Any = None
+    scrim: float = 0.45
+    header_h: float = 44.0
+    on_close: Callable[[], None] | None = None
+    _t: float = field(default=0.0, init=False, repr=False)
+
+    def set_open(self, value: bool) -> None:
+        self.open = value
+
+    def update(self, dt: float, state: Any) -> None:  # type: ignore[override]
+        target = 1.0 if self.open else 0.0
+        self._t = current_theme().motion.step(self._t, target, dt, "hover_rate")
+
+    def panel_rect(self) -> tuple[float, float, float, float]:
+        t = self._t
+        if self.side == "right":
+            return (self.x + self.w - self.size * t, self.y, self.size, self.h)
+        if self.side == "left":
+            return (self.x - self.size * (1 - t), self.y, self.size, self.h)
+        # bottom
+        return (self.x, self.y + self.h - self.size * t, self.w, self.size)
+
+    def content_rect(self) -> tuple[float, float, float, float]:
+        px, py, pw, ph = self.panel_rect()
+        return (px, py + self.header_h, pw, max(0.0, ph - self.header_h))
+
+    def _close_rect(self) -> tuple[float, float, float, float]:
+        px, py, pw, _ph = self.panel_rect()
+        return (px + pw - 30, py + 12, 18, 18)
+
+    def on_click(self, mx: float, my: float) -> bool:
+        if self._t < 0.5:
+            return False
+        cx, cy, cw, ch = self._close_rect()
+        if cx - 4 <= mx <= cx + cw + 4 and cy - 4 <= my <= cy + ch + 4:
+            self._do_close()
+            return True
+        px, py, pw, ph = self.panel_rect()
+        if not (px <= mx <= px + pw and py <= my <= py + ph):
+            self._do_close()           # clicked the scrim
+            return True
+        return False                   # inside the panel — let content handle it
+
+    def _do_close(self) -> None:
+        self.open = False
+        if self.on_close is not None:
+            self.on_close()
+
+    def paint(self, dl: Any) -> None:
+        if self._t < 0.01:
+            return
+        t = current_theme()
+        dl.fill_path(_rect_path(self.x, self.y, self.w, self.h),
+                     with_alpha((0, 0, 0, 255), self.scrim * self._t))
+        px, py, pw, ph = self.panel_rect()
+        s = t.shadow_far
+        dl.gradient_card(px, py, pw, ph, 0.0, lighten(t.surface, 0.02), t.surface,
+                         s.blur, s.offset, s.color)
+        if self.title:
+            dl.draw_text(self.title, px + 16, py + self.header_h * 0.62, 14,
+                         t.on_surface)
+        cx, cy, cw, ch = self._close_rect()
+        ccx, ccy = cx + cw / 2, cy + ch / 2
+        dl.stroke_path(f"M {ccx-4} {ccy-4} L {ccx+4} {ccy+4} M {ccx+4} {ccy-4} "
+                       f"L {ccx-4} {ccy+4}", with_alpha(t.on_surface_muted, 0.9), 1.4)
+        dl.fill_path(_rect_path(px, py + self.header_h - 1, pw, 1.0),
+                     with_alpha(t.edge, 0.7))
+        c = self.content
+        if c is not None and hasattr(c, "paint") and self._t > 0.5:
+            c.x, c.y, c.w, c.h = self.content_rect()
+            c.paint(dl)
+
+
+# ---------------------------------------------------------------------------
+# Stepper / Wizard — a multi-step flow (Qt's QWizard).
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Stepper(Component):
+    """A numbered step indicator. ``steps`` are titles; steps before ``current``
+    show a check, ``current`` is accented, later steps are muted."""
+
+    steps: list[str] = field(default_factory=list)
+    current: int = 0
+    h: float = 40.0
+    dot: float = 24.0
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        n = len(self.steps)
+        if n == 0:
+            return
+        seg = self.w / n
+        cy = self.y + self.dot / 2 + 2
+        for i, title in enumerate(self.steps):
+            cx = self.x + seg * i + seg / 2
+            done, active = i < self.current, i == self.current
+            r = self.dot / 2
+            # Connector to the previous dot.
+            if i > 0:
+                pcx = self.x + seg * (i - 1) + seg / 2
+                col = t.primary if i <= self.current else with_alpha(t.edge, 1.0)
+                dl.stroke_path(f"M {pcx + r} {cy} L {cx - r} {cy}", col, 2.0)
+            if done:
+                dl.fill_path(_rounded_rect(cx - r, cy - r, self.dot, self.dot, r),
+                             t.primary)
+                dl.stroke_path(f"M {cx-5} {cy} L {cx-1.5} {cy+4} L {cx+5} {cy-4}",
+                               (255, 255, 255, 255), 1.8)
+            elif active:
+                dl.fill_path(_rounded_rect(cx - r, cy - r, self.dot, self.dot, r),
+                             with_alpha(t.primary, 0.22))
+                dl.stroke_path(_rounded_rect(cx - r + 0.5, cy - r + 0.5,
+                                             self.dot - 1, self.dot - 1, r),
+                               t.primary, 1.5)
+                dl.draw_text(str(i + 1), cx - 4, cy + 4, 12, t.primary)
+            else:
+                dl.stroke_path(_rounded_rect(cx - r + 0.5, cy - r + 0.5,
+                                             self.dot - 1, self.dot - 1, r),
+                               with_alpha(t.edge, 1.0), 1.5)
+                dl.draw_text(str(i + 1), cx - 4, cy + 4, 12, t.on_surface_muted)
+            col = t.on_surface if (done or active) else t.on_surface_muted
+            approx = len(title) * 10 * 0.55
+            dl.draw_text(title, cx - approx / 2, cy + r + 14, 10.5, col)
+
+
+@dataclass
+class Wizard(Component):
+    """A multi-step flow: a :class:`Stepper` header, the active step's content,
+    and a Back/Next footer. ``steps`` are ``(title, content)``; content is any
+    object with ``x/y/w/h`` + ``paint``."""
+
+    steps: list[tuple[str, Any]] = field(default_factory=list)
+    current: int = 0
+    header_h: float = 64.0
+    footer_h: float = 56.0
+    next_label: str = "Next"
+    finish_label: str = "Finish"
+    on_change: Callable[[int], None] | None = None
+    on_finish: Callable[[], None] | None = None
+
+    def content_rect(self) -> tuple[float, float, float, float]:
+        return (self.x + 16, self.y + self.header_h,
+                self.w - 32, max(0.0, self.h - self.header_h - self.footer_h))
+
+    def can_back(self) -> bool:
+        return self.current > 0
+
+    def is_last(self) -> bool:
+        return self.current >= len(self.steps) - 1
+
+    def back(self) -> None:
+        if self.can_back():
+            self.current -= 1
+            if self.on_change is not None:
+                self.on_change(self.current)
+
+    def next(self) -> None:
+        if self.is_last():
+            if self.on_finish is not None:
+                self.on_finish()
+        else:
+            self.current += 1
+            if self.on_change is not None:
+                self.on_change(self.current)
+
+    def _back_rect(self) -> tuple[float, float, float, float]:
+        by = self.y + self.h - self.footer_h + 11
+        return (self.x + 16, by, 90, 34)
+
+    def _next_rect(self) -> tuple[float, float, float, float]:
+        by = self.y + self.h - self.footer_h + 11
+        return (self.x + self.w - 16 - 110, by, 110, 34)
+
+    def on_click(self, mx: float, my: float) -> bool:
+        bx, by, bw, bh = self._back_rect()
+        if self.can_back() and bx <= mx <= bx + bw and by <= my <= by + bh:
+            self.back()
+            return True
+        nx, ny, nw, nh = self._next_rect()
+        if nx <= mx <= nx + nw and ny <= my <= ny + nh:
+            self.next()
+            return True
+        return False
+
+    def paint(self, dl: Any) -> None:
+        t = current_theme()
+        Stepper(steps=[s[0] for s in self.steps], current=self.current,
+                x=self.x + 16, y=self.y + 12, w=self.w - 32).paint(dl)
+        if 0 <= self.current < len(self.steps):
+            content = self.steps[self.current][1]
+            if content is not None and hasattr(content, "paint"):
+                content.x, content.y, content.w, content.h = self.content_rect()
+                content.paint(dl)
+        dl.fill_path(_rect_path(self.x, self.y + self.h - self.footer_h,
+                                self.w, 1.0), with_alpha(t.edge, 0.7))
+        if self.can_back():
+            bx, by, bw, bh = self._back_rect()
+            dl.fill_path(_rounded_rect(bx, by, bw, bh, 8),
+                         with_alpha(t.on_surface, 0.0))
+            dl.stroke_path(_rounded_rect(bx + 0.5, by + 0.5, bw - 1, bh - 1, 8),
+                           with_alpha(t.edge, 1.0), 1.0)
+            dl.draw_text("Back", bx + bw / 2 - 16, by + 22, 13, t.on_surface)
+        nx, ny, nw, nh = self._next_rect()
+        dl.fill_path(_rounded_rect(nx, ny, nw, nh, 8), t.primary)
+        dl.fill_path(_rounded_rect(nx + 1, ny + 1, nw - 2, 2, 7),
+                     with_alpha((255, 255, 255, 255), 0.10))
+        lbl = self.finish_label if self.is_last() else self.next_label
+        dl.draw_text(lbl, nx + nw / 2 - len(lbl) * 3.5, ny + 22, 13,
+                     (255, 255, 255, 255))
