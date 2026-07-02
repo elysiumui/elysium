@@ -57,7 +57,7 @@ ships an app you can run, screenshot, and modify on day one.
 ## Install
 
 ```bash
-pip install elysium
+pip install elysium-ui
 ```
 
 Pre-built wheels for CPython 3.10 / 3.11 / 3.12 / 3.13 on macOS (arm64 +

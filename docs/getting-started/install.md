@@ -6,7 +6,7 @@
 
 ## Stable
 ```bash
-pip install elysium
+pip install elysium-ui
 ```
 
 The wheel includes the prebuilt `_native` extension (Rust + Skia + wgpu) so no toolchain is required for users.

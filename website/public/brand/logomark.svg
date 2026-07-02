@@ -1,0 +1,25 @@
+<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!-- Elysium logomark (draft) — monoline Blue Morpho, 48x48, stroke 1.6.
+       Mono version: strokes use currentColor. See logomark-color.svg for the
+       iridescent fill variant. -->
+  <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+    <!-- antennae -->
+    <path d="M22.6 13.4C21.4 10.8 19.2 8.6 16.4 7.4" />
+    <path d="M25.4 13.4C26.6 10.8 28.8 8.6 31.6 7.4" />
+    <!-- body -->
+    <path d="M24 14.5C25.2 16.5 25.8 19.6 25.8 24C25.8 28.4 25.2 31.5 24 33.5C22.8 31.5 22.2 28.4 22.2 24C22.2 19.6 22.8 16.5 24 14.5Z" />
+    <!-- left forewing -->
+    <path d="M21.6 20.2C17.8 14.6 11.8 11.6 7.2 12.8C4.4 13.6 3.6 16.4 4.8 19.6C6.4 23.8 10.8 27.2 15.6 27.6" />
+    <!-- right forewing -->
+    <path d="M26.4 20.2C30.2 14.6 36.2 11.6 40.8 12.8C43.6 13.6 44.4 16.4 43.2 19.6C41.6 23.8 37.2 27.2 32.4 27.6" />
+    <!-- left hindwing -->
+    <path d="M21.9 27.4C18.6 28.2 15 31 13.4 34.4C12.2 37 13.2 39.4 15.8 39.8C19 40.3 22 37.4 22.6 33.4" />
+    <!-- right hindwing -->
+    <path d="M26.1 27.4C29.4 28.2 33 31 34.6 34.4C35.8 37 34.8 39.4 32.2 39.8C29 40.3 26 37.4 25.4 33.4" />
+    <!-- wing accents (60% tone) -->
+    <g opacity="0.6">
+      <path d="M9.6 16.4C12.8 16.8 16 18.8 18.2 21.6" />
+      <path d="M38.4 16.4C35.2 16.8 32 18.8 29.8 21.6" />
+    </g>
+  </g>
+</svg>

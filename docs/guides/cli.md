@@ -1,7 +1,7 @@
 # CLI
 
 `elysium` is the framework's command-line tool. It ships with the
-PyPI install (`pip install elysium`) and exposes the same surface
+PyPI install (`pip install elysium-ui`) and exposes the same surface
 across macOS, Windows, and Linux.
 
 ```sh

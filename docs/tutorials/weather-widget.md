@@ -8,7 +8,7 @@ fetching, periodic refresh, and a glass-card layout.
 
 ## Prerequisites
 
-- `pip install elysium`.
+- `pip install elysium-ui`.
 - Walked through [Aurora Clock](../getting-started/aurora-clock-01-window.md)
   at least once.
 

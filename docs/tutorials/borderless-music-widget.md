@@ -12,7 +12,7 @@ player that lives in the corner of your desktop.
 
 - Walked through [Aurora Clock](../getting-started/aurora-clock-01-window.md)
   at least once.
-- `pip install elysium`.
+- `pip install elysium-ui`.
 
 ## Star-shaped window
 

@@ -10,7 +10,7 @@ Alfred, and the VS Code command palette.
 ## Prerequisites
 
 - Walked through [Pomodoro](../getting-started/pomodoro-01-shape-and-modes.md).
-- `pip install elysium`.
+- `pip install elysium-ui`.
 
 ## Register the global hotkey
 

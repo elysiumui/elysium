@@ -316,7 +316,7 @@ Elysium app gets them:
    skins can ship custom glyph sets under `assets/icons/`.
 
 Each ships as a separate framework PR with tests + docs so users
-of `pip install elysium` get the same components.
+of `pip install elysium-ui` get the same components.
 
 ---
 

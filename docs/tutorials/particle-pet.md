@@ -11,7 +11,7 @@ modern desktop" app.
 ## Prerequisites
 
 - Walked through [Aurora Clock](../getting-started/aurora-clock-01-window.md).
-- `pip install elysium`.
+- `pip install elysium-ui`.
 
 ## The window
 

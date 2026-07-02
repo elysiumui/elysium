@@ -17,7 +17,7 @@ three-mode StateMachine that drives every subsequent screen.
 
 ## Prerequisites
 
-- Elysium installed (`pip install elysium`).
+- Elysium installed (`pip install elysium-ui`).
 - Walked through [Aurora Clock chapter 1](aurora-clock-01-window.md)
   recently. This tutorial reuses the borderless-window pattern from
   there and adds new primitives.

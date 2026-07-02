@@ -1,0 +1,134 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Hero from '../components/Hero.astro';
+import ValueStrip from '../components/ValueStrip.astro';
+import FeatureRow from '../components/FeatureRow.astro';
+import GetElysium from '../components/GetElysium.astro';
+import { links } from '../data/downloads';
+---
+
+<Layout>
+  <main>
+    <Hero />
+    <ValueStrip />
+
+    <section id="features" class="pt-8">
+      <div class="mx-auto max-w-6xl px-6 text-center">
+        <p class="eyebrow justify-center reveal">Built with Elysium</p>
+        <h2 class="reveal mt-4 text-balance text-4xl font-[700] sm:text-5xl">
+          Real apps, rendered by the <span class="text-iridescent">framework itself</span>
+        </h2>
+        <p class="reveal mx-auto mt-4 max-w-2xl text-muted">
+          Every screenshot below is actual Elysium output — the same widgets,
+          charts and grids you get with <code class="rounded bg-deep/80 px-1.5 py-0.5 text-[0.85em]">pip install elysium-ui</code>.
+        </p>
+      </div>
+
+      <FeatureRow
+        eyebrow="Dashboards & charts"
+        title="A full business-app UI pack"
+        body="KPI metric cards with sparklines, line/area/bar/donut charts with money axes, date-range bars, alert inboxes — immediate-mode widgets that re-skin with your theme."
+        bullets={[
+          'LineChart · AreaChart · BarChart · DonutChart · Sparkline · Legend',
+          'Tabular numerals so money columns reconcile to the cent',
+          'MetricCard, DateRangePicker, NotificationInbox, Wizard & Drawer',
+        ]}
+        image="/media/dashboard.png"
+        imageAlt="StoreProfitLens dashboard built with Elysium: KPI cards, net-profit area chart, cost donut, alert inbox"
+        linkHref={`${links.docs}/guides/charts-and-dashboards/`}
+        linkLabel="Charts & dashboards guide"
+      />
+
+      <FeatureRow
+        flip
+        eyebrow="Data-heavy apps"
+        title="An Excel-grade DataGrid"
+        body="Frozen columns, rectangular selection, copy/paste straight from Excel, fill-down, per-cell validation badges and pending-edit highlighting — virtualized to 100k rows."
+        bullets={[
+          'Click-to-sort + per-column live filtering, both optional',
+          'Cell state keyed by row identity — survives sort & filter',
+          'TSV copy/paste that round-trips with spreadsheets',
+        ]}
+        image="/media/datagrid.png"
+        imageAlt="VariantProof bulk editor built with Elysium: frozen columns, pending edits, validation badges"
+        linkHref={`${links.docs}/guides/data-grid/`}
+        linkLabel="The data grid guide"
+      />
+
+      <FeatureRow
+        eyebrow="Interactive canvas"
+        title="A 2D scene graph for editors"
+        body="Scenes, items, pan/zoom viewports, rubber-band selection, resize handles and snapping — the QGraphicsScene class of app, GPU-rendered."
+        bullets={[
+          'Shape-accurate hit-testing and z-ordered scenes',
+          'Cursor-anchored zoom, viewport culling, fit-to-content',
+          'Undo/redo command stack built in',
+        ]}
+        image="/media/canvas.png"
+        imageAlt="Flowchart editor built with Elysium's graphics scene"
+        linkHref={`${links.docs}/guides/graphics/`}
+        linkLabel="Interactive canvas guide"
+      />
+
+      <FeatureRow
+        flip
+        eyebrow="App shell"
+        title="Docking, toolbars, tabs — the full frame"
+        body="Dockable panels with drag-to-redock, splitters, menu bars, status bars and tool strips. Layouts serialize so your users' workspaces persist."
+        bullets={[
+          'DockManager with per-area tabbing and drop-zone overlays',
+          'MenuBar, ToolBar, TabWidget, StatusBar, Splitter',
+          'Layout save/restore wired to the settings API',
+        ]}
+        image="/media/appshell.png"
+        imageAlt="Docking IDE demo built with Elysium's app-shell widgets"
+        linkHref={`${links.docs}/guides/app-shell/`}
+        linkLabel="App shell guide"
+      />
+    </section>
+
+    <!-- Designer showcase -->
+    <section id="designer" class="mx-auto max-w-6xl px-6 py-20">
+      <div class="glass reveal overflow-hidden p-10 sm:p-14" style="border-radius: var(--radius-xl);">
+        <div class="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <p class="eyebrow">Elysium Designer</p>
+            <h2 class="mt-4 text-balance text-3xl font-[680] sm:text-4xl">
+              Design it visually.<br />Ship it as <span class="text-iridescent">code.</span>
+            </h2>
+            <p class="mt-4 max-w-lg leading-relaxed text-muted">
+              The Designer is a full authoring studio for Elysium apps: paint
+              themes and skins, sculpt shaped windows, keyframe animation on a
+              timeline, and hot-reload straight into your running app. Skins live
+              in <code class="rounded bg-deep/80 px-1.5 py-0.5 text-[0.85em]">.esk</code> files
+              your code loads — designers iterate, your Python stays untouched.
+            </p>
+            <ul class="mt-5 space-y-2.5 text-[0.94rem] text-ink/90">
+              <li>· Theme &amp; token editor synced to the framework palette</li>
+              <li>· Brush studio, 3D-aware mesh placements, AI-assisted tooling</li>
+              <li>· Timeline, dope sheet and motion paths for animation</li>
+              <li>· Code Link: pair with your editor, scaffold handlers</li>
+            </ul>
+            <div class="mt-7 flex flex-wrap gap-3">
+              <a href="/download#designer" class="btn-primary text-[0.92rem]">Try Designer free</a>
+              <a href={links.designerDocs} class="btn-ghost text-[0.92rem]">Designer docs</a>
+            </div>
+          </div>
+          <div class="relative" aria-hidden="true">
+            <img
+              src="/brand/butterfly-hero-sm.webp"
+              alt=""
+              class="mx-auto w-72 opacity-95 drop-shadow-[0_20px_45px_rgba(108,124,255,0.35)]"
+              loading="lazy"
+            />
+            <p class="tnum mt-6 text-center text-[0.8rem] text-muted/70">
+              The Blue Morpho — drawn, rigged and animated in Designer
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <GetElysium />
+  </main>
+</Layout>

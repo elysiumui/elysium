@@ -1,0 +1,79 @@
+---
+/** The two-track CTA: free OSS framework vs commercial Designer trial/buy. */
+import { framework, designer, links } from '../data/downloads';
+---
+
+<section id="get" class="mx-auto max-w-6xl px-6 py-24">
+  <div class="text-center">
+    <p class="eyebrow justify-center">Get Elysium</p>
+    <h2 class="mt-4 text-balance text-4xl font-[700] sm:text-5xl">
+      Free framework. <span class="text-iridescent">Pro Designer.</span>
+    </h2>
+    <p class="mx-auto mt-4 max-w-xl text-muted">
+      The framework is open source and free for commercial apps. The Designer is
+      the visual authoring studio — try it free for {designer.trialDays} days.
+    </p>
+  </div>
+
+  <div class="mt-12 grid gap-6 lg:grid-cols-2">
+    <!-- Track A — framework -->
+    <div class="glass glass-hover reveal flex flex-col p-8">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-[660]">Elysium UI Framework</h3>
+        <span class="rounded-full border border-success/40 bg-success/10 px-3 py-1 text-[0.75rem] font-[640] text-success">
+          Free · Apache-2.0
+        </span>
+      </div>
+      <p class="mt-3 text-[0.94rem] leading-relaxed text-muted">
+        The full GPU framework — every widget, chart, the DataGrid, animation,
+        theming, packaging. Build and ship commercial apps at no cost.
+      </p>
+      <div class="mt-6">
+        <button class="copy-chip w-full justify-between" data-copy={framework.pipCommand} type="button" aria-label={`Copy ${framework.pipCommand}`}>
+          <span><span class="prompt">$ </span>{framework.pipCommand}</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.65" aria-hidden="true">
+            <rect x="9" y="9" width="12" height="12" rx="2.5" />
+            <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+          </svg>
+        </button>
+      </div>
+      <div class="mt-auto flex flex-wrap gap-x-6 gap-y-2 pt-6 text-[0.9rem]">
+        <a class="font-[600] text-iris hover:underline" href={framework.pypiUrl} rel="noopener">PyPI</a>
+        <a class="font-[600] text-iris hover:underline" href={framework.repoUrl} rel="noopener">GitHub</a>
+        <a class="font-[600] text-iris hover:underline" href={links.tutorial}>Tutorial</a>
+        <a class="font-[600] text-iris hover:underline" href={links.gallery}>Component gallery</a>
+      </div>
+    </div>
+
+    <!-- Track B — Designer -->
+    <div
+      class="glass glass-hover reveal reveal-delay-1 relative flex flex-col overflow-hidden p-8"
+      style="border-color: rgba(108,124,255,.35);"
+    >
+      <div
+        class="pointer-events-none absolute -top-24 right-0 h-56 w-56 rounded-full opacity-60"
+        style="background: radial-gradient(closest-side, rgba(108,124,255,.35), transparent);"
+        aria-hidden="true"
+      >
+      </div>
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-[660]">Elysium Designer</h3>
+        <span class="rounded-full border border-iris/40 bg-iris/10 px-3 py-1 text-[0.75rem] font-[640] text-iris">
+          {designer.trialDays}-day free trial
+        </span>
+      </div>
+      <p class="mt-3 text-[0.94rem] leading-relaxed text-muted">
+        The visual studio for Elysium: author themes, skins, shaped windows and
+        animation on canvas — then ship straight to your Python code.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <a href="/download#designer" class="btn-primary text-[0.92rem]">Download free trial</a>
+        <a href={designer.buyUrl} class="btn-ghost text-[0.92rem]" rel="noopener">Buy a license</a>
+      </div>
+      <p class="mt-auto pt-6 text-[0.8rem] text-muted/80">
+        macOS (Apple Silicon &amp; Intel) · Windows · Linux — licensing via PyLocket.
+        <a class="underline underline-offset-2 hover:text-ink" href="/eula">EULA</a>
+      </p>
+    </div>
+  </div>
+</section>

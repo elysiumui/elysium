@@ -23,7 +23,7 @@ re-skins everything.
 
 - Finished [Aurora Clock](../getting-started/aurora-clock-05-theme-and-events.md).
 - Finished [Pomodoro](../getting-started/pomodoro-04-notifications-and-shipping.md).
-- `pip install elysium`.
+- `pip install elysium-ui`.
 
 ## Project layout
 

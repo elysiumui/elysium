@@ -21,7 +21,7 @@ elysium pack app/main.py --name "My App" --version 1.0.0 \
 
 ## CI
 ```yaml
-- run: pip install elysium
+- run: pip install elysium-ui
 - run: elysium pack app/main.py --name "My App"
 - uses: actions/upload-artifact@v4
   with:

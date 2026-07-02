@@ -31,7 +31,7 @@ CPython-specific APIs.
 
 **Will it work in a virtual environment?**
 
-Yes; `python -m venv` then `pip install elysium` is the recommended
+Yes; `python -m venv` then `pip install elysium-ui` is the recommended
 install path.
 
 ## Platforms

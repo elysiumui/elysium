@@ -1,0 +1,81 @@
+---
+import { framework, links } from '../data/downloads';
+---
+
+<section class="relative overflow-hidden pt-40 pb-24 sm:pt-48 sm:pb-32">
+  <!-- Blue Morpho glides in from the top-right, mirroring the Designer intro -->
+  <div class="butterfly-stage" aria-hidden="true">
+    <img
+      class="butterfly"
+      src="/brand/butterfly-hero.webp"
+      srcset="/brand/butterfly-hero-sm.webp 760w, /brand/butterfly-hero.webp 1521w"
+      sizes="(max-width: 768px) 60vw, 40vw"
+      alt=""
+      fetchpriority="high"
+    />
+  </div>
+
+  <div class="relative mx-auto max-w-6xl px-6">
+    <p class="eyebrow reveal">Python · Skia + wgpu · macOS / Windows / Linux</p>
+    <h1
+      class="reveal reveal-delay-1 mt-5 max-w-3xl text-balance font-[720] leading-[1.04]"
+      style="font-size: clamp(2.6rem, 6.2vw, 4.6rem);"
+    >
+      Python desktop UI<br />
+      <span class="text-iridescent">without the rectangles.</span>
+    </h1>
+    <p class="reveal reveal-delay-2 mt-6 max-w-xl text-lg leading-relaxed text-muted">
+      Elysium is a GPU-accelerated framework for borderless, shaped, animated
+      desktop apps — with animation as a first-class citizen and a visual
+      Designer that ships straight to code.
+    </p>
+
+    <div class="reveal reveal-delay-3 mt-10 flex flex-wrap items-center gap-4">
+      <a href="/download" class="btn-primary" id="hero-download">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16" />
+        </svg>
+        <span id="hero-download-label">Download Designer</span>
+      </a>
+      <button class="copy-chip" data-copy={framework.pipCommand} type="button" aria-label={`Copy ${framework.pipCommand}`}>
+        <span class="prompt">$</span>
+        <span>{framework.pipCommand}</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.65" aria-hidden="true">
+          <rect x="9" y="9" width="12" height="12" rx="2.5" />
+          <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+        </svg>
+      </button>
+      <a href={links.docs} class="text-[0.95rem] font-[560] text-muted underline-offset-4 transition-colors hover:text-ink hover:underline">
+        Read the docs →
+      </a>
+    </div>
+
+    <p class="reveal reveal-delay-3 tnum mt-6 text-[0.82rem] text-muted/80">
+      v{framework.version} · Apache-2.0 · free for commercial use
+    </p>
+  </div>
+</section>
+
+<script>
+  // Copy-chip: clipboard + transient "copied" feedback.
+  document.querySelectorAll<HTMLButtonElement>('.copy-chip[data-copy]').forEach((chip) => {
+    chip.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(chip.dataset.copy ?? '');
+        const prev = chip.innerHTML;
+        chip.innerHTML = '<span class="copied">✓ copied</span>';
+        setTimeout(() => (chip.innerHTML = prev), 1400);
+      } catch {
+        /* clipboard unavailable — the text is visible anyway */
+      }
+    });
+  });
+
+  // OS-aware label on the hero download button.
+  const label = document.getElementById('hero-download-label');
+  if (label) {
+    const ua = navigator.userAgent;
+    const os = /Mac/i.test(ua) ? 'macOS' : /Win/i.test(ua) ? 'Windows' : /Linux/i.test(ua) ? 'Linux' : null;
+    if (os) label.textContent = `Download Designer for ${os}`;
+  }
+</script>

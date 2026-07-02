@@ -1,0 +1,85 @@
+---
+import '@fontsource-variable/inter';
+import '@fontsource-variable/plus-jakarta-sans';
+import '../styles/global.css';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { framework } from '../data/downloads';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Elysium UI — Python desktop UI without the rectangles',
+  description = 'GPU-accelerated Python framework for borderless, shaped, animated desktop apps. Skia + wgpu rendering, animation as a first-class citizen, and Elysium Designer for visual authoring.',
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const og = new URL('/brand/og-image.png', Astro.site);
+
+const jsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Elysium UI',
+  operatingSystem: 'macOS, Windows, Linux',
+  applicationCategory: 'DeveloperApplication',
+  softwareVersion: framework.version,
+  license: 'https://www.apache.org/licenses/LICENSE-2.0',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  url: 'https://elysiumui.com',
+});
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#1b1e24" />
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Elysium UI" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={og} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={jsonLd} />
+    <slot name="head" />
+  </head>
+  <body class="min-h-screen antialiased">
+    <Nav />
+    <slot />
+    <Footer />
+
+    <script>
+      // Scroll-reveal: adds .in-view once, honouring reduced motion.
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const targets = document.querySelectorAll<HTMLElement>('.reveal');
+      if (reduced || !('IntersectionObserver' in window)) {
+        targets.forEach((t) => t.classList.add('in-view'));
+      } else {
+        const io = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries) {
+              if (e.isIntersecting) {
+                e.target.classList.add('in-view');
+                io.unobserve(e.target);
+              }
+            }
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+        );
+        targets.forEach((t) => io.observe(t));
+      }
+    </script>
+  </body>
+</html>

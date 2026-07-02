@@ -1,0 +1,45 @@
+---
+const pillars = [
+  {
+    title: 'Borderless & shaped',
+    body: 'Windows in any silhouette — ellipses, stars, custom paths. Transparency and hit-testing included.',
+    icon: 'M12 3l2.7 5.6 6.3.9-4.5 4.3 1 6.2L12 17l-5.5 3 1-6.2L3 9.5l6.3-.9L12 3z',
+  },
+  {
+    title: 'GPU Skia + wgpu',
+    body: 'Hybrid rendering pipeline with dirty-rect compositing. 60 fps UI that sips battery.',
+    icon: 'M13 2L4.5 12.5h6L11 22l8.5-10.5h-6L13 2z',
+  },
+  {
+    title: 'Animation first',
+    body: 'Springs, tweens, and reactive signals are core API — not an afterthought bolted on.',
+    icon: 'M3 12c3-7 6 7 9 0s6 7 9 0',
+  },
+  {
+    title: 'Designer ↔ developer',
+    body: 'Skins live in .esk files. Designers restyle visually; your Python logic never changes.',
+    icon: 'M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3m13 5h3a2 2 0 0 0 2-2v-3',
+  },
+];
+---
+
+<section class="mx-auto max-w-6xl px-6 py-20">
+  <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    {
+      pillars.map((p, i) => (
+        <div class={`glass glass-hover reveal reveal-delay-${i % 4 > 2 ? 3 : i % 4} p-6`}>
+          <div
+            class="mb-4 flex h-11 w-11 items-center justify-center rounded-[10px]"
+            style="background: linear-gradient(135deg, rgba(108,124,255,.22), rgba(79,195,247,.12)); border: 1px solid rgba(108,124,255,.3);"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8fa0ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d={p.icon} />
+            </svg>
+          </div>
+          <h3 class="text-[1.02rem] font-[640]">{p.title}</h3>
+          <p class="mt-2 text-[0.9rem] leading-relaxed text-muted">{p.body}</p>
+        </div>
+      ))
+    }
+  </div>
+</section>

@@ -12,7 +12,7 @@ Elysium ships a sidecar Language Server (`elysium-lsp`) used by every editor we 
 
 ## Install
 ```bash
-pip install elysium-lsp
+pip install elysium-ui-lsp
 ```
 
 ## VS Code

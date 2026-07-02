@@ -26,7 +26,7 @@ Both sites build from this repo: `docs/` and `docs-designer/`.
 ## Quick start
 
 ```bash
-pip install elysium
+pip install elysium-ui
 ```
 
 Run the minimum borderless ellipse window:

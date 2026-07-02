@@ -1,0 +1,410 @@
+/* ============================================================
+   ElysiumUI.com — design tokens + visual system
+   Mirrors the framework's Studio Dark theme (theme.studio_dark())
+   so the website looks like the product. Single source of truth.
+   ============================================================ */
+@import 'tailwindcss';
+
+@theme {
+  /* -- Studio palette ---------------------------------------- */
+  --color-iris: #6c7cff; /* primary / CTA          */
+  --color-accent: #8a78ff; /* secondary accent       */
+  --color-morpho: #4fc3f7; /* Morpho cyan sheen      */
+  --color-surface: #1b1e24; /* app background         */
+  --color-raised: #2a2f39; /* raised surface         */
+  --color-ink: #e8ebf0; /* on-surface text        */
+  --color-muted: #9aa3b2; /* on-surface muted       */
+  --color-hairline: #2c323c; /* hairline borders       */
+  --color-deep: #0a0c10; /* overlay / deepest bg   */
+  --color-success: #2da847;
+  --color-warning: #ff8c00;
+  --color-danger: #e63946;
+
+  /* -- Type --------------------------------------------------- */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans Variable', 'Inter Variable', ui-sans-serif, sans-serif;
+
+  /* -- Geometry (8px grid, Studio radii) ----------------------- */
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+
+  /* -- Shadows (Studio 3-tier) --------------------------------- */
+  --shadow-close: 0 1px 6px rgba(0, 0, 0, 0.28);
+  --shadow-mid: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --shadow-far: 0 14px 30px rgba(0, 0, 0, 0.47);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html {
+  scroll-behavior: smooth;
+  background-color: var(--color-deep);
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background-color: var(--color-surface);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Deep-space backdrop: iris aurora top, morpho hint low-right.
+   A fixed layer instead of `background-attachment: fixed` — the latter
+   triggers a Chromium black-screen bug when combined with backdrop-filter,
+   and is broken on iOS Safari anyway. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 620px at 78% -8%, rgba(108, 124, 255, 0.17), transparent 62%),
+    radial-gradient(900px 520px at 12% 4%, rgba(138, 120, 255, 0.1), transparent 58%),
+    radial-gradient(1000px 700px at 88% 92%, rgba(79, 195, 247, 0.05), transparent 55%),
+    linear-gradient(180deg, #14161b 0%, var(--color-surface) 30%, var(--color-surface) 100%);
+}
+
+::selection {
+  background: rgba(108, 124, 255, 0.35);
+  color: #fff;
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Accessible focus */
+:focus-visible {
+  outline: 2px solid var(--color-iris);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   Signature pieces
+   ============================================================ */
+
+/* Iridescent display gradient — the Morpho wing in type */
+.text-iridescent {
+  background: linear-gradient(
+    100deg,
+    #aeb9ff 0%,
+    var(--color-iris) 28%,
+    var(--color-morpho) 55%,
+    var(--color-accent) 82%,
+    #c3b5ff 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: iridesce 9s ease-in-out infinite alternate;
+}
+
+@keyframes iridesce {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+/* Glass panel — Midnight-Glass reference */
+.glass {
+  background: linear-gradient(165deg, rgba(42, 47, 57, 0.72), rgba(27, 30, 36, 0.6));
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  border: 1px solid rgba(108, 124, 255, 0.14);
+  border-top-color: rgba(232, 235, 240, 0.09);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-mid);
+}
+
+.glass-hover {
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+.glass-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(108, 124, 255, 0.38);
+  box-shadow:
+    var(--shadow-far),
+    0 0 42px rgba(108, 124, 255, 0.13);
+}
+
+/* Primary CTA — gradient core + animated iridescent border */
+.btn-primary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.85rem 1.7rem;
+  border-radius: 999px;
+  font-weight: 640;
+  font-family: var(--font-display);
+  color: #fff;
+  background:
+    linear-gradient(120deg, var(--color-iris), var(--color-accent)) padding-box,
+    linear-gradient(120deg, var(--color-morpho), var(--color-iris), var(--color-accent), var(--color-morpho))
+      border-box;
+  background-size:
+    100% 100%,
+    300% 100%;
+  border: 1.5px solid transparent;
+  box-shadow:
+    0 4px 22px rgba(108, 124, 255, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+  animation: border-flow 6s linear infinite;
+}
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 8px 34px rgba(108, 124, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.btn-primary:active {
+  transform: translateY(0) scale(0.99);
+}
+
+@keyframes border-flow {
+  from {
+    background-position:
+      0 0,
+      0% 50%;
+  }
+  to {
+    background-position:
+      0 0,
+      300% 50%;
+  }
+}
+
+/* Ghost / secondary button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.85rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 560;
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  background: rgba(42, 47, 57, 0.45);
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease;
+}
+.btn-ghost:hover {
+  border-color: rgba(108, 124, 255, 0.5);
+  background: rgba(42, 47, 57, 0.75);
+  transform: translateY(-1px);
+}
+
+/* Copy chip — `pip install elysium-ui` */
+.copy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.72rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-hairline);
+  background: rgba(10, 12, 16, 0.72);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.92rem;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.copy-chip:hover {
+  border-color: rgba(108, 124, 255, 0.5);
+  box-shadow: 0 0 24px rgba(108, 124, 255, 0.12);
+}
+.copy-chip .prompt {
+  color: var(--color-morpho);
+  user-select: none;
+}
+.copy-chip .copied {
+  color: var(--color-success);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+/* Eyebrow label above section titles */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 640;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-iris);
+}
+.eyebrow::before {
+  content: '';
+  width: 22px;
+  height: 1.5px;
+  background: linear-gradient(90deg, var(--color-iris), transparent);
+}
+
+/* ============================================================
+   Hero butterfly — glide in from top-right, idle float + shimmer
+   ============================================================ */
+.butterfly-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.butterfly {
+  position: absolute;
+  top: 8%;
+  right: 6%;
+  width: clamp(300px, 38vw, 660px);
+  filter: drop-shadow(0 26px 48px rgba(79, 140, 255, 0.28));
+  animation:
+    glide-in 2.6s cubic-bezier(0.23, 1, 0.32, 1) both,
+    float-idle 7s ease-in-out 2.6s infinite alternate,
+    shimmer 11s ease-in-out 2.6s infinite alternate;
+  will-change: transform, filter, opacity;
+}
+
+/* Phones: keep the Morpho clear of the headline — smaller, tucked into the
+   top-right corner, softly faded behind the text. */
+@media (max-width: 720px) {
+  .butterfly {
+    top: 3.2rem;
+    right: -6%;
+    width: clamp(180px, 52vw, 280px);
+    opacity: 0.82;
+  }
+}
+
+@keyframes glide-in {
+  0% {
+    transform: translate(46%, -62%) rotate(14deg) scale(0.5);
+    opacity: 0;
+  }
+  22% {
+    opacity: 1;
+  }
+  58% {
+    transform: translate(9%, -8%) rotate(4deg) scale(0.86);
+  }
+  100% {
+    transform: translate(0, 0) rotate(-3deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes float-idle {
+  from {
+    transform: translate(0, 0) rotate(-3deg);
+  }
+  to {
+    transform: translate(-1.4%, 3.2%) rotate(2deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    filter: drop-shadow(0 26px 48px rgba(79, 140, 255, 0.28)) hue-rotate(0deg) saturate(1);
+  }
+  50% {
+    filter: drop-shadow(0 26px 54px rgba(108, 124, 255, 0.36)) hue-rotate(-14deg) saturate(1.16);
+  }
+  100% {
+    filter: drop-shadow(0 26px 48px rgba(124, 100, 255, 0.3)) hue-rotate(10deg) saturate(1.05);
+  }
+}
+
+/* ============================================================
+   Scroll reveal (JS adds .in-view via IntersectionObserver)
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.in-view {
+  opacity: 1;
+  transform: none;
+}
+.reveal-delay-1 {
+  transition-delay: 0.08s;
+}
+.reveal-delay-2 {
+  transition-delay: 0.16s;
+}
+.reveal-delay-3 {
+  transition-delay: 0.24s;
+}
+
+/* Frame around product renders — a shaped Elysium "window" */
+.render-frame {
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(108, 124, 255, 0.18);
+  box-shadow:
+    var(--shadow-far),
+    0 0 70px rgba(108, 124, 255, 0.09);
+  overflow: hidden;
+  background: var(--color-deep);
+}
+.render-frame img,
+.render-frame svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ============================================================
+   Reduced motion — calm everything down
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .butterfly {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+  .text-iridescent,
+  .btn-primary {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .glass-hover,
+  .btn-primary,
+  .btn-ghost {
+    transition: none;
+  }
+}
