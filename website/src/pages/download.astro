@@ -87,6 +87,10 @@ const osIcons: Record<string, string> = {
 
       <div class="mt-7 flex flex-wrap items-center gap-4">
         <a href={designer.buyUrl} class="btn-primary text-[0.95rem]" rel="noopener">Buy a license</a>
+        <span class="tnum text-[0.95rem]"><span class="font-[680]">${designer.priceMonthly}/mo</span>
+          <span class="text-muted">or</span>
+          <span class="font-[680]">${designer.priceYearly}/yr</span>
+          <span class="text-muted">prepaid annually</span></span>
         <a href="/eula" class="text-[0.9rem] text-muted underline underline-offset-4 hover:text-ink">Designer EULA</a>
       </div>
 

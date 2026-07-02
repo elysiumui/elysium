@@ -2,6 +2,7 @@
 
 *Draft — pending legal review.*
 
+The Elysium marks are owned by **Lamaute Labs LLC**.
 The Elysium UI framework is open-source software under the
 [Apache License 2.0](LICENSE). That license covers the **code**. This policy
 covers the **brand**: the names **"Elysium"**, **"Elysium UI"**,

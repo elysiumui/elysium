@@ -41,6 +41,8 @@ export const designer = {
   name: 'Elysium Designer',
   version: '1.1.1',
   trialDays: 30,
+  priceMonthly: 8,
+  priceYearly: 79,
   /** TODO(PyLocket): real checkout URL once the product is registered. */
   buyUrl: 'https://pylocket.com/buy/elysium-designer',
   eulaPath: '/eula',
@@ -77,6 +79,10 @@ export const designer = {
 } as const;
 
 /** External destinations -------------------------------------------------- */
+export const company = {
+  legalName: 'Lamaute Labs LLC',
+} as const;
+
 export const links = {
   docs: 'https://docs.elysiumui.com',
   designerDocs: 'https://designer.elysiumui.com',

@@ -8,7 +8,7 @@ on:
     inputs:
       targets:
         description: "Comma-separated list. Use 'all' to build everything."
-        default: "designer,example:hello,example:butterfly,example:components,example:agent-cursor,example:snapshot-relay"
+        default: "example:hello,example:butterfly,example:components,example:agent-cursor,example:snapshot-relay"
         required: true
   push:
     tags:
@@ -30,7 +30,6 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
         target:
-          - designer
           - example:hello
           - example:butterfly
           - example:components
