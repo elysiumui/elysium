@@ -30,15 +30,19 @@ jobs:
         include:
           - os: macos-14
             artifact_name: "Elysium-Designer-macOS-arm64.dmg"
+            pylocket_name: "Elysium-Designer-macOS-arm64-pylocket.zip"
             label: "macOS (Apple Silicon)"
           - os: macos-13
             artifact_name: "Elysium-Designer-macOS-x86_64.dmg"
+            pylocket_name: "Elysium-Designer-macOS-x86_64-pylocket.zip"
             label: "macOS (Intel)"
           - os: windows-2022
             artifact_name: "Elysium-Designer-Windows-x64-Setup.exe"
+            pylocket_name: "Elysium-Designer-Windows-x64-pylocket.zip"
             label: "Windows x64"
           - os: ubuntu-22.04
             artifact_name: "Elysium-Designer-Linux-x86_64.AppImage"
+            pylocket_name: "Elysium-Designer-Linux-x86_64-pylocket.zip"
             label: "Linux x86_64"
     runs-on: ${{ matrix.os }}
 
@@ -78,6 +82,41 @@ jobs:
           ELYSIUM_ICON_MAC: ${{ secrets.ELYSIUM_ICON_MAC || '' }}
           ELYSIUM_ICON_WIN: ${{ secrets.ELYSIUM_ICON_WIN || '' }}
         run: pyinstaller scripts/build-designer.spec --noconfirm
+
+      # --- PyLocket artifact: the RAW PyInstaller output, zipped ---------
+      # PyLocket rejects installer packages (.dmg / Inno .exe / AppImage) and
+      # wants the raw build output: "PyInstaller onedir (zipped)" on
+      # macOS/Linux (the COLLECT dir) and the onefile .exe (zipped) on
+      # Windows. https://docs.pylocket.com/part-1-tutorials/multi-os-publishing/
+      - name: Package PyLocket artifact (macOS/Linux)
+        if: ${{ !startsWith(matrix.os, 'windows') }}
+        shell: bash
+        run: |
+          set -e
+          if [ "$(uname)" = "Darwin" ]; then
+            # ditto preserves symlinks + executable bits inside the zip.
+            ditto -c -k --keepParent dist/ElysiumDesigner \
+              "dist/${{ matrix.pylocket_name }}"
+          else
+            (cd dist && zip -ryq "${{ matrix.pylocket_name }}" ElysiumDesigner)
+          fi
+          ls -la "dist/${{ matrix.pylocket_name }}"
+
+      - name: Package PyLocket artifact (Windows)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        run: |
+          Compress-Archive -Force -Path dist\ElysiumDesigner.exe `
+            -DestinationPath "dist\${{ matrix.pylocket_name }}"
+          Get-Item "dist\${{ matrix.pylocket_name }}"
+
+      # Always downloadable from the Actions run page (incl. workflow_dispatch)
+      - name: Upload PyLocket artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.pylocket_name }}
+          path: dist/${{ matrix.pylocket_name }}
+          if-no-files-found: error
 
       # --- macOS: sign + notarize + DMG --------------------------------
       - name: macOS sign + notarize + package
@@ -185,6 +224,7 @@ jobs:
         with:
           files: |
             dist/${{ matrix.artifact_name }}
+            dist/${{ matrix.pylocket_name }}
             dist/*-portable.zip
           generate_release_notes: true
           fail_on_unmatched_files: false
