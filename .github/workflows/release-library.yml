@@ -11,10 +11,6 @@ on:
     tags:
       - "v*"
 
-# Opt every JavaScript action into Node 24 — see build-binaries.yml.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 permissions:
   contents: write   # for attaching wheels to a Release on tag push
 
@@ -39,9 +35,9 @@ jobs:
             artifact: windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -50,7 +46,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -74,7 +70,7 @@ jobs:
           manylinux: ${{ runner.os == 'Linux' && '2_28' || 'auto' }}
 
       - name: Upload wheel artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: elysium-wheel-${{ matrix.artifact }}
           path: dist-wheels/*.whl
@@ -85,15 +81,15 @@ jobs:
     name: sdist (universal source distribution)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist-wheels
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: elysium-sdist
           path: dist-wheels/*.tar.gz
@@ -109,7 +105,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - name: Flatten
@@ -118,7 +114,7 @@ jobs:
           find artifacts -type f \( -name "*.whl" -o -name "*.tar.gz" \) \
             -exec cp {} release-files/ \;
           ls -la release-files
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: release-files/*
           draft: true

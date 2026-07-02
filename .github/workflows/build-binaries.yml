@@ -14,14 +14,6 @@ on:
     tags:
       - "v*"
 
-# Opt every JavaScript action in this workflow into Node 24. Without
-# this GitHub emits a deprecation warning on every run because
-# checkout@v4 / setup-python@v5 / cache@v4 / upload-artifact@v4 are
-# all Node 20 actions, and Node 20 stops working on runners by
-# September 2026.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     name: ${{ matrix.os }}  ${{ matrix.target }}
@@ -37,16 +29,16 @@ jobs:
           - example:snapshot-relay
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -129,7 +121,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: elysium-${{ steps.parse.outputs.label }}-${{ matrix.os }}
           path: dist/**/*
@@ -145,7 +137,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -153,7 +145,7 @@ jobs:
         run: find artifacts -type f -printf '%p  %s bytes\n'
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: artifacts/**/*
           draft: true

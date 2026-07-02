@@ -14,10 +14,6 @@ on:
       - .github/workflows/docs.yml
   workflow_dispatch:
 
-# Opt every JavaScript action into Node 24 — see build-binaries.yml.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 permissions:
   contents: write   # needed to push to gh-pages
 
@@ -29,7 +25,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # `mkdocs gh-deploy` (and the equivalent action below) needs
           # the full git history to detect the existing gh-pages
@@ -37,7 +33,7 @@ jobs:
           # scratch each time.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip

@@ -11,10 +11,6 @@ on:
       - .github/workflows/docs-designer.yml
   workflow_dispatch:
 
-# Opt every JavaScript action into Node 24 — see build-binaries.yml.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 permissions:
   contents: read
   pages: write
@@ -31,8 +27,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.11" }
       - name: Install build dependencies
         run: pip install mkdocs-material pymdown-extensions
@@ -64,7 +60,7 @@ jobs:
           fi
       - name: Build site
         run: mkdocs build --strict --site-dir _site -f mkdocs-designer.yml
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with: { path: _site }
 
   deploy:
@@ -76,4 +72,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
