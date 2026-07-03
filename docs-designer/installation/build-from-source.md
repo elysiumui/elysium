@@ -25,7 +25,7 @@ Per-OS extras:
 ## Clone
 
 ```sh
-git clone https://github.com/elysium-ui/elysium.git
+git clone https://github.com/elysiumui/elysium.git
 cd elysium
 ```
 

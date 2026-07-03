@@ -19,7 +19,7 @@ The AppImage is the most portable option. It runs on any modern
 distro without touching your package manager.
 
 1. Download `Elysium-Designer-<version>-linux-x86_64.AppImage` from
-   the [latest release](https://github.com/elysium-ui/elysium/releases/latest).
+   the [latest release](https://github.com/elysiumui/elysium/releases/latest).
 2. Mark it executable:
 
     ```sh
@@ -49,7 +49,7 @@ Otherwise the bundled desktop file is dropped into
 If you prefer system package management:
 
 ```sh
-curl -LO https://github.com/elysium-ui/elysium/releases/latest/download/elysium-designer_<version>_amd64.deb
+curl -LO https://github.com/elysiumui/elysium/releases/latest/download/elysium-designer_<version>_amd64.deb
 sudo apt install ./elysium-designer_<version>_amd64.deb
 ```
 
@@ -61,7 +61,7 @@ To remove: `sudo apt remove elysium-designer`.
 ## Fedora / RHEL (.rpm)
 
 ```sh
-curl -LO https://github.com/elysium-ui/elysium/releases/latest/download/elysium-designer-<version>-1.x86_64.rpm
+curl -LO https://github.com/elysiumui/elysium/releases/latest/download/elysium-designer-<version>-1.x86_64.rpm
 sudo dnf install ./elysium-designer-<version>-1.x86_64.rpm
 ```
 

@@ -10,7 +10,7 @@ Time: 3 minutes.
 
 ## Download
 
-Go to the [latest release](https://github.com/elysium-ui/elysium/releases/latest)
+Go to the [latest release](https://github.com/elysiumui/elysium/releases/latest)
 on GitHub and pick the asset that matches your CPU:
 
 | File | Architecture |

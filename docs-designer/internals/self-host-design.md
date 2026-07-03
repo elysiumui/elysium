@@ -112,7 +112,7 @@ preferences, not blockers):
 ## 1. Context
 
 The Elysium Designer (~18,500 lines in
-[`elysium-designer/__main__.py`](https://github.com/elysium-ui/elysium/blob/main/elysium-designer/__main__.py))
+[`elysium-designer/__main__.py`](https://github.com/elysiumui/elysium/blob/main/elysium-designer/__main__.py))
 is a visual authoring tool for `.esk` skin bundles consumed by the
 Elysium UI framework. Today the Designer is **not self-hosted**:
 although it calls into framework subsystems (theme tokens, the brush

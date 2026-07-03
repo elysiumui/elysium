@@ -55,7 +55,7 @@ build = [
 
 [project.urls]
 Documentation = "https://docs.elysium.dev"
-Repository    = "https://github.com/elysium-ui/elysium"
+Repository    = "https://github.com/elysiumui/elysium"
 
 [project.scripts]
 elysium = "elysium.cli:main"

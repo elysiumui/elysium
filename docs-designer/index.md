@@ -47,7 +47,7 @@ The Designer ships as a signed standalone executable per OS. Pick yours:
 - [Linux AppImage](installation/linux.md) (x86_64 and aarch64)
 
 Each release of the Designer is available on the
-[GitHub Releases page](https://github.com/elysium-ui/elysium/releases). The
+[GitHub Releases page](https://github.com/elysiumui/elysium/releases). The
 [build-from-source guide](installation/build-from-source.md) explains how to
 build your own `.app`, `.exe`, or AppImage with `pyinstaller scripts/build-designer.spec`.
 

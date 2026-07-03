@@ -1,7 +1,7 @@
 # Changelog
 
 Per-version release notes. The authoritative source is
-[`CHANGELOG.md`](https://github.com/elysium-ui/elysium/blob/main/CHANGELOG.md)
+[`CHANGELOG.md`](https://github.com/elysiumui/elysium/blob/main/CHANGELOG.md)
 at the repo root; this page mirrors it for searchability.
 
 From **1.0.0**, Elysium follows strict semver — see the
@@ -77,7 +77,7 @@ See [Roadmap](roadmap.md) for what's planned next.
 
 ## Subscribing to releases
 
-- GitHub watch the [releases tab](https://github.com/elysium-ui/elysium/releases).
+- GitHub watch the [releases tab](https://github.com/elysiumui/elysium/releases).
 - The Sparkle appcast at `https://elysiumui.com/appcast.xml` powers
   in-app auto-update for packaged apps.
 - The PyPI listing at `pypi.org/project/elysium` is the

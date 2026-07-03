@@ -13,7 +13,7 @@ ARM64 Windows is not yet supported.
 
 ## Download
 
-Go to the [latest release](https://github.com/elysium-ui/elysium/releases/latest)
+Go to the [latest release](https://github.com/elysiumui/elysium/releases/latest)
 on GitHub and download:
 
 | File | Use |

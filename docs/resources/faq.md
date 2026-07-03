@@ -137,7 +137,7 @@ available.
 
 **Where do I file bugs?**
 
-GitHub Issues at [github.com/elysium-ui/elysium](https://github.com/elysium-ui/elysium).
+GitHub Issues at [github.com/elysiumui/elysium](https://github.com/elysiumui/elysium).
 
 **Is there a Discord?**
 

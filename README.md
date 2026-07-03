@@ -70,7 +70,7 @@ per OS:
 - Windows: `ElysiumDesigner.exe`
 - Linux: `Elysium-Designer.AppImage`
 
-Download from [releases](https://github.com/elysium-ui/elysium/releases),
+Download from [releases](https://github.com/elysiumui/elysium/releases),
 or build from source (see
 [the build-from-source guide](https://designer.elysiumui.com/installation/build-from-source/)).
 
@@ -148,7 +148,7 @@ Permissive. See [LICENSE](LICENSE).
 
 - [docs.elysiumui.com](https://docs.elysiumui.com) (framework)
 - [designer.elysiumui.com](https://designer.elysiumui.com) (Designer)
-- [GitHub Releases](https://github.com/elysium-ui/elysium/releases)
+- [GitHub Releases](https://github.com/elysiumui/elysium/releases)
 - [PyPI](https://pypi.org/project/elysium)
-- [Issues](https://github.com/elysium-ui/elysium/issues)
-- [Discussions](https://github.com/elysium-ui/elysium/discussions)
+- [Issues](https://github.com/elysiumui/elysium/issues)
+- [Discussions](https://github.com/elysiumui/elysium/discussions)

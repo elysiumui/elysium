@@ -140,7 +140,7 @@ After the butterfly demo runs:
    ❌ No DrawCommand::Particles in the render pipeline.
 
 📝 Filed: framework_request:particle_system_v1 (severity: blocker)
-   → opened draft GitHub issue elysium-ui/elysium#142
+   → opened draft GitHub issue elysiumui/elysium#142
    → posted spec sketch (emitter, lifetime, sprite atlas, GPU evaluator)
 
 ⚙ Workaround: I can fake it with N small Mesh3D placements driven by
@@ -703,7 +703,7 @@ agent.report_capability_gap(
 ### 8.2 Closing the loop
 
 When a gap ships as a real feature, the framework's release notes
-mark the original request id (e.g. `closes elysium-ui/elysium#142`).
+mark the original request id (e.g. `closes elysiumui/elysium#142`).
 The agent reads the release notes on update and notifies users whose
 sessions had that gap:
 
@@ -926,7 +926,7 @@ async def _butterfly_lifecycle():
    that preset. I filed a capability gap for it.
 
 📝 Filed: framework_request:material_adaptive_iridescence
-   → opened draft elysium-ui/elysium#143
+   → opened draft elysiumui/elysium#143
 ```
 
 Total wall time: ~45 seconds (Claude Opus, no human input after the

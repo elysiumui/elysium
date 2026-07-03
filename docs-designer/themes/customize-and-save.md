@@ -56,7 +56,7 @@ icons with their own sprite set, or swap the Aether FAB position
 can fork the Designer's chrome bundle.
 
 The chrome bundle lives at
-[`elysium-designer/designer-chrome.esk/`](https://github.com/elysium-ui/elysium/tree/main/elysium-designer/designer-chrome.esk).
+[`elysium-designer/designer-chrome.esk/`](https://github.com/elysiumui/elysium/tree/main/elysium-designer/designer-chrome.esk).
 Copy it into the per-user themes directory under your preferred
 name (e.g. `~/.config/elysium-designer/themes/my-chrome.esk/`),
 edit any of:

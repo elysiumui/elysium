@@ -1,7 +1,7 @@
 site_name: Elysium Designer
 site_description: The cross-platform desktop app for authoring borderless animated Python skins.
 site_url: https://designer.elysiumui.com/
-repo_url: https://github.com/elysium-ui/elysium
+repo_url: https://github.com/elysiumui/elysium
 edit_uri: edit/main/docs-designer/
 docs_dir: docs-designer
 
@@ -258,6 +258,6 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/elysium-ui/elysium
+      link: https://github.com/elysiumui/elysium
     - icon: fontawesome/brands/discord
       link: https://discord.gg/elysium-ui

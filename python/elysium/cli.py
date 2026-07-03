@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="LLM provider: anthropic[:model] | ollama[:model] | stub")
     ae.add_argument("--bridge", default="http://127.0.0.1:8183",
                     help="Aether bridge URL (default: localhost:8183).")
-    ae.add_argument("--repo", default="elysium-ui/elysium")
+    ae.add_argument("--repo", default="elysiumui/elysium")
     ae.add_argument("--apply", action="store_true",
                     help="share-feedback: actually open issues (default dry-run).")
 

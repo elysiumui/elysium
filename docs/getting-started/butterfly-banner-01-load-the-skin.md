@@ -25,7 +25,7 @@ tutorial. If you did not run that tutorial:
 
 - Either run it now (it takes ~45 minutes total),
 - Or download the prebuilt `butterfly.esk` from
-  [the examples folder of the elysium repo](https://github.com/elysium-ui/elysium/tree/main/examples/butterfly).
+  [the examples folder of the elysium repo](https://github.com/elysiumui/elysium/tree/main/examples/butterfly).
 
 Place `butterfly.esk` next to your Python script for this tutorial.
 

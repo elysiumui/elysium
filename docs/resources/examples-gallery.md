@@ -5,13 +5,13 @@ one-line description and a link to its source.
 
 ## Hello
 
-[examples/hello/](https://github.com/elysium-ui/elysium/tree/main/examples/hello)
+[examples/hello/](https://github.com/elysiumui/elysium/tree/main/examples/hello)
   minimum-viable app. Loads `hello.esk` and prints to stdout on
 button click. Used for smoke tests of the native renderer.
 
 ## Butterfly
 
-[examples/butterfly/](https://github.com/elysium-ui/elysium/tree/main/examples/butterfly)
+[examples/butterfly/](https://github.com/elysiumui/elysium/tree/main/examples/butterfly)
   the Monarch model + Blue Morpho reference image used in the
 [Designer's Blue Morpho tutorial](https://designer.elysiumui.com/getting-started/butterfly/)
 and the framework's [Butterfly Banner](../getting-started/butterfly-banner-01-load-the-skin.md)
@@ -20,7 +20,7 @@ produced `butterfly.esk` bundle.
 
 ## Components showcase
 
-[examples/components/](https://github.com/elysium-ui/elysium/tree/main/examples/components)
+[examples/components/](https://github.com/elysiumui/elysium/tree/main/examples/components)
   a single-window app demonstrating every built-in component
 (Button, Slider, Toggle, Card, Popover, etc.) with live theme
 switching. Powers
@@ -29,13 +29,13 @@ documentation screenshots.
 
 ## Agent cursor
 
-[examples/agent-cursor/](https://github.com/elysium-ui/elysium/tree/main/examples/agent-cursor)
+[examples/agent-cursor/](https://github.com/elysiumui/elysium/tree/main/examples/agent-cursor)
   a borderless cursor-following agent driven by Aether. Reads its
 prompt from a paired Python file and re-skins itself in response.
 
 ## Snapshot relay
 
-[examples/snapshot-relay/](https://github.com/elysium-ui/elysium/tree/main/examples/snapshot-relay)
+[examples/snapshot-relay/](https://github.com/elysiumui/elysium/tree/main/examples/snapshot-relay)
   headless background process that exposes a `/snapshot` HTTP
 endpoint to capture the live View Panel. Used by integration tests
 and remote debugging.
@@ -46,7 +46,7 @@ Clone the repo, install the framework, and run the example's
 `main.py`:
 
 ```sh
-git clone https://github.com/elysium-ui/elysium.git
+git clone https://github.com/elysiumui/elysium.git
 cd elysium
 pip install -e .
 python examples/hello/main.py

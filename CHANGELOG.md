@@ -200,5 +200,5 @@ production baseline.
 
 - _Nothing yet — the deprecation path is in place for future changes._
 
-[Unreleased]: https://github.com/elysium-ui/elysium/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/elysium-ui/elysium/releases/tag/v1.0.0
+[Unreleased]: https://github.com/elysiumui/elysium/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/elysiumui/elysium/releases/tag/v1.0.0

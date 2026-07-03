@@ -4,7 +4,7 @@
   "description": "Hook completion, refactor, and diagnostics for Elysium UI projects.",
   "version": "0.1.0",
   "publisher": "elysium-ui",
-  "repository": { "type": "git", "url": "https://github.com/elysium-ui/elysium" },
+  "repository": { "type": "git", "url": "https://github.com/elysiumui/elysium" },
   "engines": { "vscode": "^1.90.0" },
   "categories": ["Programming Languages", "Linters", "Other"],
   "activationEvents": [

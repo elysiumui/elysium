@@ -13,7 +13,7 @@ The wheel includes the prebuilt `_native` extension (Rust + Skia + wgpu) so no t
 
 ## From source (developer install)
 ```bash
-git clone https://github.com/elysium-ui/elysium
+git clone https://github.com/elysiumui/elysium
 cd elysium
 python -m venv .venv
 source .venv/bin/activate

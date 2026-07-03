@@ -5,7 +5,7 @@
 anything where the user manipulates a collection of shapes on a pannable,
 zoomable canvas.
 
-See [`examples/graphics-demo/`](https://github.com/elysium-ui/elysium/tree/main/examples/graphics-demo)
+See [`examples/graphics-demo/`](https://github.com/elysiumui/elysium/tree/main/examples/graphics-demo)
 for a mini flowchart editor and the [Qt porting guide](porting-from-qt.md#interactive-2d-canvas-tier-5)
 for the class map.
 

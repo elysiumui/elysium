@@ -2,12 +2,12 @@
 
 How to file a bug, propose a feature, and send a PR. The
 authoritative source is
-[`CONTRIBUTING.md`](https://github.com/elysium-ui/elysium/blob/main/CONTRIBUTING.md)
+[`CONTRIBUTING.md`](https://github.com/elysiumui/elysium/blob/main/CONTRIBUTING.md)
 at the repo root; this page mirrors the essentials.
 
 ## Bugs
 
-File at [GitHub Issues](https://github.com/elysium-ui/elysium/issues).
+File at [GitHub Issues](https://github.com/elysiumui/elysium/issues).
 Include:
 
 - The exact `elysium --version` output.
@@ -57,7 +57,7 @@ spelling.
 
 - Python: ruff + pyright for linting / typing.
 - Rust: `cargo fmt` + `cargo clippy`.
-- Docs: see [the docs style guide](https://github.com/elysium-ui/elysium/blob/main/docs/STYLE.md).
+- Docs: see [the docs style guide](https://github.com/elysiumui/elysium/blob/main/docs/STYLE.md).
 - Commit messages: imperative present tense; reference issue
   numbers when relevant.
 

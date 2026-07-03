@@ -9,7 +9,7 @@ tutorial.
 ## Prerequisites
 
 - An arm mesh (`.obj` or `.gltf`). Any rigged or unrigged arm
-  works; the [examples/butterfly](https://github.com/elysium-ui/elysium/tree/main/examples)
+  works; the [examples/butterfly](https://github.com/elysiumui/elysium/tree/main/examples)
   repo has one.
 - Finished the [Blue Morpho tutorial](../getting-started/butterfly/index.md).
 

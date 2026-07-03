@@ -8,7 +8,7 @@ authors      = ["Elysium UI Contributors"]
 edition      = "2021"
 rust-version = "1.90"
 license      = "Apache-2.0"
-repository   = "https://github.com/elysium-ui/elysium"
+repository   = "https://github.com/elysiumui/elysium"
 
 [workspace.dependencies]
 pyo3                   = { version = "0.23", features = ["extension-module", "abi3-py310"] }

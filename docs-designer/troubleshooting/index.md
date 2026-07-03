@@ -66,7 +66,7 @@ See [Touch and pen input](../reference/touch-and-pen-input.md).
 ## Filing a bug
 
 If none of the above fits, file an issue at
-[github.com/elysium-ui/elysium/issues](https://github.com/elysium-ui/elysium/issues)
+[github.com/elysiumui/elysium/issues](https://github.com/elysiumui/elysium/issues)
 with:
 
 - The output of `elysium doctor`.
