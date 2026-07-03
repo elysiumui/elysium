@@ -1,0 +1,44 @@
+name: CF domain move
+
+# One-off operational tool: move the site's custom domains between the old
+# git-connected Pages project ("elysium") and the direct-upload project
+# ("elysiumui-website"). Needed because domain attachment must match the DNS
+# CNAME target or Cloudflare serves 522.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which project should own the domains"
+        required: true
+        type: choice
+        options: [elysium, elysiumui-website]
+
+permissions:
+  contents: read
+
+jobs:
+  move:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move domains
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          OTHER=elysium; [ "$TARGET" = "elysium" ] && OTHER=elysiumui-website
+          api() {
+            curl -sS -X "$1" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$2" \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" ${3:+--data "$3"}
+          }
+          for DOMAIN in www.elysiumui.com elysiumui.com; do
+            echo "--- $DOMAIN: $OTHER -> $TARGET ---"
+            api DELETE "/$OTHER/domains/$DOMAIN" >/dev/null 2>&1 || true
+            api POST "/$TARGET/domains" "{\"name\": \"$DOMAIN\"}" \
+              | python3 -c "import json,sys; d=json.load(sys.stdin); print('attached' if d.get('success') else d.get('errors'))"
+          done
+          echo "--- domains on $TARGET now ---"
+          api GET "/$TARGET/domains" | python3 -c "import json,sys; d=json.load(sys.stdin); print([x['name'] for x in d.get('result') or []])"
