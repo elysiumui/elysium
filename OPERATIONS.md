@@ -208,7 +208,9 @@ site lives in `website/src/data/downloads.ts`** — edit there, nowhere else.
 
 `website.yml` (monorepo) on any push to `main` touching `website/**`:
 builds the site → **wrangler direct upload** to the Cloudflare Pages project
-**`elysiumui-website`** → migrates custom domains to it via the Pages API.
+**`elysiumui-website`**. It deploys ONLY — it deliberately does not touch
+custom domains (an earlier version moved them on every deploy, which caused
+the 522 incident; domain moves are `cf-domain-move.yml`'s job, run on demand).
 
 Why direct upload: the original Pages project (`elysium`) was git-connected
 to the repo that used to hold the website; **Cloudflare cannot re-point a
