@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-07-03
+
+### Fixed
+
+- **Release packaging**: the Linux wheel build failed in the manylinux_2_28
+  container (missing fontconfig/freetype dev libraries that Skia links
+  against) and the macOS Intel wheel targeted GitHub's retired `macos-13`
+  runner (queued forever). First version published to PyPI as `elysium-ui`.
+
 ## [1.1.1] - 2026-06-29
 
 ### Fixed

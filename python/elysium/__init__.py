@@ -26,7 +26,7 @@ try:
     _NATIVE_AVAILABLE = True
 except ImportError as _e:
     _NATIVE_AVAILABLE = False
-    __version__ = "1.1.1"
+    __version__ = "1.1.2"
     _import_error = _e
 
     class _NotBuiltYet:

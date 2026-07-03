@@ -24,7 +24,8 @@ jobs:
           - os: macos-14
             target: aarch64-apple-darwin
             artifact: macos-arm64
-          - os: macos-13
+          # macos-13 was retired by GitHub (Dec 2025) — jobs queue forever.
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             artifact: macos-x86_64
           - os: ubuntu-22.04
@@ -68,6 +69,11 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist-wheels
           manylinux: ${{ runner.os == 'Linux' && '2_28' || 'auto' }}
+          # The manylinux_2_28 container is minimal — Skia links against
+          # fontconfig/freetype, so install their dev packages first.
+          before-script-linux: |
+            dnf install -y fontconfig-devel freetype-devel || \
+              yum install -y fontconfig-devel freetype-devel
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v7
