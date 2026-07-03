@@ -150,3 +150,7 @@ jobs:
             -exec cp {} dist/ \;
           ls -la dist
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Files already on PyPI (e.g. a partial earlier publish) are skipped
+          # instead of failing the job.
+          skip-existing: true

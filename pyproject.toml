@@ -69,6 +69,13 @@ manifest-path        = "elysium-native/crates/ely-py/Cargo.toml"
 module-name          = "elysium._native._native"
 python-source        = "python"
 features             = ["pyo3/extension-module"]
+# maturin auto-declares License-File: LICENSE/NOTICE in the metadata but does
+# not add them to the sdist archive (manifest-path lives in a subdir); PyPI
+# rejects sdists whose declared license files are missing. Include explicitly.
+include              = [
+    { path = "LICENSE", format = "sdist" },
+    { path = "NOTICE",  format = "sdist" },
+]
 # strip = true   (disabled — conflicts with maturin develop's implicit
 # --include-debuginfo; re-enable for release wheels via env override.)
 
