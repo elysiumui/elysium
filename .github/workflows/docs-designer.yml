@@ -13,8 +13,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   # The Framework docs workflow uses concurrency group "pages". Use a separate
@@ -60,16 +58,34 @@ jobs:
           fi
       - name: Build site
         run: mkdocs build --strict --site-dir _site -f mkdocs-designer.yml
-      - uses: actions/upload-pages-artifact@v5
-        with: { path: _site }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: designer-docs-site
+          path: _site
 
+  # GitHub allows one Pages site per repo and the framework docs own it, so
+  # the Designer docs deploy to a Cloudflare Pages project (direct upload).
+  # First run auto-creates the project; the custom domain
+  # designer.elysiumui.com is attached once in the Cloudflare dashboard.
   deploy:
     if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages-designer
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+      - uses: actions/download-artifact@v8
+        with:
+          name: designer-docs-site
+          path: _site
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — skipping deploy (build still validated)."
+            exit 0
+          fi
+          npx --yes wrangler@4 pages project create elysium-designer-docs \
+            --production-branch=main 2>/dev/null || true
+          npx --yes wrangler@4 pages deploy _site \
+            --project-name=elysium-designer-docs --branch=main
