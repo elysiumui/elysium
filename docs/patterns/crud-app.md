@@ -4,7 +4,7 @@ A create / read / update / delete screen is the canonical line-of-business UI.
 This pattern wires an [`ItemModel`](../api/modelview.md) to a virtualized
 [`TableView`](../api/modelview.md), edits rows in place, and persists with
 [`Settings`](../api/settings.md). The runnable version is
-[`examples/qt-parity-demo`](https://github.com/klamaute/Elysium/tree/main/examples/qt-parity-demo).
+[`examples/qt-parity-demo`](https://github.com/elysium-ui/elysium/tree/main/examples/qt-parity-demo).
 
 ## The model
 

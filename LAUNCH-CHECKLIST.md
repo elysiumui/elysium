@@ -10,7 +10,7 @@ Business entity everywhere: **Lamaute Labs LLC**. Pricing: **$8/mo · $79/yr pre
 CI now produces **raw PyInstaller zips** (what PyLocket accepts) alongside the
 installers.
 
-1. Go to <https://github.com/klamaute/Elysium/actions/runs/28615834679>
+1. Go to <https://github.com/elysium-ui/elysium/actions/runs/28615834679>
    (workflow: *Release Designer*).
 2. Wait for all four jobs to go green, then scroll to **Artifacts** and download:
    - `Elysium-Designer-macOS-arm64-pylocket.zip` (PyInstaller **onedir**, zipped)
@@ -63,7 +63,7 @@ installers.
 Once the zone is Active (site works before that via `*.pages.dev` too):
 
 1. Dash → **Workers & Pages** → **Create** → **Pages** → **Connect to Git** →
-   authorize the Cloudflare GitHub app for **klamaute/Elysium** (private repos
+   authorize the Cloudflare GitHub app for **elysium-ui/elysium** (private repos
    are supported).
 2. Build settings — set exactly:
    - **Root directory:** `website`
@@ -98,7 +98,7 @@ read access to the framework repo until `elysium-ui` is on PyPI:
 
 1. <https://github.com/settings/personal-access-tokens/new> → **Fine-grained
    token**: Resource owner *klamaute*; **Only select repositories** →
-   `klamaute/Elysium`; Permissions → **Contents: Read-only**. 1-year expiry.
+   `elysium-ui/elysium`; Permissions → **Contents: Read-only**. 1-year expiry.
 2. <https://github.com/klamaute/elysium-designer/settings/secrets/actions> →
    **New repository secret** → name `FRAMEWORK_REPO_TOKEN`, paste the token.
 3. Optional check: repo → Actions → run **Release Designer** → artifacts should

@@ -1,7 +1,7 @@
 # Changelog
 
 Per-version release notes. The authoritative source is
-[`CHANGELOG.md`](https://github.com/klamaute/Elysium/blob/main/CHANGELOG.md)
+[`CHANGELOG.md`](https://github.com/elysium-ui/elysium/blob/main/CHANGELOG.md)
 at the repo root; this page mirrors it for searchability.
 
 From **1.0.0**, Elysium follows strict semver — see the

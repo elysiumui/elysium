@@ -19,8 +19,8 @@ export const framework = {
   license: 'Apache-2.0',
   pypiUrl: 'https://pypi.org/project/elysium-ui/',
   /** The public framework repo (post-split). TODO: flip when the split lands. */
-  repoUrl: 'https://github.com/klamaute/Elysium',
-  releasesApi: 'https://api.github.com/repos/klamaute/Elysium/releases/latest',
+  repoUrl: 'https://github.com/elysium-ui/elysium',
+  releasesApi: 'https://api.github.com/repos/elysium-ui/elysium/releases/latest',
 } as const;
 
 /** Designer — Track B ----------------------------------------------------- */
@@ -65,6 +65,6 @@ export const links = {
   designerDocs: 'https://designer.elysiumui.com',
   tutorial: 'https://docs.elysiumui.com/tutorials/shopify-style-desktop-app/',
   gallery: 'https://docs.elysiumui.com/resources/component-gallery/',
-  github: 'https://github.com/klamaute/Elysium',
+  github: 'https://github.com/elysium-ui/elysium',
   supportEmail: 'support@elysiumui.com',
 } as const;

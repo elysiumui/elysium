@@ -7,7 +7,7 @@ a status bar, and group boxes. They are ordinary immediate-mode
 time (so it recolours with the theme — including [Studio](theming.md)) and
 exposes plain methods the host calls to dispatch input.
 
-See [`examples/app-shell-demo/`](https://github.com/klamaute/Elysium/tree/main/examples/app-shell-demo)
+See [`examples/app-shell-demo/`](https://github.com/elysium-ui/elysium/tree/main/examples/app-shell-demo)
 for a docking IDE that wires all of them together, and the
 [Qt porting guide](porting-from-qt.md#app-shell-tier-4) for the class map.
 
