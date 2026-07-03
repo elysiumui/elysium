@@ -40,3 +40,4 @@ site/
 # Claude Code local-only settings (per-machine permission overrides).
 .claude/settings.local.json
 .claude/projects/
+.coverage
