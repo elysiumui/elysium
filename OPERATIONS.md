@@ -218,26 +218,28 @@ git-connected project to a different repo, and wrangler cannot direct-upload
 to a git-connected project** — so a fresh direct-upload project was the only
 path when the website source moved to the private monorepo.
 
-### ⚠️ Domain-cutover state (UPDATE THIS WHEN DONE)
+### Domain cutover — DONE (2026-07-03)
 
-As of 2026-07-03 the cutover is **staged but not executed**:
+`www` + apex now attach to **`elysiumui-website`** with DNS retargeted to
+`elysiumui-website.pages.dev` (`cf-domain-move.yml` run 28684369374,
+`target=elysiumui-website`). Verified 200 afterwards on apex, www,
+/download, /terms, plus both docs sites. Lessons that must not be relearned:
 
-- Live domains (`www` + apex) still attach to the **old `elysium` project**
-  (dormant — nothing rebuilds it, so it serves frozen-but-current content).
-- The new `elysiumui-website` project is deployed and current at
-  `elysiumui-website.pages.dev`.
-- **The rule that caused a 10-minute outage: the Pages domain attachment and
-  the DNS CNAME target must agree, or Cloudflare serves 522.** The first
-  migration attempt moved the attachment while DNS still pointed at
-  `elysium.pages.dev`.
-- The fix: `.github/workflows/cf-domain-move.yml` (branch `ci/domain-cutover`,
-  PR #5) moves the attachment **and** retargets the DNS records in one run.
-  Requires the CF token to have Zone → DNS → Edit (added 2026-07-03).
-- **To execute:** merge PR #5, then
-  `gh workflow run cf-domain-move.yml --repo klamaute/Elysium -f target=elysiumui-website`,
-  then verify `curl -sI https://www.elysiumui.com` and the apex both return
-  200. To roll back: same command with `-f target=elysium`.
-- After cutover: the old `elysium` Pages project can be deleted in the CF
+- **The Pages domain attachment and the DNS CNAME target must agree, or
+  Cloudflare serves 522** (a first migration attempt that moved only the
+  attachment caused a ~10-minute outage). `cf-domain-move.yml` moves both
+  atomically — it is the ONLY tool that may move these domains. The CF token
+  needs Zone → DNS → Edit for it (added 2026-07-03).
+- After a move, **`www` serves immediately but the apex returns 522 for
+  ~3–4 minutes** while Cloudflare provisions the flattened CNAME + cert.
+  Don't panic-rollback inside that window.
+- The workflow patches `r[0]` of the DNS records matching the domain name;
+  at the **apex** that name also holds the Purelymail MX/TXT records. It
+  picked the CNAME correctly this run (mail verified intact afterwards),
+  but before any future edit, make the query filter by `type=CNAME`.
+- Rollback: same dispatch with `-f target=elysium` — only valid while the
+  old `elysium` project still exists.
+- The old dormant `elysium` Pages project can now be **deleted** in the CF
   dashboard; keep `cf-domain-move.yml` as an ops tool.
 
 ### Website gotchas
@@ -292,7 +294,7 @@ CF edge IPs — real targets are only visible in the CF DNS dashboard.
 
 | Record | Type | Target | Notes |
 |---|---|---|---|
-| `elysiumui.com` (apex) | CNAME (flattened), proxied | `elysium.pages.dev` → **after cutover** `elysiumui-website.pages.dev` | must match the Pages domain attachment (§6) |
+| `elysiumui.com` (apex) | CNAME (flattened), proxied | `elysiumui-website.pages.dev` | must match the Pages domain attachment (§6) |
 | `www` | CNAME, proxied | same as apex | |
 | `docs` | CNAME, proxied | `elysiumui.github.io` | GitHub Pages custom domain on `elysiumui/elysium` |
 | `designer` | CNAME, proxied | `elysium-designer-docs.pages.dev` | |
@@ -368,9 +370,9 @@ job** (environment `pypi`, OIDC).
 
 ## 11 · Open items (as of 2026-07-03)
 
-1. **Execute the website domain cutover** (§6) — merge PR #5, dispatch
-   `cf-domain-move.yml -f target=elysiumui-website`, verify, then delete the
-   old `elysium` Pages project.
+1. **Cutover executed 2026-07-03 (§6)** — remaining: merge PRs #5/#6 (the
+   cutover ran from the `ci/domain-cutover` branch) and **delete the old
+   `elysium` Pages project** in the CF dashboard.
 2. **Stripe approval** → set `designer.buyUrl` in
    `website/src/data/downloads.ts` (one line) → push (auto-deploys).
 3. **Delete `FRAMEWORK_REPO_TOKEN`** from `klamaute/elysium-designer` (unused).
