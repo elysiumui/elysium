@@ -1,45 +1,337 @@
 ---
 import Layout from '../layouts/Layout.astro';
+
+/**
+ * Elysium Designer End User License Agreement (Lamaute Labs LLC), from
+ * Elysium Designer_EULA.docx — last updated July 3, 2026.
+ */
+type Block = { p?: string; ul?: string[] };
+interface Section {
+  h: string;
+  blocks: Block[];
+}
+
+const summary: [string, string][] = [
+  ['License model', 'Licensed, not sold. Personal, limited, non-exclusive, non-transferable, non-sublicensable, revocable license.'],
+  ['Trial', 'Time-limited trial may include the full feature set. Continued use after the trial requires a paid license.'],
+  ['Subscription pricing', 'As currently offered: $8/month or $79/year when prepaid annually, unless another price, promotion, enterprise order, or renewal term is shown at purchase.'],
+  ['Activation', 'Use is enforced by a license key and may require periodic activation, validation, or subscription-status checks through PyLocket or other licensing services.'],
+  ['Your work', 'You own the skins, themes, .esk files, exported assets, and other original content you create with the Software.'],
+  ['Warranty and liability', 'The Software is provided AS IS, AS AVAILABLE, WITH ALL FAULTS, and without warranties. Lamaute Labs limits liability to the maximum extent permitted by law.'],
+];
+
+const sections: Section[] = [
+  {
+    h: '1. License Grant',
+    blocks: [
+      { p: 'Subject to your compliance with this EULA, payment of applicable fees, and maintenance of an active subscription or active trial, Lamaute Labs grants you a limited, personal, revocable, non-exclusive, non-transferable, non-sublicensable license to install and use the Software on desktop devices that you own or control solely for your internal business, professional, educational, or personal design purposes.' },
+      { p: 'Unless an order form, enterprise agreement, or written approval from Lamaute Labs says otherwise, each license is for one named user. You may not share a license key, pool licenses, use one subscription for multiple unrelated users, or allow unlicensed users to access the Software.' },
+      { p: 'The Software is licensed, not sold. You receive only the rights expressly granted in this EULA. Lamaute Labs and its licensors reserve all other rights.' },
+    ],
+  },
+  {
+    h: '2. Trial License',
+    blocks: [
+      { p: 'If Lamaute Labs offers a trial, the trial is provided for evaluation only and may be time-limited, feature-limited, device-limited, or otherwise restricted. Lamaute Labs may modify, suspend, or discontinue trials at any time.' },
+      { p: 'When a trial ends, you must purchase and activate a paid license to continue using the Software. The Software may disable editing, exporting, saving, or other functions when a trial expires.' },
+      { p: 'Trial access is provided AS IS and without any promise that the trial will continue, be converted to a paid subscription, or preserve any trial-generated files or settings.' },
+    ],
+  },
+  {
+    h: '3. Subscriptions, Fees, Taxes, and Renewals',
+    blocks: [
+      { p: 'Paid access requires an active subscription or another paid entitlement accepted by Lamaute Labs. Current standard pricing is $8 per month or $79 per year when prepaid annually, but prices, offers, taxes, renewal terms, and billing cycles may vary by purchase page, promotion, jurisdiction, currency, app channel, reseller, or written order.' },
+      { p: 'Subscriptions continue for the period purchased and may renew automatically if the purchase flow, payment processor, or account settings provide for automatic renewal. You are responsible for reviewing the checkout page and subscription-management page before purchase.' },
+      { p: 'Taxes, payment-card charges, foreign exchange charges, bank charges, and similar amounts are your responsibility unless checkout states otherwise. Lamaute Labs may rely on PyLocket, Stripe, Paddle, app stores, resellers, or other third parties to process payments, subscriptions, invoices, tax calculations, refunds, fraud review, and license delivery.' },
+      { p: 'Except as required by law or expressly stated at purchase, fees are non-refundable. Failure to pay, payment reversal, chargeback, suspected fraud, or violation of this EULA may result in suspension or termination of the license key and access to the Software.' },
+    ],
+  },
+  {
+    h: '4. License Keys, Activation, and Validation',
+    blocks: [
+      { p: 'The Software may require a license key, account sign-in, online activation, device authorization, subscription-status check, or periodic validation. You authorize the Software and our licensing providers to transmit and receive information reasonably necessary to verify license status, prevent fraud, enforce subscription terms, provide updates, and secure the Software.' },
+      { p: 'Activation and validation may use information such as license key, subscription status, device identifiers, operating system, app version, installation identifier, IP address, timestamps, error reports, entitlement records, and similar technical information. Use of that information is described in the Elysium UI Privacy Policy and any applicable PyLocket or payment-provider policies.' },
+      { p: 'You may not bypass, disable, misrepresent, tamper with, remove, or interfere with license activation, validation, telemetry used for licensing, anti-tamper protections, update checks, or other technical protection measures. We may disable, revoke, or refuse a license key that is lost, leaked, resold, duplicated, abused, fraudulently obtained, or used in violation of this EULA.' },
+    ],
+  },
+  {
+    h: '5. Ownership of Your Work',
+    blocks: [
+      { p: 'As between you and Lamaute Labs, you own your original skins, themes, .esk files, configuration files, project files, exported images, exported assets, and other original materials that you create using the Software (collectively, "Your Work"). You may use Your Work for commercial or non-commercial purposes.' },
+      { p: 'This EULA does not transfer to Lamaute Labs ownership of Your Work. You are solely responsible for Your Work, including its legality, accuracy, quality, suitability, non-infringement, licensing status, security, backups, publication, and downstream use.' },
+      { p: 'Your ownership of Your Work does not give you ownership of the Software, the Elysium UI framework, sample assets owned by Lamaute Labs or third parties, trademarks, logos, trade dress, documentation, or other Lamaute Labs intellectual property.' },
+    ],
+  },
+  {
+    h: '6. Lamaute Labs Intellectual Property',
+    blocks: [
+      { p: 'The Software, documentation, user interface, source code, object code, executable code, installers, designs, workflows, templates supplied by us, sample files supplied by us, APIs supplied by us, trademarks, service marks, trade names, logos, Blue Morpho logo, Elysium name, and all related intellectual property are owned by Lamaute Labs or its licensors and are protected by copyright, trademark, trade secret, contract, and other laws.' },
+      { p: 'You may not remove, obscure, or alter any copyright notice, trademark notice, attribution, license notice, digital signature, or other proprietary notice in or associated with the Software.' },
+      { p: 'No rights are granted to use the Elysium name, Lamaute Labs name, Blue Morpho logo, or other marks in a way that suggests endorsement, sponsorship, affiliation, or official status without written permission from Lamaute Labs.' },
+    ],
+  },
+  {
+    h: '7. Restrictions',
+    blocks: [
+      { p: 'You agree that you will not, and will not allow anyone else to:' },
+      {
+        ul: [
+          'copy, reproduce, distribute, publish, rent, lease, lend, sell, resell, sublicense, host, outsource, timeshare, provide as a service bureau, or otherwise make the Software available to any third party except as expressly permitted by this EULA;',
+          'reverse engineer, decompile, disassemble, decrypt, inspect, modify, translate, adapt, derive source code from, or create derivative works of the Software, except to the limited extent applicable law expressly prohibits this restriction;',
+          'bypass, disable, defeat, tamper with, or circumvent license checks, technical protection measures, usage limits, update mechanisms, anti-tamper logic, activation services, digital signatures, or security features;',
+          'use the Software with any cracked, stolen, leaked, generated, shared, fraudulent, expired, or unauthorized license key;',
+          'use bots, scripts, virtualized farms, automated installations, or other techniques to exceed licensed use, evade license enforcement, or simulate multiple authorized users;',
+          'benchmark, publish performance comparisons, vulnerability details, or compatibility claims in a misleading way or in a way that harms the security of the Software or users;',
+          'use the Software to infringe intellectual property rights, violate law, distribute malware, create deceptive content, misrepresent affiliation with Lamaute Labs, or violate any third-party terms;',
+          'use the Software to develop or improve a competing designer application, licensing-circumvention tool, reverse-engineering tool, or service that substitutes for the Software;',
+          'export, re-export, transfer, access, or use the Software in violation of export-control, sanctions, or anti-boycott laws; or',
+          'use the Software in any high-risk use described in Section 15.',
+        ],
+      },
+    ],
+  },
+  {
+    h: '8. Third-Party and Open-Source Components',
+    blocks: [
+      { p: 'The Software may include, link to, install with, depend on, or interoperate with third-party libraries, open-source components, frameworks, package managers, operating-system features, fonts, templates, icons, examples, payment systems, license-management systems, and other third-party materials. Those materials may be governed by separate license terms, notices, privacy policies, or service terms.' },
+      { p: 'To the extent a third-party or open-source license gives you rights that are broader than this EULA for that component, that component license governs only that component. This EULA continues to govern the proprietary portions of the Software and your use of Elysium Designer as a whole.' },
+      { p: 'Lamaute Labs is not responsible for third-party materials, third-party services, package repositories, payment processors, license-management services, operating systems, device drivers, hardware, networks, app stores, resellers, or websites, even if the Software links to, integrates with, or depends on them.' },
+    ],
+  },
+  {
+    h: '9. Updates, Upgrades, Patches, and Compatibility',
+    blocks: [
+      { p: 'Lamaute Labs may, but is not required to, provide updates, upgrades, patches, bug fixes, new versions, compatibility updates, documentation changes, or feature changes. Updates may be automatic or manual, and continued use may require accepting updated terms, installing updates, maintaining an active subscription, or meeting new technical requirements.' },
+      { p: 'We do not guarantee that the Software will remain compatible with any particular device, operating system, processor architecture, graphics driver, package manager, IDE, plugin, file format, Elysium UI framework version, theme format, template, dependency, workflow, or third-party service.' },
+      { p: 'Updates may add, change, disable, deprecate, remove, or replace features, formats, integrations, interfaces, licensing behavior, and export options. You are responsible for testing updates before using them in production workflows and for keeping backups of your files and prior installers where lawful and permitted.' },
+    ],
+  },
+  {
+    h: '10. Support and Professional Services',
+    blocks: [
+      { p: 'Lamaute Labs may provide support through email, documentation, community channels, issue trackers, or other methods, but support is not guaranteed unless a separate written support agreement expressly says otherwise. Support availability, response times, fixes, workarounds, and outcomes are not guaranteed.' },
+      { p: 'Any suggestions, examples, documentation, sample code, design guidance, or troubleshooting information are provided for convenience only. You remain responsible for deciding whether they are suitable for your environment, project, customer, and legal obligations.' },
+      { p: 'Lamaute Labs may decline, limit, suspend, or terminate support for outdated versions, modified installations, unsupported platforms, suspected abuse, license violations, security risks, or issues caused by third-party software, hardware, networks, files, or services.' },
+    ],
+  },
+  {
+    h: '11. Files, Backups, Data Loss, and Output Responsibility',
+    blocks: [
+      { p: 'The Software may create, open, edit, export, import, or transform project files, .esk files, skins, themes, assets, settings, and related design files. You are solely responsible for backing up all files, testing exports, validating output, maintaining version control, retaining prior copies, and confirming that output works for your intended use.' },
+      { p: 'Lamaute Labs is not responsible for lost, corrupted, overwritten, incompatible, inaccessible, deleted, misconfigured, failed, incomplete, inaccurate, or rejected files, projects, exports, builds, themes, skins, assets, designs, templates, or outputs.' },
+      { p: 'You should not use the Software as the sole repository for important information. You should maintain independent backups and test recovery before relying on any output in production, customer, commercial, legal, regulated, or mission-critical environments.' },
+    ],
+  },
+  {
+    h: '12. Privacy, Telemetry, and Communications',
+    blocks: [
+      { p: 'The Software and related services may collect or process information described in the Elysium UI Privacy Policy, including information needed for website operation, support, license activation, subscription validation, fraud prevention, security, analytics, crash diagnostics, and communications.' },
+      { p: 'You consent to receive service, security, billing, license, renewal, update, and administrative communications related to the Software. Marketing communications, if any, may be subject to separate consent and opt-out options.' },
+      { p: 'If you provide support files, screenshots, logs, sample projects, crash dumps, or other materials to Lamaute Labs, you grant Lamaute Labs a non-exclusive right to use those materials to provide support, diagnose issues, improve the Software, investigate security or license issues, and maintain business records. Do not send confidential, regulated, sensitive, or third-party data unless it is necessary and you are authorized to do so.' },
+    ],
+  },
+  {
+    h: '13. Feedback',
+    blocks: [
+      { p: 'If you provide ideas, suggestions, feature requests, issue reports, improvements, comments, or other feedback about the Software, you grant Lamaute Labs a perpetual, worldwide, irrevocable, royalty-free, sublicensable license to use, copy, modify, distribute, commercialize, and otherwise exploit that feedback without restriction or compensation to you.' },
+      { p: 'You agree that feedback is not confidential unless Lamaute Labs has signed a separate written confidentiality agreement covering that feedback.' },
+    ],
+  },
+  {
+    h: '14. Beta, Preview, Experimental, and Evaluation Features',
+    blocks: [
+      { p: 'The Software may include beta, preview, experimental, prerelease, evaluation, or unsupported features. Such features may be incomplete, unstable, insecure, inaccurate, incompatible, or changed or removed without notice.' },
+      { p: 'You should not rely on beta, preview, experimental, or evaluation features for production or commercial use. Lamaute Labs is not responsible for any loss, damage, downtime, data loss, incompatibility, security issue, or other problem arising from those features.' },
+    ],
+  },
+  {
+    h: '15. No High-Risk Use',
+    blocks: [
+      { p: 'The Software is not designed, tested, certified, licensed, or intended for use in high-risk, hazardous, mission-critical, safety-critical, or regulated environments where failure, error, delay, data loss, security issue, or incorrect output could lead to death, personal injury, property damage, environmental harm, financial loss, legal noncompliance, or other severe consequences.' },
+      { p: 'Examples of prohibited high-risk uses include nuclear facilities, aircraft navigation, aviation, autonomous vehicles, medical devices, emergency services, life-support systems, weapons, critical infrastructure, industrial control systems, financial trading or settlement systems, legal compliance systems, government-mandated filings, and any similar context unless Lamaute Labs expressly agrees in a separate signed writing.' },
+      { p: 'You are solely responsible for evaluating the Software, applying independent review, adding safeguards, and ensuring that any use of Your Work or Software output complies with applicable standards, laws, contracts, and customer requirements.' },
+    ],
+  },
+  {
+    h: '16. Disclaimer of Warranties',
+    blocks: [
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE, TRIALS, LICENSE KEYS, UPDATES, DOCUMENTATION, SUPPORT, TEMPLATES, SAMPLE FILES, OUTPUT FEATURES, ACTIVATION SERVICES, AND ALL RELATED MATERIALS ARE PROVIDED "AS IS," "AS AVAILABLE," "WITH ALL FAULTS," AND WITHOUT WARRANTY OF ANY KIND.' },
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS DISCLAIMS ALL WARRANTIES, REPRESENTATIONS, CONDITIONS, GUARANTEES, AND PROMISES, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, QUIET ENJOYMENT, ACCURACY, RELIABILITY, SECURITY, AVAILABILITY, COMPATIBILITY, PERFORMANCE, AND COURSE OF DEALING OR USAGE OF TRADE.' },
+      { p: 'LAMAUTE LABS DOES NOT WARRANT OR GUARANTEE THAT THE SOFTWARE WILL MEET YOUR REQUIREMENTS; OPERATE WITHOUT INTERRUPTION; BE ERROR-FREE, BUG-FREE, DEFECT-FREE, MALWARE-FREE, VULNERABILITY-FREE, OR SECURE; WORK WITH ANY PARTICULAR DEVICE, OPERATING SYSTEM, DRIVER, FRAMEWORK VERSION, FILE, TEMPLATE, WORKFLOW, OR THIRD-PARTY SERVICE; PRESERVE DATA; PRODUCE ANY PARTICULAR RESULT; OR CONTINUE TO BE AVAILABLE.' },
+      { p: 'You assume the entire risk arising from downloading, installing, activating, accessing, using, testing, relying on, modifying files with, exporting from, or being unable to use the Software. Some jurisdictions do not allow certain warranty exclusions, so some exclusions may not apply to you. In that case, the exclusions apply to the maximum extent permitted by law.' },
+    ],
+  },
+  {
+    h: '17. Limitation of Liability',
+    blocks: [
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS AND ITS OWNERS, OFFICERS, DIRECTORS, EMPLOYEES, CONTRACTORS, AGENTS, AFFILIATES, LICENSORS, SERVICE PROVIDERS, PAYMENT PROCESSORS, AND SUPPLIERS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, ENHANCED, PUNITIVE, OR SIMILAR DAMAGES; LOST PROFITS; LOST REVENUE; LOSS OF GOODWILL; LOSS OF BUSINESS; BUSINESS INTERRUPTION; LOSS OF DATA; DATA CORRUPTION; COST OF SUBSTITUTE SOFTWARE OR SERVICES; SECURITY INCIDENTS; DEVICE DAMAGE; THIRD-PARTY CLAIMS; OR OTHER LOSSES ARISING OUT OF OR RELATED TO THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.' },
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS IS NOT RESPONSIBLE FOR ANY DAMAGES, LOSSES, CLAIMS, COSTS, EXPENSES, OR LIABILITIES ARISING FROM OR RELATED TO: your use of or inability to use the Software; design, development, business, legal, compliance, or commercial decisions you make; third-party services; payment processing; license activation; subscription interruptions; bugs; vulnerabilities; security incidents; failed updates; failed exports; corrupted files; lost projects; incompatible output; unauthorized access; malware; hardware or operating-system problems; internet or network issues; or any use of Your Work.' },
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS TOTAL AGGREGATE LIABILITY FOR ALL CLAIMS ARISING OUT OF OR RELATED TO THIS EULA OR THE SOFTWARE WILL NOT EXCEED THE GREATER OF (A) THE AMOUNT YOU PAID DIRECTLY TO LAMAUTE LABS FOR THE SOFTWARE DURING THE 12 MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM, OR (B) USD $50.' },
+      { p: 'The limitations in this section apply regardless of legal theory, including contract, tort, negligence, strict liability, warranty, statute, product liability, misrepresentation, restitution, unjust enrichment, or any other theory. They apply even if a limited remedy fails of its essential purpose. Some jurisdictions do not allow certain liability limitations, so some limitations may not apply to you. In that case, liability is limited to the maximum extent permitted by law.' },
+    ],
+  },
+  {
+    h: '18. Indemnification',
+    blocks: [
+      { p: 'To the maximum extent permitted by law, you will defend, indemnify, and hold harmless Lamaute Labs and its owners, officers, directors, employees, contractors, agents, affiliates, licensors, service providers, payment processors, and suppliers from and against any claims, demands, losses, liabilities, damages, judgments, penalties, fines, costs, and expenses, including reasonable attorneys fees, arising out of or related to:' },
+      {
+        ul: [
+          'your use or misuse of the Software;',
+          'Your Work, including content, files, themes, skins, assets, exports, products, or services you create, publish, sell, license, or distribute;',
+          'your violation of this EULA, law, third-party rights, third-party licenses, or third-party terms;',
+          'your attempt to bypass license protection or security measures;',
+          'your use of the Software in a prohibited, regulated, hazardous, high-risk, or unauthorized environment; or',
+          'any claim that Your Work or your use of the Software infringes, misappropriates, or violates the rights of a third party.',
+        ],
+      },
+    ],
+  },
+  {
+    h: '19. Term and Termination',
+    blocks: [
+      { p: 'This EULA begins when you first download, install, activate, access, or use the Software and continues until terminated. Your license automatically ends when your trial expires, your subscription expires or is canceled, payment fails and is not cured, a chargeback is made, Lamaute Labs terminates your license, or you violate this EULA.' },
+      { p: 'Lamaute Labs may suspend, disable, revoke, or terminate your license key, account, subscription, activation, or access immediately if we believe you violated this EULA, misused the Software, created risk for Lamaute Labs or users, engaged in fraud, used unauthorized keys, attempted circumvention, or violated law.' },
+      { p: 'After termination, you must stop using the Software and uninstall or delete all copies in your possession or control, except for archival copies you are legally required to retain and do not use. Sections concerning ownership, restrictions, payment obligations, feedback, privacy, disclaimers, limitations of liability, indemnification, termination effects, export controls, governing law, and general terms survive termination.' },
+    ],
+  },
+  {
+    h: '20. Export Controls, Sanctions, and Anti-Corruption',
+    blocks: [
+      { p: 'You must comply with all applicable export-control, sanctions, anti-boycott, anti-money-laundering, and anti-corruption laws, including laws administered by the United States and any other jurisdiction that applies to you or your use of the Software.' },
+      { p: 'You may not download, export, re-export, transfer, provide, or use the Software in any country, region, or territory subject to applicable embargoes or sanctions, or by or for any person or entity subject to applicable restricted-party, denied-party, blocked-party, or sanctions lists.' },
+      { p: 'You represent that you are not located in, organized under the laws of, ordinarily resident in, or acting on behalf of any country, region, person, entity, or end use prohibited by applicable law. You are responsible for obtaining any required government authorization before exporting or transferring the Software or related technology.' },
+    ],
+  },
+  {
+    h: '21. U.S. Government Rights',
+    blocks: [
+      { p: 'The Software and documentation are commercial computer software and commercial computer software documentation developed exclusively at private expense. If acquired by or on behalf of the U.S. Government, use, reproduction, release, modification, disclosure, or transfer is restricted to the rights granted to the public under this EULA, consistent with applicable acquisition regulations.' },
+    ],
+  },
+  {
+    h: '22. Changes to this EULA',
+    blocks: [
+      { p: 'Lamaute Labs may update this EULA from time to time. Updated terms may apply to new downloads, renewals, upgrades, updates, continued use after notice, or other acceptance mechanisms. If you do not agree to updated terms, you must stop using the Software and may not install further updates.' },
+      { p: 'Material changes will be posted on the Elysium UI website or presented through the Software, purchase flow, account portal, or other reasonable notice method.' },
+    ],
+  },
+  {
+    h: '23. Governing Law, Venue, and Dispute Resolution',
+    blocks: [
+      { p: 'This EULA is governed by the laws of the State of Washington, excluding conflict-of-law rules that would require the law of another jurisdiction. The United Nations Convention on Contracts for the International Sale of Goods does not apply.' },
+      { p: 'Subject to any non-waivable consumer rights or other mandatory law, the state and federal courts located in King County, Washington will have exclusive jurisdiction and venue for disputes arising out of or related to this EULA or the Software, and you consent to personal jurisdiction there.' },
+      { p: 'Before filing a legal claim, you agree to contact Lamaute Labs at support@elysiumui.com and attempt in good faith to resolve the dispute informally for at least 30 days, unless emergency injunctive relief is reasonably necessary.' },
+    ],
+  },
+  {
+    h: '24. General Terms',
+    blocks: [
+      { p: 'Severability. If any provision of this EULA is held invalid or unenforceable, that provision will be enforced to the maximum extent permitted by law, and the remaining provisions will remain in full force and effect.' },
+      { p: 'No waiver. A failure or delay by Lamaute Labs to enforce any provision is not a waiver of that provision or any other provision.' },
+      { p: 'Assignment. You may not assign, delegate, or transfer this EULA or any license without written permission from Lamaute Labs. Lamaute Labs may assign this EULA in connection with a merger, acquisition, reorganization, sale of assets, financing, or transfer of the Software or business.' },
+      { p: 'Force majeure. Lamaute Labs is not responsible for delay or failure caused by events beyond its reasonable control, including internet failures, hosting failures, payment-provider failures, licensing-provider failures, labor disputes, attacks, malware, security incidents, disasters, war, terrorism, civil unrest, government action, power failures, supply-chain problems, or acts of God.' },
+      { p: 'Entire agreement. This EULA, together with any order form, purchase terms, Privacy Policy, website Terms of Service, and any third-party terms referenced at purchase, is the entire agreement concerning the Software and supersedes prior or contemporaneous understandings about the Software. If there is a conflict, a signed written agreement with Lamaute Labs controls, followed by an order form, then this EULA, then website terms.' },
+      { p: 'Headings. Section headings are for convenience only and do not affect interpretation.' },
+    ],
+  },
+];
 ---
 
 <Layout title="Elysium Designer — End User License Agreement">
   <main class="mx-auto max-w-3xl px-6 pt-40 pb-24">
-    <h1 class="text-3xl font-[700]">Elysium Designer — EULA</h1>
-    <p class="mt-2 text-[0.85rem] text-muted">Draft — pending legal review. Last updated July 2026.</p>
+    <p class="eyebrow">Lamaute Labs LLC</p>
+    <h1 class="mt-3 text-3xl font-[700]">Elysium Designer — End User License Agreement</h1>
+    <p class="mt-2 text-[0.85rem] text-muted">Last updated July 3, 2026.</p>
 
     <div class="mt-8 space-y-6 text-[0.95rem] leading-relaxed text-ink/90">
-      <h2 class="text-xl font-[650]">1. License</h2>
       <p>
-        Elysium Designer is licensed to you by <strong>Lamaute Labs LLC</strong>,
-        not sold. Subject to an active subscription ($8/month, or $79/year
-        prepaid annually) or an active trial, you receive a personal,
-        non-exclusive, non-transferable license to install and use the Designer
-        on your devices, enforced by a license key. Licenses remain valid while
-        the subscription is active.
+        <strong>Important notice:</strong> Please read this End User License
+        Agreement carefully before downloading, installing, activating,
+        accessing, or using Elysium Designer. By doing any of those things, or
+        by clicking an acceptance button, you agree to this EULA. If you do not
+        agree, do not install, activate, or use the Software.
       </p>
-      <h2 class="text-xl font-[650]">2. Trial</h2>
       <p>
-        The free trial provides the full feature set for a limited period. When
-        it ends, continued use requires a purchased license.
+        <strong>Parties.</strong> This End User License Agreement (the
+        &ldquo;EULA&rdquo;) is a legal agreement between Lamaute Labs LLC, a
+        Washington limited liability company (&ldquo;Lamaute Labs,&rdquo;
+        &ldquo;Company,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or
+        &ldquo;our&rdquo;), and the person or entity that downloads, installs,
+        activates, accesses, or uses Elysium Designer (&ldquo;you&rdquo; or
+        &ldquo;your&rdquo;).
       </p>
-      <h2 class="text-xl font-[650]">3. Your work is yours</h2>
       <p>
-        Everything you create with the Designer — skins, themes, .esk files,
-        exported assets — belongs to you, including for commercial use.
+        <strong>Product covered.</strong> This EULA applies only to the Elysium
+        Designer desktop software application, including any installers,
+        updates, upgrades, patches, modules, sample files, templates,
+        documentation, and related materials that we provide with or for that
+        application (collectively, the &ldquo;Software&rdquo; or
+        &ldquo;Designer&rdquo;).
       </p>
-      <h2 class="text-xl font-[650]">4. Restrictions</h2>
       <p>
-        You may not reverse-engineer, decompile, or bypass the license
-        protection; redistribute the application; or use the Elysium name or
-        Blue Morpho logo for derived products without permission.
+        <strong>Separate open-source framework.</strong> The Elysium UI
+        framework is open-source software distributed separately under the
+        Apache License 2.0 or other license file included with that framework.
+        Your use of the open-source framework is governed by its open-source
+        license, not this EULA, except that our names, logos, and trademarks
+        remain subject to our trademark and brand rules.
       </p>
-      <h2 class="text-xl font-[650]">5. No warranty; limitation of liability</h2>
       <p>
-        The Designer is provided "as is." To the maximum extent permitted by
-        law, liability is limited to the amount you paid for the license.
+        <strong>Acceptance by an organization.</strong> If you use the Software
+        on behalf of a company, organization, or other legal entity, you
+        represent that you have authority to bind that entity to this EULA. In
+        that case, &ldquo;you&rdquo; includes that entity and the individual
+        user.
       </p>
-      <h2 class="text-xl font-[650]">Contact</h2>
-      <p><a class="text-iris hover:underline" href="mailto:support@elysiumui.com">support@elysiumui.com</a></p>
+
+      <h2 class="text-xl font-[650]">Summary of core commercial terms</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[420px] border-collapse text-left text-[0.92rem]">
+          <thead>
+            <tr class="border-b border-hairline text-muted">
+              <th class="py-2.5 pr-4 font-[600]">Topic</th>
+              <th class="py-2.5 font-[600]">Summary</th>
+            </tr>
+          </thead>
+          <tbody class="[&_td]:py-2.5 [&_td]:pr-4 [&_td]:align-top [&_tr]:border-b [&_tr]:border-hairline/50">
+            {
+              summary.map(([topic, text]) => (
+                <tr>
+                  <td class="whitespace-nowrap font-[620]">{topic}</td>
+                  <td>{text}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+
+      {
+        sections.map((s) => (
+          <>
+            <h2 class="text-xl font-[650]">{s.h}</h2>
+            {s.blocks.map((b) => (
+              <>
+                {b.p && <p>{b.p}</p>}
+                {b.ul && (
+                  <ul class="list-disc space-y-1 pl-6">
+                    {b.ul.map((li) => (
+                      <li>{li}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ))}
+          </>
+        ))
+      }
+
+      <h2 class="text-xl font-[650]">25. Contact</h2>
+      <p>
+        Questions about this EULA may be sent to
+        <a class="text-iris hover:underline" href="mailto:support@elysiumui.com">support@elysiumui.com</a>.
+      </p>
+      <p>Lamaute Labs LLC, 704 228th Ave NE, #1154, Sammamish, WA 98074.</p>
     </div>
   </main>
 </Layout>

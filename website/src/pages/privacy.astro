@@ -1,186 +1,322 @@
 ---
 import Layout from '../layouts/Layout.astro';
 
-const CONTACT_EMAIL = 'support@elysiumui.com';
-const CONTACT_ADDRESS = '704 228th Ave NE, #1154, Sammamish, WA 98074';
-
-/** The five US state sections share one shape — render them from data. */
-interface StateSection {
-  name: string;
-  applies: string;
-  rights: string[];
-  obligations: { title: string; items: string[] }[];
-  notes: string[];
+/**
+ * Privacy Policy (Lamaute Labs LLC), from ElysiumUI_Privacy Policy.docx —
+ * last updated July 3, 2026. The source document's internal "Publication
+ * Checklist for Lamaute Labs" (addressed to counsel) is intentionally not
+ * published.
+ */
+type Table = { head: string[]; rows: string[][] };
+type Block = { p?: string; ul?: string[]; table?: Table };
+interface Section {
+  h: string;
+  blocks: Block[];
 }
 
-const states: StateSection[] = [
+const CONTACT_EMAIL = 'support@elysiumui.com';
+const ADDRESS = '704 228th Ave NE, #1154, Sammamish, WA 98074';
+
+const plainSummary = [
+  'We collect the information needed to operate the site, provide downloads and documentation, respond to support requests, manage Elysium Designer trials and licenses, keep the Services secure, and comply with law.',
+  'The Elysium UI open-source framework is designed to run in your own development environment or application. Using the framework by itself does not make Lamaute Labs the controller of data collected by applications you build with it.',
+  'We do not intentionally collect payment card numbers directly. Purchases, license delivery, and payment processing may be handled by PyLocket and its payment providers under their own policies.',
+  'We use privacy-respecting analytics for the website, including Cloudflare Web Analytics, and we do not use the Services for behavioral advertising, targeted advertising, or cross-site tracking unless this Policy is updated to disclose that practice.',
+  'We do not sell personal information, and we do not share personal information for cross-context behavioral advertising as those terms are used in U.S. privacy laws.',
+  'We do not require sensitive personal information to use Elysium UI, and we ask that you not send us sensitive information unless specifically requested for a lawful and necessary purpose.',
+  'You can contact us at support@elysiumui.com to ask privacy questions, request access, deletion, correction, opt-out, or appeal a privacy-rights decision where applicable law gives you those rights.',
+];
+
+const sections: Section[] = [
   {
-    name: 'Colorado',
-    applies:
-      'This section applies only if you are a Colorado resident and we (1) (A) do business in Colorado or (B) produce products or services that are targeted to Colorado residents and (2) (A) during a calendar year, control or process personal data of at least 100,000 Colorado residents or (B) control or process personal data of at least 25,000 Colorado residents and derive revenue or receive a financial benefit from the sale of personal data.',
-    rights: [
-      'A right of knowledge — you may ask that we confirm whether or not we are processing your personal data.',
-      'A right of access — you may ask to access your personal data we are processing; you may ask to receive a copy of the personal data that you previously provided to us in a portable and, to the extent technically feasible, readily usable format.',
-      'A right of correction — you may correct inaccuracies in your personal data, taking into account the nature of that data and the purposes of processing that data.',
-      'A right of deletion — you may ask that we delete personal data provided by or obtained about you.',
-      'A right of opt-out — you may opt out of the processing of the personal data for purposes of (1) targeted advertising, (2) the sale of personal data, or (3) profiling in furtherance of decisions that produce legal or similarly significant effects concerning you. You also have the right to opt out by using a universal opt-out mechanism that meets technical standards established by the state attorney general.',
-      'A right to appeal — you have the right to appeal a company decision not to fulfill any of these requests.',
-    ],
-    obligations: [
+    h: '2. Scope of This Policy',
+    blocks: [
+      { p: 'This Policy applies to information we collect through or in connection with:' },
       {
-        title: 'Timely response to your requests',
-        items: [
-          'We have to respond to your requests without undue delay, but in all cases within 45 days of receipt.',
-          'We may extend the response period once by 45 additional days when reasonably necessary, taking into account the complexity and number of your requests, so long as we inform you of any extension within the initial 45-day response period, together with the reason for the extension.',
-          'If we decline to take action on your request, we have to inform you without undue delay, but in all cases and at the latest within 45 days of receipt of the request, including the justification for declining to take action and instructions for how to appeal our decision.',
-          'In general, we will provide information in response to your requests without charge, up to once annually per user.',
+        ul: [
+          'elysiumui.com and pages that link to this Policy, including marketing pages, documentation, download pages, contact forms, and support pages;',
+          'the Elysium UI open-source framework, but only to the extent you interact with Lamaute Labs, such as by visiting our website, downloading from our site, submitting issues or support requests, signing up for updates, or participating in official communities that we operate;',
+          'Elysium Designer trials, license delivery, activation, update checks, purchase-related records, and support interactions;',
+          'emails, chats, forms, surveys, promotions, newsletters, and other communications with us that relate to the Services; and',
+          'security, fraud-prevention, compliance, accounting, and operational records associated with the Services.',
         ],
       },
-      {
-        title: 'Appeal mechanism',
-        items: [
-          'We have to establish a process for you to appeal our refusal to take action on a request within a reasonable period of time after your receipt of our decision not to take action.',
-          'We have to make the appeal process conspicuously available and similar to the process for submitting requests to initiate action. You may appeal our decision by replying to our decision or by making a new request for an appeal of that decision.',
-          'Within 45 days of receipt of an appeal, we have to inform you in writing of any action taken or not taken in response to the appeal, including a written explanation of the reasons for the decisions.',
-          'We may extend the response period once by 60 additional days when reasonably necessary, taking into account the complexity and number of your requests, so long as we inform you of any extension within the initial 45-day response period, together with the reason for the extension.',
-          'If the appeal is denied, we will also provide you with an online mechanism, if available, or other method through which you may contact the state attorney general to submit a complaint.',
-        ],
-      },
-    ],
-    notes: [
-      'Under Colorado law, you have the option to opt in to processing of your personal data for targeted advertising or the sale of personal data on the terms described in detail in this privacy policy. Even after you provide opt-in consent, you may withdraw your consent by using the opt-out procedures described in this privacy policy.',
-      'We do not "sell" personal information as defined by Colorado law nor do we process your personal data for targeted advertising.',
+      { p: 'This Policy does not apply to third-party websites, repositories, package registries, payment processors, app stores, forums, cloud providers, or services that we do not control, even if they link to or from our Services. Examples may include GitHub, PyPI or other package registries, Cloudflare, PyLocket, payment processors, email providers, and other third-party tools. Those third parties process information under their own privacy policies.' },
+      { p: 'Developers who use Elysium UI to build their own applications are responsible for the privacy practices, legal notices, consent flows, security, and data processing of their own applications. Lamaute Labs is not the controller or processor of personal information collected by applications that third-party developers build with the Elysium UI framework unless a separate written agreement says otherwise.' },
     ],
   },
   {
-    name: 'Connecticut',
-    applies:
-      'This section applies only if you are a Connecticut resident and we (1) (A) do business in Connecticut or (B) produce products or services that are targeted to Connecticut residents; and (2) during the prior calendar year, controlled or processed the personal data of (A) at least 100,000 Connecticut residents; or (B) (i) at least 25,000 Connecticut residents and (ii) we derived over 25% of our gross revenue from the sale of personal data.',
-    rights: [
-      'A right of knowledge — you may ask that we confirm whether or not we are processing your personal data.',
-      'A right of access — you may ask to access your personal data we are processing; you may ask to receive a copy of the personal data that you previously provided to us in a portable and, to the extent technically feasible, readily usable format.',
-      'A right of correction — you may correct inaccuracies in your personal data, taking into account the nature of that data and the purposes of processing that data.',
-      'A right of deletion — you may ask that we delete personal data provided by or obtained about you.',
-      'A right of opt-out — you may opt out of the processing of the personal data for purposes of (1) targeted advertising, (2) the sale of personal data, or (3) profiling in furtherance of decisions that produce legal or similarly significant effects concerning the consumer.',
-      'A right to appeal — you have the right to appeal a company decision not to fulfill any of these requests.',
-    ],
-    obligations: [
-      {
-        title: 'Timely response to your requests',
-        items: [
-          'We have to respond to your requests without undue delay, but in all cases within 45 days of receipt.',
-          'We may extend the response period once by 45 additional days when reasonably necessary, taking into account the complexity and number of your requests, so long as we inform you of any extension within the initial 45-day response period, together with the reason for the extension.',
-          'If we decline to take action on your request, we have to inform you without undue delay, but in all cases and at the latest within 45 days of receipt of the request, including the justification for declining to take action and instructions for how to appeal our decision.',
-          'In general, we will provide information in response to your requests without charge, up to once annually per user.',
-        ],
-      },
-      {
-        title: 'Appeal mechanism',
-        items: [
-          'We have to establish a process for you to appeal our refusal to take action on a request within a reasonable period of time after your receipt of our decision not to take action.',
-          'We have to make the appeal process conspicuously available and similar to the process for submitting requests to initiate action.',
-          'Within 60 days of receipt of an appeal, we have to inform you in writing of any action taken or not taken in response to the appeal, including a written explanation of the reasons for the decisions.',
-          'If the appeal is denied, we will also provide you with an online mechanism, if available, or other method through which you may contact the state attorney general to submit a complaint.',
-        ],
-      },
-    ],
-    notes: [
-      'We do not "sell" personal information as defined by Connecticut law nor do we process your personal data for targeted advertising.',
+    h: '3. Definitions',
+    blocks: [
+      { p: '"Personal Information" means information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked to an individual or household. Similar terms such as "personal data" have the meanings given by applicable law.' },
+      { p: '"Framework" means the open-source Elysium UI framework and related open-source code distributed under its applicable open-source license.' },
+      { p: '"Designer" means Elysium Designer, commercial or trial software, installers, license tools, and related desktop components made available by or for Lamaute Labs.' },
+      { p: '"Services" means the website, documentation, downloads, Framework-related interactions with Lamaute Labs, Designer-related services, license services, support, and related offerings that link to this Policy.' },
     ],
   },
   {
-    name: 'Utah',
-    applies:
-      'This section applies only if you are a Utah resident and we (1) (A) do business in Utah or (B) produce products or services that are targeted to Utah residents; (2) earn at least $25 million in annual revenue; and (3) during the prior calendar year, controlled or processed the personal data of (A) at least 100,000 Utah residents; or (B) (i) at least 25,000 Utah residents and (ii) we derived over 25% of our gross revenue from the sale of personal data.',
-    rights: [
-      'A right of knowledge — you may ask that we confirm whether or not we are processing your personal data.',
-      'A right of access — you may ask to access your personal data we are processing; you may ask to receive a copy of the personal data that you previously provided to us in a portable and, to the extent technically feasible, readily usable format.',
-      'A right of deletion — you may ask that we delete personal data provided by you.',
-      'A right of opt-out — you may opt out of the processing of the personal data for purposes of targeted advertising or the sale of personal data.',
-    ],
-    obligations: [
+    h: '4. Information We Collect',
+    blocks: [
+      { p: 'The categories below describe the types of information we may collect. We may not collect every category from every person. The information collected depends on how you interact with the Services, what features you use, and what information you choose to provide.' },
       {
-        title: 'Timely response to your requests',
-        items: [
-          'We have to respond to your request without undue delay, but in all cases within 45 days of receipt.',
-          'We may extend the response period once by 45 additional days when reasonably necessary, taking into account the complexity and number of your requests, so long as we inform you of any extension within the initial 45-day response period, together with the reason for the extension.',
-          'If we decline to take action on your request, we have to inform you without undue delay, but in all cases and at the latest within 45 days of receipt of the request, including the justification for declining to take action and instructions for how to appeal our decision.',
-          'In general, we will provide information in response to your requests without charge, up to once annually per user.',
-        ],
+        table: {
+          head: ['Category', 'Examples', 'Sources'],
+          rows: [
+            ['Contact identifiers', 'Name, email address, company or project name, job title, mailing address, phone number if you choose to provide it.', 'From you when you contact us, sign up, request support, join a waitlist, request a trial, purchase, or subscribe to updates.'],
+            ['Account, license, and transaction records', 'License key, license status, product purchased, trial status, activation records, support entitlement, subscription or renewal status, order ID, invoice metadata, refund or chargeback metadata.', 'From you, PyLocket, payment processors, app stores, or other vendors involved in purchases, trials, license delivery, and support.'],
+            ['Payment information', 'Limited payment metadata, such as payment status, last four digits, card brand, billing country, tax data, and transaction identifiers when made available by processors. We do not intentionally collect or store full payment card numbers directly.', 'From payment processors or commerce providers, not directly from full card entry fields controlled by us.'],
+            ['Website and analytics information', 'Pages viewed, referring page, browser type, operating system, approximate location from IP address, device type, performance metrics, timestamps, clickstream events, search queries on the website, and similar usage data.', 'Automatically from your browser or device when you visit the website or documentation.'],
+            ['Device and activation information', 'Device type, operating system, app version, installer version, license activation timestamp, activation status, error codes, approximate region, IP address, and hashed or pseudonymous device/license identifiers used to prevent abuse and enforce license limits.', 'From Designer, installers, license services, PyLocket, or related activation/update systems.'],
+            ['Support and communications', 'Messages, attachments, screenshots, bug reports, crash details, logs, diagnostic files, survey responses, feedback, and related correspondence you send us.', 'From you when you email, message, submit issues, complete surveys, or request support.'],
+            ['Developer/community information', 'Public issue comments, pull requests, repository activity, usernames, profile information, and community messages if you interact with official public repositories or communities.', 'From you and third-party platforms such as GitHub or community tools.'],
+            ['Security and fraud-prevention information', 'IP address, request metadata, abuse signals, login or activation attempt data, suspicious activity indicators, blocked requests, and other information needed to protect the Services.', 'Automatically from our systems, Cloudflare, PyLocket, payment processors, hosting providers, and security tools.'],
+            ['Business, legal, and compliance records', 'Tax records, accounting records, rights-request records, legal correspondence, consent records, and compliance documentation.', 'From you, vendors, authorities, advisors, and our internal records.'],
+          ],
+        },
       },
-    ],
-    notes: [
-      'We do not "sell" personal information as defined by Utah law nor do we process your personal data for targeted advertising.',
-      'We do not process sensitive personal information as defined by Utah law.',
     ],
   },
   {
-    name: 'Iowa',
-    applies:
-      'This section applies only if you are an Iowa resident and we (1) (A) do business in Iowa or (B) produce products or services that are targeted to Iowa residents; and (2) during the prior calendar year, controlled or processed the personal data of (A) at least 100,000 Iowa residents; or (B) (i) at least 25,000 Iowa residents and (ii) we derived over 50% of our gross revenue from the sale of personal data.',
-    rights: [
-      'A right of knowledge — you may ask that we confirm whether or not we are processing your personal data.',
-      'A right of access — you may ask to access your personal data we are processing; you may ask to receive a copy of the personal data that you previously provided to us in a portable and, to the extent technically feasible, readily usable format.',
-      'A right of opt-out — you may opt out of the sale of personal data.',
-    ],
-    obligations: [
-      {
-        title: 'Timely response to your requests',
-        items: [
-          'We have to respond to your request without undue delay, but in any case within 90 days of receipt.',
-          'We may extend the response period once by 45 additional days when reasonably necessary, taking into account the complexity and number of your requests, so long as we inform you of any extension within the initial 90-day response period, together with the reason for the extension.',
-          'If we decline to take action on your request, we have to inform you without undue delay, but in any case within 90 days of receipt of the request, including the justification for declining to take action and instructions for how to appeal our decision.',
-          'In general, we will provide information in response to your requests without charge, up to twice annually per user.',
-        ],
-      },
-      {
-        title: 'Appeal mechanism',
-        items: [
-          'We have to establish a process for you to appeal our refusal to take action on a request within a reasonable period of time after your receipt of our decision not to take action.',
-          'We have to make the appeal process conspicuously available and similar to the process for submitting requests to initiate action.',
-          'Within 60 days of receipt of an appeal, we have to inform you in writing of any action taken or not taken in response to the appeal, including a written explanation of the reasons for the decisions.',
-          'If the appeal is denied, we will also provide you with an online mechanism, if available, or other method through which you may contact the state attorney general to submit a complaint.',
-        ],
-      },
-    ],
-    notes: [
-      'We do not "sell" personal information as defined by Iowa law.',
-      'We do not process sensitive personal information as defined by Iowa law nor do we process your personal data for targeted advertising.',
+    h: '5. Information We Do Not Seek to Collect',
+    blocks: [
+      { p: 'We do not require sensitive personal information to use the Elysium UI website, Framework, or Designer. Please do not send us sensitive information unless we specifically ask for it and it is necessary for a support, legal, or compliance purpose. Sensitive information may include government identifiers, precise financial account numbers, health information, biometric information, race or ethnicity, religion, union membership, genetic data, precise geolocation, sexual orientation, children’s information, passwords, secrets, private keys, production credentials, or regulated customer data.' },
+      { p: 'If you include sensitive information in a support message, log, screenshot, crash report, or sample project, we may process it only as necessary to respond to your request, protect the Services, comply with law, or delete or restrict it. You are responsible for removing secrets, credentials, tokens, private customer data, and confidential information from files you submit to us.' },
     ],
   },
   {
-    name: 'Virginia',
-    applies:
-      'This section applies only if you are a Virginia resident and we (1) (A) do business in Virginia or (B) produce products or services that are targeted to Virginia residents and (2) (A) during a calendar year, control or process personal data of at least 100,000 Virginia residents or (B) control or process personal data of at least 25,000 Virginia residents and derive over 50 percent of our gross revenue from the sale of personal data.',
-    rights: [
-      'A right of knowledge — you may ask that we confirm whether or not we are processing your personal data.',
-      'A right of access — you may ask to access your personal data we are processing; you may ask to receive a copy of the personal data that you previously provided to us in a portable and, to the extent technically feasible, readily usable format.',
-      'A right of correction — you may correct inaccuracies in your personal data, taking into account the nature of that data and the purposes of processing that data.',
-      'A right of deletion — you may ask that we delete personal data provided by or obtained about you.',
-      'A right of opt-out — you may opt out of the processing of the personal data for purposes of (1) targeted advertising, (2) the sale of personal data, or (3) profiling in furtherance of decisions that produce legal or similarly significant effects concerning the consumer.',
-      'A right to appeal — you have the right to appeal a company decision not to fulfill your request.',
+    h: '6. Website Analytics, Cookies, and Similar Technologies',
+    blocks: [
+      { p: 'We may use cookies, local storage, server logs, pixels, beacons, or similar technologies for security, functionality, preferences, license flow continuity, fraud prevention, performance measurement, and analytics. We do not currently use advertising cookies or cross-site behavioral advertising technologies on the Services unless this Policy is updated to disclose that practice.' },
+      { p: 'Cloudflare Web Analytics. The website may use Cloudflare Web Analytics or related Cloudflare analytics features to understand performance, page views, and aggregate usage. Cloudflare Web Analytics is intended to collect limited performance and page-view information and not track individual users across customer websites.' },
+      { p: 'Browser controls. You can set your browser to refuse or delete cookies. Some security, checkout, licensing, account, support, or preference features may not work correctly if cookies or similar technologies are disabled.' },
+      { p: 'Do Not Track. Some browsers offer "Do Not Track" signals. Because there is no uniform industry standard for responding to them, we do not respond to all such signals. Where legally required, we will honor recognized opt-out preference signals, such as Global Privacy Control, for sale, sharing, or targeted advertising. Because we do not currently sell personal information or share it for cross-context behavioral advertising, such signals generally do not change our current data practices.' },
     ],
-    obligations: [
+  },
+  {
+    h: '7. How We Use Personal Information',
+    blocks: [
+      { p: 'We use Personal Information for the following purposes:' },
       {
-        title: 'Timely response to your requests',
-        items: [
-          'We have to respond to your request without undue delay, but in all cases within 45 days of receipt.',
-          'We may extend the response period once by 45 additional days when reasonably necessary, taking into account the complexity and number of your requests, so long as we inform you of any extension within the initial 45-day response period, together with the reason for the extension.',
-          'If we decline to take action on your request, we have to inform you without undue delay, but in all cases and at the latest within 45 days of receipt of the request, including the justification for declining to take action and instructions for how to appeal our decision.',
-          'In general, we will provide information in response to your requests without charge, up to twice annually per user.',
+        ul: [
+          'Provide, operate, maintain, secure, and improve the Services;',
+          'Host the website, documentation, download pages, support pages, and related infrastructure;',
+          'Deliver, activate, manage, enforce, renew, troubleshoot, and support Elysium Designer trials and licenses;',
+          'Process purchases, refunds, tax records, account records, and license delivery through PyLocket, payment processors, and other service providers;',
+          'Respond to support requests, bug reports, security reports, questions, feedback, and other communications;',
+          'Send transactional messages, such as license delivery, receipts, product updates, security notices, support responses, and service announcements;',
+          'Send marketing communications, newsletters, promotions, or surveys where permitted by law and subject to your opt-out choices;',
+          'Analyze aggregate usage, performance, errors, feature demand, and website traffic so we can improve the Services;',
+          'Detect, prevent, investigate, and respond to fraud, abuse, security incidents, spam, license abuse, unauthorized access, and illegal activity;',
+          'Debug, test, develop, and improve Elysium UI products, documentation, support workflows, and business operations;',
+          'Comply with legal, tax, accounting, export-control, sanctions, regulatory, and contractual obligations;',
+          'Enforce agreements, terms, licenses, policies, and legal rights; and',
+          'Evaluate or complete a merger, acquisition, financing, corporate reorganization, sale of assets, bankruptcy, or similar business transaction.',
         ],
       },
+    ],
+  },
+  {
+    h: '8. Legal Bases for Processing',
+    blocks: [
+      { p: 'Where GDPR, UK GDPR, Swiss law, or similar law requires a legal basis for processing, we rely on one or more of the following legal bases:' },
       {
-        title: 'Appeal mechanism',
-        items: [
-          'We have to establish a process for you to appeal our refusal to take action on a request within a reasonable period of time after your receipt of our decision not to take action.',
-          'We have to make the appeal process conspicuously available and similar to the process for submitting requests to initiate action.',
-          'Within 60 days of receipt of an appeal, we have to inform you in writing of any action taken or not taken in response to the appeal, including a written explanation of the reasons for the decisions.',
-          'If the appeal is denied, we will also provide you with an online mechanism, if available, or other method through which you may contact the state attorney general to submit a complaint.',
-        ],
+        table: {
+          head: ['Legal basis', 'Examples'],
+          rows: [
+            ['Contract', 'To provide trials, licenses, downloads, support, purchases, updates, and requested Services.'],
+            ['Legitimate interests', 'To operate and improve the Services; secure the Services; prevent fraud and license abuse; respond to support; understand aggregate usage; manage business operations; and protect legal rights, except where overridden by your rights and interests.'],
+            ['Consent', 'For optional marketing, certain cookies or analytics where required, optional surveys, or other processing for which we ask consent. You may withdraw consent where applicable.'],
+            ['Legal obligation', 'For taxes, accounting, export controls, sanctions, lawful requests, rights requests, and other legal compliance.'],
+            ['Vital interests or public interest', 'Rarely, where necessary to protect someone’s life, safety, or public interests recognized by law.'],
+          ],
+        },
       },
     ],
-    notes: [],
+  },
+  {
+    h: '9. How We Share Personal Information',
+    blocks: [
+      { p: 'We do not sell Personal Information. We also do not share Personal Information for cross-context behavioral advertising or process it for targeted advertising unless this Policy is updated and you are given any required rights and choices.' },
+      { p: 'We may disclose Personal Information to the following categories of recipients for the purposes described in this Policy:' },
+      {
+        table: {
+          head: ['Recipient category', 'Purpose / examples'],
+          rows: [
+            ['Service providers and processors', 'Hosting, Cloudflare, security, analytics, email, customer support, documentation, forms, storage, logging, diagnostics, monitoring, and other vendors that help us operate the Services.'],
+            ['PyLocket and license-related vendors', 'Trial management, checkout flow, license delivery, license activation, app protection, update delivery, installer services, purchase records, and customer support workflows.'],
+            ['Payment processors and commerce providers', 'Payment authorization, fraud checks, refunds, receipts, tax calculation, chargebacks, invoicing, and subscription or renewal management.'],
+            ['Repository, package, and community platforms', 'GitHub, PyPI or other package registries, forums, issue trackers, and community tools when you choose to interact with them.'],
+            ['Professional advisors', 'Lawyers, accountants, auditors, insurers, banks, consultants, and other professional advisors.'],
+            ['Authorities and legal recipients', 'Courts, law enforcement, regulators, government agencies, counterparties, or others when we believe disclosure is required or appropriate to comply with law, legal process, or protect rights, safety, and security.'],
+            ['Business transaction parties', 'Potential or actual buyers, investors, lenders, successors, affiliates, or advisors in connection with a merger, acquisition, financing, sale of assets, restructuring, bankruptcy, or similar transaction.'],
+            ['With your direction or consent', 'Recipients you ask us to share with or authorize, such as when you request an integration, public testimonial, referral, or support handoff.'],
+          ],
+        },
+      },
+      { p: 'When we use service providers, we seek to limit their access to information reasonably necessary to provide services to us and require appropriate confidentiality, security, and data-use restrictions where required by law.' },
+    ],
+  },
+  {
+    h: '10. Payments, Trials, Licenses, and PyLocket',
+    blocks: [
+      { p: 'Elysium Designer trials, purchases, license delivery, license activation, and related workflows may be processed by PyLocket and its payment providers. PyLocket and payment providers may collect information needed to process checkout, deliver licenses, prevent fraud, comply with tax and accounting rules, and provide support. They may provide Lamaute Labs with order, license, customer, support, payment-status, and transaction metadata, but Lamaute Labs does not intentionally receive or store full payment card numbers.' },
+      { p: 'License activation and update checks may involve sending license identifiers, activation status, software version, operating system, approximate region, IP address, error codes, and hashed or pseudonymous device identifiers to verify entitlement, enforce license terms, prevent abuse, deliver updates, and troubleshoot issues. If offline activation or manual support is available, the process may require you to send activation or diagnostic information to us or to PyLocket.' },
+    ],
+  },
+  {
+    h: '11. Open-Source Framework, Developer Projects, and End Users',
+    blocks: [
+      { p: 'The Elysium UI Framework is open-source software. Downloading or using the Framework from a third-party package registry, repository, CDN, or mirror may cause that third party to collect information under its own privacy policy. We do not control those third-party platforms.' },
+      { p: 'The Framework is not intended to transmit information about your application’s end users to Lamaute Labs by default. If you build an application using Elysium UI, you are responsible for what your application collects, stores, transmits, or shares. You must provide your own privacy notices, obtain required consents, secure your application, and comply with laws applicable to your use case, customers, users, and jurisdictions.' },
+      { p: 'If you submit code, issues, pull requests, examples, screenshots, crash logs, telemetry, or sample projects to us or to an official public repository, do not include confidential information, secrets, credentials, proprietary customer data, or sensitive personal information unless specifically requested through an appropriate secure channel.' },
+    ],
+  },
+  {
+    h: '12. Elysium Designer Data Practices',
+    blocks: [
+      { p: 'Elysium Designer may process files, designs, components, configuration, code, assets, and project data locally on your device. We do not intentionally collect your local project files through Designer unless you choose to submit them to us for support, upload them through a feature, or use an integration that sends them to a third-party service. If future versions add optional cloud sync, collaboration, telemetry, crash reporting, AI-assisted design, or online project storage, we will provide additional disclosures and choices where required by law.' },
+      { p: 'Designer may contact online services to activate licenses, check license status, deliver updates, verify entitlement, prevent abuse, show announcements, access documentation, or provide support. These interactions may collect device, software, license, and network metadata as described in this Policy.' },
+    ],
+  },
+  {
+    h: '13. Marketing Communications',
+    blocks: [
+      { p: 'If you sign up for newsletters, product updates, waitlists, promotions, or similar communications, we may use your contact information to send those messages. You may unsubscribe from marketing emails by using the unsubscribe link, replying with an unsubscribe request where supported, or contacting support@elysiumui.com. Even if you opt out of marketing, we may still send transactional or service messages, such as license delivery, security notices, support responses, legal notices, and account or purchase-related communications.' },
+    ],
+  },
+  {
+    h: '14. Data Retention',
+    blocks: [
+      { p: 'We keep Personal Information only as long as reasonably necessary for the purposes described in this Policy, unless a longer retention period is required or permitted by law. Retention periods depend on the type of information, the sensitivity of the information, our operational needs, legal requirements, security needs, and whether deletion is technically feasible.' },
+      {
+        table: {
+          head: ['Information type', 'Retention approach'],
+          rows: [
+            ['Website analytics and logs', 'Typically retained in aggregate or log form for the period needed for analytics, security, debugging, and operations, unless needed longer for security, legal, or abuse investigations.'],
+            ['Support communications', 'Retained while a request is active and for a reasonable period afterward to maintain records, improve support, resolve disputes, and comply with legal obligations.'],
+            ['Trial, license, transaction, tax, and accounting records', 'Retained as needed to provide licenses and support, prove entitlement, prevent fraud, comply with accounting and tax obligations, enforce agreements, and resolve disputes.'],
+            ['Marketing records', 'Retained until you unsubscribe or we no longer need the information, subject to suppression lists needed to honor opt-outs.'],
+            ['Rights requests and compliance records', 'Retained as needed to document our response, verify identity, prevent fraud, and comply with applicable privacy laws.'],
+            ['Security and fraud records', 'Retained as needed to protect the Services, investigate abuse, maintain blocklists, and comply with legal obligations.'],
+          ],
+        },
+      },
+      { p: 'When information is no longer needed, we may delete it, de-identify it, aggregate it, or retain it in backup or archival systems until those systems are overwritten or retired according to ordinary backup cycles. We may retain de-identified or aggregated information for lawful business purposes.' },
+    ],
+  },
+  {
+    h: '15. Security',
+    blocks: [
+      { p: 'We use reasonable administrative, technical, and physical safeguards designed to protect Personal Information against unauthorized access, disclosure, alteration, and destruction. These safeguards may include access controls, encryption in transit, vendor controls, security monitoring, logging, least-privilege practices, and other measures appropriate to the nature of the information and our business.' },
+      { p: 'No security measure is perfect. We cannot guarantee that information will be secure, private, available, error-free, or immune from unauthorized access, loss, misuse, or disclosure. You can help protect information by using strong passwords, keeping software updated, securing your devices, avoiding credential reuse, removing secrets from support files, and contacting us if you believe your information or license credentials have been compromised.' },
+    ],
+  },
+  {
+    h: '16. International Data Processing and Transfers',
+    blocks: [
+      { p: 'Lamaute Labs is based in the United States. We may process and store information in the United States and other countries where we or our service providers operate. These countries may have privacy laws that differ from the laws in your location. Where required by law, we rely on appropriate safeguards for international transfers, such as standard contractual clauses, adequacy decisions, data processing agreements, or other lawful transfer mechanisms.' },
+    ],
+  },
+  {
+    h: '17. Your Choices and Privacy Rights',
+    blocks: [
+      { p: 'Depending on your location and applicable law, you may have some or all of the following rights with respect to Personal Information:' },
+      {
+        ul: [
+          'Access / know: request confirmation of whether we process your information and access to certain information we hold about you;',
+          'Portability: receive a copy of certain information in a portable format;',
+          'Correction: ask us to correct inaccurate information;',
+          'Deletion: ask us to delete information, subject to legal exceptions;',
+          'Opt out: opt out of sale, sharing for cross-context behavioral advertising, targeted advertising, certain profiling, or marketing where applicable;',
+          'Restriction or objection: restrict or object to certain processing where applicable;',
+          'Limit sensitive information: limit certain uses of sensitive personal information where applicable;',
+          'Withdraw consent: withdraw consent where processing is based on consent;',
+          'Appeal: appeal a decision we make about a privacy-rights request where applicable; and',
+          'Non-discrimination: not be discriminated against for exercising privacy rights.',
+        ],
+      },
+      { p: 'To exercise a right, contact support@elysiumui.com or write to 704 228th Ave NE, #1154, Sammamish, WA 98074. We may ask you to verify your identity and authority before fulfilling a request. If you submit a request through an authorized agent, we may require proof of authorization and may still ask you to verify your identity directly where permitted by law.' },
+      { p: 'We will respond within the time required by applicable law. If we deny your request in whole or in part, we will explain the reason where required and provide appeal instructions where applicable. Some information may be exempt from access, correction, deletion, or portability, such as information needed for security, fraud prevention, legal compliance, accounting, tax records, product support, dispute resolution, or exercising legal rights.' },
+    ],
+  },
+  {
+    h: '18. U.S. State Privacy Notice',
+    blocks: [
+      { p: 'This section supplements the rest of the Policy for residents of U.S. states with comprehensive privacy laws that apply to our processing. These laws may include, as applicable, laws in California, Colorado, Connecticut, Delaware, Iowa, Indiana, Kentucky, Maryland, Minnesota, Montana, Nebraska, New Hampshire, New Jersey, Oregon, Rhode Island, Tennessee, Texas, Utah, Virginia, and other states that adopt similar laws. Some laws apply only if a business meets revenue, data-volume, sale, or targeting thresholds. If a particular state law does not apply to us or to your request, we may still respond voluntarily when practical.' },
+      { p: 'Our disclosures for the last 12 months are summarized below. "Disclosed" means shared with service providers, processors, vendors, or other recipients for business purposes. It does not mean sold.' },
+      {
+        table: {
+          head: ['Category', 'Examples collected', 'Business-purpose disclosure / sale-sharing status'],
+          rows: [
+            ['Identifiers', 'Name, email, mailing address, account/license ID, order ID, IP address, device/license identifiers.', 'Yes, to service providers, processors, PyLocket, payment processors, support, security, legal, and business transaction recipients. Not sold or shared for cross-context behavioral advertising.'],
+            ['Customer records / commercial information', 'Purchases, products, licenses, trial status, receipts, payment status, refunds, subscription or renewal records.', 'Yes, to service providers, PyLocket, payment processors, accounting, tax, support, legal, and business transaction recipients. Not sold or shared for cross-context behavioral advertising.'],
+            ['Internet or electronic network activity', 'Website visits, pages viewed, referring pages, browser, OS, timestamps, clickstream, logs, Cloudflare analytics, security events.', 'Yes, to hosting, analytics, security, infrastructure, and support providers. Not sold or shared for cross-context behavioral advertising.'],
+            ['Approximate geolocation', 'Approximate region or country inferred from IP address.', 'Yes, to hosting, security, analytics, license, payment, tax, and fraud-prevention providers. Not sold or shared for cross-context behavioral advertising.'],
+            ['Audio, electronic, visual, or similar information', 'Emails, support messages, screenshots, attachments, logs, bug reports, and recordings only if you provide or authorize them.', 'Yes, to support, storage, email, security, and legal providers as needed. Not sold or shared for cross-context behavioral advertising.'],
+            ['Professional or employment-related information', 'Company, role, project, repository profile, or business contact information if you provide it.', 'Yes, to service providers and business contacts as needed for support, sales, and operations. Not sold or shared for cross-context behavioral advertising.'],
+            ['Inferences', 'We may infer product interest or support needs from your interactions, but we do not build behavioral advertising profiles.', 'Limited disclosure to service providers for operations, support, and product improvement. Not sold or shared for cross-context behavioral advertising.'],
+            ['Sensitive personal information', 'We do not seek or require sensitive personal information. We may receive it only if you choose to submit it, such as in logs or support attachments.', 'Used only as necessary for the purpose provided, security, legal compliance, or deletion/restriction. We do not use sensitive information to infer characteristics.'],
+          ],
+        },
+      },
+      { p: 'We do not knowingly sell or share personal information of consumers under 16 years of age. We do not process Personal Information for targeted advertising or profiling in furtherance of decisions that produce legal or similarly significant effects.' },
+      { p: 'California "Shine the Light." California Civil Code Section 1798.83 permits California residents to request certain information about disclosures of personal information to third parties for their direct marketing purposes. We do not disclose personal information to third parties for their own direct marketing purposes without your consent. California residents may submit requests using the contact information in this Policy.' },
+      { p: 'Nevada privacy rights. Nevada residents may submit a request directing us not to make certain sales of covered information as defined by Nevada law. We do not currently sell covered information as defined by Nevada law, but you may submit a request using the contact information in this Policy.' },
+    ],
+  },
+  {
+    h: '19. EEA, UK, and Swiss Privacy Notice',
+    blocks: [
+      { p: 'If you are in the European Economic Area, United Kingdom, or Switzerland and the GDPR, UK GDPR, Swiss Federal Act on Data Protection, or analogous law applies, the following additional terms apply.' },
+      { p: 'Controller: Lamaute Labs LLC is the controller for Personal Information we collect for our own purposes through the Services, unless a separate agreement says otherwise.' },
+      { p: 'Representative: We do not currently maintain an establishment in the EEA or UK. If we are required to appoint an EU or UK representative, we will update this Policy.' },
+      { p: 'Data Protection Officer: We have determined that we are not required to appoint a Data Protection Officer. Privacy inquiries may be sent to support@elysiumui.com.' },
+      { p: 'Rights: You may have rights to access, rectification, erasure, restriction, portability, objection, withdrawal of consent, and to lodge a complaint with a supervisory authority.' },
+      { p: 'International transfers: Information may be transferred to the United States and other countries. Where required, we rely on lawful transfer safeguards.' },
+      { p: 'Automated decision-making: We do not make decisions based solely on automated processing that produce legal or similarly significant effects. License systems may automatically allow, deny, or limit access based on license status, trial status, fraud signals, or technical entitlement checks, but these decisions relate to product access and can be reviewed by contacting support.' },
+    ],
+  },
+  {
+    h: '20. Children’s Privacy',
+    blocks: [
+      { p: 'The Services are not directed to children under 13, and we do not knowingly collect Personal Information from children under 13. If you believe a child under 13 has provided Personal Information to us, contact support@elysiumui.com and we will take reasonable steps to delete it. If a higher age threshold applies in your location, we will comply with applicable law.' },
+    ],
+  },
+  {
+    h: '21. Third-Party Links, Integrations, and Repositories',
+    blocks: [
+      { p: 'The Services may link to third-party websites, repositories, package registries, documentation sites, community spaces, checkout pages, payment providers, app stores, issue trackers, social media, or other services. We are not responsible for the privacy, security, content, or practices of third parties. Your use of those services is governed by their policies and terms. You should review those policies before providing information to third parties.' },
+    ],
+  },
+  {
+    h: '22. De-identified and Aggregated Information',
+    blocks: [
+      { p: 'We may use information that has been de-identified, anonymized, or aggregated for analytics, research, product improvement, security, benchmarking, and business purposes. We will not attempt to re-identify de-identified information except as permitted by law, such as to test whether de-identification measures are effective.' },
+    ],
+  },
+  {
+    h: '23. AI, Machine Learning, and Model Training',
+    blocks: [
+      { p: 'We do not use your Personal Information, private project files, license records, or support attachments to train public artificial intelligence models. If we use AI-assisted tools for support, development, abuse detection, analytics, or internal productivity, we will seek to use them in a manner consistent with this Policy, applicable law, and appropriate confidentiality and security obligations. If a future product feature uses your data for AI-assisted design, cloud processing, model training, or personalization beyond ordinary service operation, we will provide additional disclosures and choices where required by law.' },
+    ],
+  },
+  {
+    h: '24. Security Research and Vulnerability Reports',
+    blocks: [
+      { p: 'If you report a vulnerability, abuse issue, or security concern, we may use the information you provide to investigate, reproduce, remediate, document, and communicate about the issue. Please do not access, exfiltrate, alter, or disclose data that does not belong to you. Submit only the information reasonably necessary to verify the issue, and avoid including personal or confidential information unrelated to the report.' },
+    ],
+  },
+  {
+    h: '25. Business Transfers',
+    blocks: [
+      { p: 'If Lamaute Labs is involved in a merger, acquisition, financing, reorganization, bankruptcy, sale of assets, or similar transaction, Personal Information may be disclosed to transaction participants and transferred as part of that transaction. We will use reasonable efforts to require the recipient to handle Personal Information consistently with this Policy or provide notice where required by law.' },
+    ],
+  },
+  {
+    h: '26. Changes to This Policy',
+    blocks: [
+      { p: 'We may update this Policy from time to time. If we make material changes, we will update the "Last updated" date and provide notice where required by law, such as by posting the updated Policy on the website, sending a notice, or presenting an in-product notice. Your continued use of the Services after an updated Policy becomes effective means the updated Policy applies to information collected after the effective date, subject to applicable law.' },
+    ],
   },
 ];
 ---
@@ -189,495 +325,87 @@ const states: StateSection[] = [
   <main class="mx-auto max-w-3xl px-6 pt-40 pb-24">
     <p class="eyebrow">Lamaute Labs LLC</p>
     <h1 class="mt-3 text-3xl font-[700]">Privacy Policy</h1>
-    <p class="mt-2 text-[0.85rem] text-muted">Last updated: July 3, 2026</p>
+    <p class="mt-1 text-[0.95rem] text-muted">Elysium UI Framework, Elysium Designer, elysiumui.com</p>
+    <p class="mt-2 text-[0.85rem] text-muted">Last updated: July 3, 2026 · Under counsel review.</p>
 
     <div class="mt-8 space-y-6 text-[0.95rem] leading-relaxed text-ink/90">
-      <!-- ============================ Introduction ======================= -->
-      <h2 class="text-2xl font-[660]">Introduction</h2>
-
-      <h3 class="text-lg font-[640]">Purpose</h3>
       <p>
-        At Lamaute Labs (<a class="text-iris hover:underline" href="https://www.elysiumui.com/">https://www.elysiumui.com/</a>),
-        we value your privacy. To put that into practice, we take reasonable
-        steps toward protecting your privacy and managing your information.
-      </p>
-      <p>
-        This Privacy Policy describes the information we collect, where it
-        comes from, how it&rsquo;s used, and how it is stored. It also includes
-        information to help you understand how the choices you have can change
-        the collection and usage of certain information and how you can contact
-        us with questions or concerns.
-      </p>
-      <p>
-        By using this Website, contacting us, or providing any personal
-        information, you signify your consent to this Privacy Policy, agree to
-        comply with its terms, and consent to our collection and usage of your
-        personal information as described in this Privacy Policy, in all cases
-        subject to applicable law.
+        This Privacy Policy explains how Lamaute Labs LLC (&ldquo;Lamaute
+        Labs,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;)
+        collects, uses, discloses, retains, and protects information when you
+        use the Elysium UI website, documentation, downloads, open-source
+        framework, Elysium Designer software, license-related services, support
+        channels, and related services that link to this Privacy Policy
+        (collectively, the &ldquo;Services&rdquo;).
       </p>
 
-      <h3 class="text-lg font-[640]">Scope</h3>
-      <p>
-        This Privacy Policy at
-        <a class="text-iris hover:underline" href="https://www.elysiumui.com/privacy/">https://www.elysiumui.com/privacy/</a>
-        applies only to our website at
-        <a class="text-iris hover:underline" href="https://www.elysiumui.com/">https://www.elysiumui.com/</a>
-        (the &ldquo;Website&rdquo;) and to visitors and users of our Website. It
-        does not apply to any information we collect through channels, online or
-        offline, other than this Website, such as phone, email, or mail
-        operations concerning our operations, products, or services, as well as
-        non-Website marketing contacts with you.
-      </p>
-      <p>
-        For your convenience, this Website may contain links to other websites.
-        This Privacy Policy does not apply to any third-party website or
-        service, and you should review the privacy policies of those sites
-        before using them because other websites may not treat information
-        collected online in the same manner as we do. Those privacy policies may
-        include information about how to view, edit, download, or remove
-        information or how to opt out of certain practices. We are not
-        responsible for the privacy practices, advertising, products, or content
-        of those websites. For example, framework downloads are served by PyPI,
-        and Elysium Designer trials, purchases, and license activation are
-        processed by PyLocket and its payment provider under their own privacy
-        policies.
-      </p>
-
-      <h3 class="text-lg font-[640]">Updates and Changes</h3>
-      <p>
-        If we decide to change our Privacy Policy, we will post those changes on
-        this page at
-        <a class="text-iris hover:underline" href="https://www.elysiumui.com/privacy/">https://www.elysiumui.com/privacy/</a>.
-        If you are concerned about how your personal information is used, please
-        visit our Website often for this and other important announcements and
-        updates.
-      </p>
-
-      <h3 class="text-lg font-[640]">Problems or Questions</h3>
-      <p>
-        If you have questions or concerns about our Privacy Policy, you may
-        contact us at
-        <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-      </p>
-
-      <!-- ===================== What Information We Collect =============== -->
-      <h2 class="text-2xl font-[660]">What Information We Collect</h2>
-      <p>
-        This section includes a general description of the type of information
-        we may collect about you. Those who wish to communicate with us but do
-        not wish to provide personally identifiable information through the
-        Website may contact us through the address provided on our Website.
-      </p>
-
-      <h3 class="text-lg font-[640]">Information you provide to us</h3>
-      <p>We collect some information that you provide directly to us through this Website.</p>
-      <p>We collect contact information you provide, including:</p>
+      <h2 class="text-xl font-[650]">Plain-English Summary</h2>
       <ul class="list-disc space-y-1 pl-6">
-        <li>Name</li>
-        <li>Email address</li>
-      </ul>
-      <p>
-        We collect this information with your consent, to perform any contract
-        you may have with us, and in service of our legitimate business
-        interests. We do not seek to or intentionally collect any financial
-        information that you provide directly to us.
-      </p>
-      <p>We collect other information you provide, including:</p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Phone, chats, or emails</li>
-      </ul>
-      <p>
-        We collect this information with your consent, to perform any contract
-        you may have with us, and in service of our legitimate business
-        interests. We do not seek to or intentionally collect other identifying
-        information that you provide directly to us.
-      </p>
-      <p>We collect information about your usage of the Website that you provide, including:</p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Contact preferences</li>
-        <li>Location</li>
-        <li>Other usage information</li>
-      </ul>
-      <p>
-        We collect this information with your consent, to perform any contract
-        you may have with us, and in service of our legitimate business
-        interests. We do not seek to or intentionally collect sensitive
-        information that you provide directly to us.
-      </p>
-
-      <h3 class="text-lg font-[640]">Information we collect about you</h3>
-      <p>
-        Even if you do not submit personal information through the Website, we
-        gather navigational information about where visitors go on the Website
-        and information about the technical efficiencies of our Website and
-        services (such as time to connect to the Website or time to download
-        pages). This information allows us to see which areas of our Website are
-        most visited and helps us better understand the user experience. This
-        data helps us improve the quality of the Website by recognizing and
-        delivering more of the features, areas, and services our visitors
-        prefer. On this Website, aggregate analytics are provided by Cloudflare
-        Web Analytics, a cookie-less service that records page-view statistics
-        without building personal profiles or tracking you across sites.
-      </p>
-      <p>
-        In this process of gathering information, we may collect personally
-        identifiable and non-personally identifiable information (such as domain
-        type, browser type and version, service provider and IP address,
-        referring/exit pages, operating system, date/time stamp, and
-        click-stream data). We collect this information to perform any contract
-        you may have with us, and in service of our legitimate business
-        interests.
-      </p>
-      <p>
-        We may also create and use electronic records to compile statistics
-        about how our visitors collectively interact with our Website by
-        collecting, aggregating, and using information from or about you such as
-        data about the type of browser and operating system used, which web
-        pages you view, the time and duration of your visits to our Website, the
-        search queries you use on this Website, whether you clicked on any items
-        or links on the Website, whether you have clicked on any links in any
-        emails sent from us or third parties on our behalf, whether you have
-        chosen to opt out of certain services or information sharing, and
-        whether you have viewed or ordered certain products or services, to
-        improve our products and services. We collect this information to
-        perform any contract you may have with us and in service of our
-        legitimate business interests.
-      </p>
-      <p>
-        We may obtain information about you from outside sources. For example,
-        we may obtain commercially available information about you from third
-        parties, such as credit information to prevent fraud. We collect this
-        information to perform any contract you may have with us and in service
-        of our legitimate business interests.
-      </p>
-      <p>If you access the Website using a device, we may collect the following device data:</p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Device type</li>
-        <li>Operating system</li>
-        <li>Unique device identifiers</li>
-        <li>Device settings</li>
-        <li>Geo-location data</li>
-        <li>IP addresses</li>
-        <li>Browser type</li>
-        <li>Browser ID</li>
-        <li>Clickstream data</li>
-        <li>User workflow progress</li>
-      </ul>
-      <p>
-        We collect this information to perform any contract you may have with us
-        and in service of our legitimate business interests. We do not seek to
-        or intentionally collect other information about you ourselves or from
-        third parties.
-      </p>
-
-      <!-- ===================== How We Use Personal Information =========== -->
-      <h2 class="text-2xl font-[660]">How We Use Personal Information</h2>
-      <p>We collect personal information so that we can:</p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Operate and improve our Website</li>
-        <li>Operate our business</li>
-        <li>Improve our goods and services</li>
-        <li>Communicate with you</li>
-        <li>Ensure compliance with law</li>
+        {plainSummary.map((s) => <li>{s}</li>)}
       </ul>
 
-      <h3 class="text-lg font-[640]">Operate and improve our Website</h3>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Keep the Website running</li>
-        <li>Personalize your website experience</li>
-        <li>Provide support and respond to questions from users and Website visitors</li>
-        <li>Maintain security of information and data</li>
-        <li>Address network functioning, engineering, and troubleshooting issues</li>
-        <li>Prevent fraud</li>
-        <li>Process payments</li>
-        <li>Grant access to the Website</li>
-        <li>Register user accounts</li>
-        <li>Attribute content to the right person</li>
-        <li>Improve, personalize, and expand our website</li>
-        <li>Understand and analyze how you use our website</li>
-        <li>Learn about users&rsquo; needs</li>
-        <li>Track traffic patterns and Website usage</li>
-        <li>Customize our recommendations and promotions to you</li>
-      </ul>
-
-      <h3 class="text-lg font-[640]">Operate our business</h3>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Keep Lamaute Labs running</li>
-        <li>Provide our offerings</li>
-        <li>Comply with legal requirements</li>
-        <li>Fulfill orders and deliveries</li>
-        <li>Recruit team members</li>
-        <li>Administer our business and keep proper records</li>
-        <li>Engage in a sale of all or part of our business</li>
-      </ul>
-
-      <h3 class="text-lg font-[640]">Improve our goods and services</h3>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Develop new products, services, or features</li>
-        <li>Measure, support, and improve our offerings</li>
-        <li>Analyze trends and conduct research about improving our products and services</li>
-      </ul>
-
-      <h3 class="text-lg font-[640]">Communicate with you</h3>
-      <p>Directly or through one of our partners, we may:</p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Provide customer service</li>
-        <li>Email you, mail you, or contact you in other ways you approve, such as phone or text</li>
-        <li>Provide updates and other information relating to the Website</li>
-        <li>Send you marketing messages</li>
-        <li>Send surveys</li>
-        <li>Launch and operate promotions</li>
-        <li>Suggest products or services of interest</li>
-        <li>Contact you for research or informational purposes</li>
-        <li>Enable online registration and provide customer service with respect to registration</li>
-        <li>Email newsletters</li>
-      </ul>
-
-      <h3 class="text-lg font-[640]">Ensure compliance with the law</h3>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>Prevent fraud and reduce credit risks</li>
-        <li>Investigate atypical usage</li>
-        <li>Investigate claims and/or legal actions, violations of law or agreements, and compliance with relevant applicable laws and legal process</li>
-        <li>Comply with law</li>
-        <li>Cooperate with police and other governmental authorities when subject to judicial or administrative process (such as a subpoena) or as provided by law</li>
-        <li>Respond to civil or criminal investigations, claims, or lawsuits</li>
-        <li>Respond as we believe is necessary or appropriate to prevent physical harm or financial loss</li>
-        <li>Protect the rights, property, or safety of visitors to the Website or the public</li>
-        <li>Resolve disputes</li>
-      </ul>
-
-      <!-- ===================== Sharing / Location / Security ============= -->
-      <h2 class="text-2xl font-[660]">How We Share Personal Information</h2>
+      <h2 class="text-xl font-[650]">1. Who We Are and How to Contact Us</h2>
       <p>
-        We do not share your personal information outside the Company except as
-        required by law or as disclosed elsewhere in this Privacy Policy. As
-        disclosed here: Elysium Designer trials, purchases, and license
-        activation are processed by PyLocket and its payment provider, which
-        handle the information you provide at checkout under their own privacy
-        policies; we receive your license and contact details solely to provide
-        support and updates.
-      </p>
-
-      <h2 class="text-2xl font-[660]">Location of Personal Information</h2>
-      <p>
-        We must, of course, store and process your data somewhere. We store or
-        process your data only in the United States.
-      </p>
-
-      <h2 class="text-2xl font-[660]">How We Secure Information</h2>
-      <p>
-        We believe in providing a safe and secure experience for all of our
-        online visitors. To that end, we have implemented security measures to
-        protect the information collected from you. We maintain reasonable
-        physical and electronic safeguards designed to limit unauthorized access
-        to your personally identifiable information and to protect you against
-        the criminal misuse of that information.
+        Controller / business: Lamaute Labs LLC<br />
+        Website: <a class="text-iris hover:underline" href="https://www.elysiumui.com/">https://www.elysiumui.com/</a><br />
+        Email: <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><br />
+        Mailing address: {ADDRESS}
       </p>
       <p>
-        While we use these security measures to protect your information, please
-        remember that no data transmitted over the Internet or stored and used
-        for business purposes can ever be completely secure. No security
-        measures are perfect or impenetrable. We cannot guarantee:
-      </p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>that your information will only be viewed by approved people</li>
-        <li>that information you share will remain private</li>
-        <li>that information you share will not become publicly available</li>
-      </ul>
-      <p>
-        You can reduce the chances of these things happening by using a strong
-        password, by not re-using passwords, and by protecting your devices
-        against viruses and other malware.
-      </p>
-
-      <h3 class="text-lg font-[640]">Business Transactions</h3>
-      <p>
-        If we sell our assets or merge with another company, or if our company
-        goes out of business, user information used by the business will be one
-        of our assets that might be transferred to our successor. You consent to
-        that successor&rsquo;s use of your information, subject to the terms of
-        this Privacy Policy.
-      </p>
-
-      <!-- ===================== Access and Choice ========================= -->
-      <h2 class="text-2xl font-[660]">Access and Choice</h2>
-      <p>You have choices about the information we collect.</p>
-      <p>
-        If you do not want to agree to the ways we&rsquo;ve said that we might
-        use your personal information, your first and best step is to not submit
-        any of that personal information to us.
-      </p>
-      <p>
-        If you do not want to receive emails that we send, including those with
-        information or promotions, you can unsubscribe to those emails by
-        clicking the unsubscribe link, responding with
-        &ldquo;unsubscribe,&rdquo; or contacting the support email address
-        below.
-      </p>
-      <p>
-        If you do not want to receive other marketing materials from us or if
-        you do not want us to share your personal information with other
-        entities as described in this Privacy Policy, please send us your name,
-        address, and email address, together with a statement that you want to
-        opt out from information sharing or receiving materials (or both).
-        Please send your information and request to
-        <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-        or to {CONTACT_ADDRESS}.
-      </p>
-
-      <h2 class="text-2xl font-[660]">Children&rsquo;s Personal Information</h2>
-      <p>
-        This Website is not intended to be used by children under the age of 13.
-        Children under the age of 13 may not use or submit any information to
-        the Website, and their guardians should not permit them to do so. The
-        Company does not seek to or intentionally collect any personal
-        information from children under 13. If such a child or their guardian
-        alerts us, we will take reasonable steps to delete any such information
-        as quickly as is practical.
-      </p>
-
-      <!-- ===================== Jurisdiction-specific ===================== -->
-      <h2 class="text-2xl font-[660]">Jurisdiction-Specific Provisions</h2>
-      <p>
-        The provisions in the following sections reflect requirements of various
-        legal jurisdictions that may apply to some users but not others. Because
-        our users may access the Website from anywhere, we expend meaningful
-        effort to comply with all of those laws to which we are subject. If you
-        are not the intended subject of a particular section, then those terms
-        will not apply to you or your usage of the Website.
-      </p>
-
-      <h2 class="text-2xl font-[660]">US State Privacy Rights</h2>
-      <p>
-        If you are a resident of one of the US states below and the processing
-        of personal information about you by the Website is subject to privacy
-        laws that are specific to your state, you have certain rights with
-        respect to that information, in all cases subject to state law. Some
-        state privacy laws are relatively new, and so the correct interpretation
-        of these laws is not yet settled in some cases. In those cases, we will
-        make a good-faith effort to comply with the law.
+        For privacy requests, please use the contact methods above and include
+        enough information for us to understand and verify your request. Please
+        do not include passwords, payment card numbers, government identifiers,
+        or sensitive information in ordinary support emails.
       </p>
 
       {
-        states.map((s) => (
+        sections.map((s) => (
           <>
-            <h3 class="text-lg font-[640] uppercase tracking-wide">{s.name}</h3>
-            <p>{s.applies}</p>
-            <p>You have the following rights:</p>
-            <ol class="list-decimal space-y-1 pl-6">
-              {s.rights.map((r) => (
-                <li>{r}</li>
-              ))}
-            </ol>
-            <p>We have the following related obligations, subject to applicable law:</p>
-            {s.obligations.map((o, i) => (
+            <h2 class="text-xl font-[650]">{s.h}</h2>
+            {s.blocks.map((b) => (
               <>
-                <p class="font-[620]">
-                  {i + 1}. {o.title}
-                </p>
-                <ul class="list-disc space-y-1 pl-6">
-                  {o.items.map((it) => (
-                    <li>{it}</li>
-                  ))}
-                </ul>
+                {b.p && <p>{b.p}</p>}
+                {b.ul && (
+                  <ul class="list-disc space-y-1 pl-6">
+                    {b.ul.map((li) => (
+                      <li>{li}</li>
+                    ))}
+                  </ul>
+                )}
+                {b.table && (
+                  <div class="overflow-x-auto">
+                    <table class="w-full min-w-[560px] border-collapse text-left text-[0.88rem]">
+                      <thead>
+                        <tr class="border-b border-hairline text-muted">
+                          {b.table.head.map((h) => (
+                            <th class="py-2.5 pr-4 font-[600]">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody class="[&_td]:py-2.5 [&_td]:pr-4 [&_td]:align-top [&_tr]:border-b [&_tr]:border-hairline/50">
+                        {b.table.rows.map((row) => (
+                          <tr>
+                            {row.map((cell, i) => (
+                              <td class={i === 0 ? 'font-[620]' : ''}>{cell}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </>
             ))}
-            {s.notes.map((n) => (
-              <p>{n}</p>
-            ))}
-            <p>
-              Please make any of your requests under {s.name} law, as
-              applicable, using one of these methods:
-              <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>
-                {CONTACT_EMAIL}
-              </a>{' '}
-              or {CONTACT_ADDRESS}.
-            </p>
           </>
         ))
       }
 
-      <!-- ===================== GDPR ===================================== -->
-      <h2 class="text-2xl font-[660]">GDPR Privacy Rights</h2>
+      <h2 class="text-xl font-[650]">27. Contact</h2>
+      <p>For privacy questions, requests, or appeals, contact:</p>
       <p>
-        If you are a resident of one of the EU countries or other covered
-        nations and the processing of personal information about you by the
-        Website is subject to the GDPR, you have certain rights with respect to
-        that information, in all cases subject to applicable law. Some questions
-        of GDPR applicability to non-EU businesses are relatively new, and so
-        the correct interpretation of these laws is not yet settled in some
-        cases. In those cases, we will make a good-faith effort to comply with
-        the law as applicable.
-      </p>
-      <p>
-        This section applies only if you are an EU resident and we (1) are
-        established in the EU and a data controller or processor; (2) are
-        processing personal data of data subjects who are in the EU, where the
-        processing activities are related to: (a) the offering of goods or
-        services, paid or free, to consumers in the EU; or (b) the monitoring of
-        behavior that takes place within the EU. (GDPR or analogous rights and
-        obligations also apply to persons in the EEA, UK, or Switzerland.)
-      </p>
-      <p>You have the following rights:</p>
-      <ol class="list-decimal space-y-1 pl-6">
-        <li>A right of information — you may ask that we confirm whether or not we are processing your personal data.</li>
-        <li>A right of access — you may ask to access your personal data we are processing; you may ask to receive a copy of the personal data that you previously provided to us in a portable and machine-readable format.</li>
-        <li>A right of correction — you may correct incorrect, inaccurate, or incomplete personal data.</li>
-        <li>A right of deletion — you may ask that we delete personal data when it&rsquo;s no longer needed or if processing it is unlawful.</li>
-        <li>A right of opt-out — you may opt out of the processing of the personal data for marketing purposes or on certain other grounds relating to your particular situation.</li>
-        <li>A right of restriction — you may request the restriction of the processing of your personal data in specific cases.</li>
-        <li>A right to human oversight of automated processing or decision-making, including a right of participation and a right to appeal.</li>
-      </ol>
-      <p>
-        Please make any of your requests under EU law, as applicable, using one
-        of these methods:
-        <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-        or {CONTACT_ADDRESS}.
-      </p>
-      <p>We have the following related obligations, subject to applicable law:</p>
-      <p class="font-[620]">1. Timely response to your requests</p>
-      <p>
-        We have to respond to your requests without undue delay and in any event
-        within 1 month after receipt of the request. We may extend that period
-        by two further months when necessary, taking into account the complexity
-        and number of the requests. We have to inform you of any such extension
-        within 1 month after receipt of your request, together with the reasons
-        for the delay. In general, we will provide information in response to
-        your requests without charge, unless the requests are unfounded,
-        excessive, or repetitive. In those cases, we may elect to refuse your
-        request in the absence of payment of a reasonable fee.
-      </p>
-      <p class="font-[620]">2. Processing obligations</p>
-      <ul class="list-disc space-y-1 pl-6">
-        <li>To process data lawfully, fairly, and in a transparent manner</li>
-        <li>To process data in connection with the limited purpose for which it was provided</li>
-        <li>To minimize the data collected in relation to the purpose of its processing</li>
-        <li>To keep data accurate and up to date</li>
-        <li>To limit storage of data when no longer needed</li>
-        <li>To keep data secure and protected against unauthorized or unlawful processing and against accidental loss, destruction, or damage</li>
-      </ul>
-      <p class="font-[620]">3. Breach notification</p>
-      <p>
-        If there&rsquo;s a data breach, we have to notify users as quickly as
-        possible. We have 72 hours to notify the appropriate supervisory
-        authority. Note that if we are not established or operating in the EU,
-        there is no applicable supervisory authority.
-      </p>
-      <p class="font-[620]">4. Data protection officer</p>
-      <p>
-        If we are required to appoint a data protection officer, we must also
-        inform you of the identity and contact information for the data
-        protection officer. We have determined that we are not required to have
-        a named Data Protection Officer. Lamaute Labs will nevertheless respond
-        to all requests in accordance with applicable law.
-      </p>
-
-      <!-- ===================== Contact =================================== -->
-      <h2 class="text-2xl font-[660]">Contact</h2>
-      <p>
-        <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a><br />
         Lamaute Labs LLC<br />
-        {CONTACT_ADDRESS}
+        {ADDRESS}<br />
+        <a class="text-iris hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
       </p>
     </div>
   </main>

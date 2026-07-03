@@ -1,41 +1,296 @@
 ---
 import Layout from '../layouts/Layout.astro';
+
+/**
+ * Full Terms of Service (Lamaute Labs LLC), from
+ * ElysiumUI_Terms of Service.docx — last updated July 3, 2026. The source
+ * document's internal "Legal review checklist" (addressed to counsel) is
+ * intentionally not published.
+ */
+type Block = { p?: string; ul?: string[] };
+interface Section {
+  h: string;
+  blocks: Block[];
+}
+
+const sections: Section[] = [
+  {
+    h: '1. Agreement to these Terms',
+    blocks: [
+      { p: 'These Terms of Service ("Terms") are a legal agreement between you and Lamaute Labs LLC ("Lamaute Labs," "Company," "we," "us," or "our"). They govern your access to and use of elysiumui.com, any related pages, documentation, downloads, sample projects, templates, design assets, software, services, support channels, and other materials that link to or reference these Terms (collectively, the "Site" and "Services").' },
+      { p: 'By accessing the Site, downloading or using any software made available through the Site, creating an account, purchasing or activating a license, clicking to accept these Terms, or otherwise using the Services, you agree to be bound by these Terms. If you do not agree, do not access or use the Site, Services, Elysium UI framework, Elysium Designer, or related materials.' },
+      { p: 'If you use the Services on behalf of a company, organization, or other legal entity, you represent that you have authority to bind that entity to these Terms. In that case, "you" and "your" refer to both you and that entity.' },
+    ],
+  },
+  {
+    h: '2. Relationship to other terms, licenses, and policies',
+    blocks: [
+      { p: 'Different parts of the Elysium UI ecosystem may be governed by different documents. To the extent there is a conflict, the more specific document controls for the subject it covers.' },
+      { p: 'Open-source framework. The Elysium UI framework is open-source software licensed under the Apache License 2.0 unless a different license is expressly stated in the applicable repository or distribution. Your rights to copy, modify, distribute, and use the framework source code are governed by that open-source license, not by a separate commercial license in these Terms. Nothing in these Terms limits rights that the Apache License 2.0 grants you for the open-source framework.' },
+      { p: 'Commercial software. Elysium Designer and any other commercial software, paid feature, hosted service, marketplace feature, private build, or license-managed tool may be governed by an End User License Agreement, order form, purchase terms, subscription terms, or other written terms presented at purchase or activation. Those terms supplement these Terms and control for the commercial software if they conflict.' },
+      { p: 'Privacy Policy. Our Privacy Policy governs how we collect, use, disclose, and protect personal information. It is incorporated into these Terms by reference for privacy matters.' },
+      { p: 'Brand policy. The "Elysium" name, Blue Morpho logo, product icons, trade dress, and other brand assets are protected brand assets. Any brand policy, trademark guidelines, or repository brand rules supplement these Terms and control use of those assets.' },
+      { p: 'Third-party terms. Third-party platforms, package registries, payment processors, Git hosts, analytics providers, distribution tools, license providers, operating systems, app stores, and other external services may have their own terms and privacy policies. We are not responsible for those third-party terms, services, content, or practices.' },
+    ],
+  },
+  {
+    h: '3. Definitions',
+    blocks: [
+      { p: '"Elysium UI" or "Framework" means the open-source user interface framework, including source code, packages, examples, and documentation distributed through public repositories or the Site.' },
+      { p: '"Elysium Designer" means any commercial designer, visual editor, desktop application, hosted component, plug-in, companion app, or other license-managed tool offered by Lamaute Labs for designing, generating, previewing, exporting, or managing Elysium UI projects.' },
+      { p: '"Software" means the Framework, Elysium Designer, installers, command-line tools, examples, templates, libraries, binaries, updates, patches, documentation, and any other software or materials made available by or on behalf of Lamaute Labs.' },
+      { p: '"User Content" means any information, files, code, project data, designs, feedback, comments, issues, pull requests, templates, examples, or other content that you upload, submit, transmit, store, publish, or make available through the Site or Services.' },
+      { p: '"Generated Output" means designs, code, project files, components, assets, configurations, or other output created, exported, compiled, or generated using the Software or Services.' },
+    ],
+  },
+  {
+    h: '4. Eligibility and user responsibilities',
+    blocks: [
+      { p: 'You may use the Services only if you can legally enter into a binding contract and are not barred from using the Services under applicable law. You are responsible for ensuring that your use of the Site, Services, Software, User Content, Generated Output, and any resulting products complies with all laws, regulations, contracts, policies, security requirements, accessibility requirements, privacy requirements, industry standards, and third-party rights that apply to you.' },
+      { p: 'You are solely responsible for evaluating, selecting, downloading, installing, configuring, integrating, testing, securing, maintaining, backing up, deploying, operating, and using the Software and Generated Output. You are also solely responsible for your development environment, dependencies, source control, build systems, deployment pipeline, device compatibility, accessibility compliance, security posture, data protection, and end-user support for products you create with or based on the Software.' },
+    ],
+  },
+  {
+    h: '5. Website, documentation, and examples',
+    blocks: [
+      { p: 'The Site may include documentation, tutorials, code samples, design examples, templates, screenshots, videos, product descriptions, roadmap statements, pricing information, compatibility information, and other materials. These materials are provided for general informational purposes and may be incomplete, outdated, inaccurate, experimental, or subject to change without notice.' },
+      { p: 'We do not guarantee that any documentation, example, sample project, design asset, template, tutorial, performance estimate, compatibility statement, benchmark, roadmap item, or recommendation is correct, complete, secure, production-ready, accessible, compliant, maintained, or suitable for your particular use case. You must independently verify all information before relying on it.' },
+    ],
+  },
+  {
+    h: '6. Open-source framework terms',
+    blocks: [
+      { p: 'The open-source Elysium UI framework is licensed under the Apache License 2.0 unless expressly stated otherwise. The license text, notices, attribution requirements, patent provisions, and warranty disclaimers in that license apply to the Framework. You are responsible for reviewing and complying with that license and any third-party open-source licenses included in or used with the Framework.' },
+      { p: 'Lamaute Labs may maintain public repositories, accept issues, publish releases, review pull requests, or provide community support, but it has no obligation to do so. We may change, suspend, archive, remove, or discontinue any repository, package, branch, build, example, issue tracker, roadmap, feature, release, or support channel at any time without liability.' },
+      { p: 'The Framework may contain bugs, defects, security vulnerabilities, breaking changes, incomplete features, undocumented behavior, or dependencies that change over time. You use the Framework at your own risk. You are responsible for auditing, testing, securing, and validating the Framework and any product or service you build with it.' },
+    ],
+  },
+  {
+    h: '7. Elysium Designer and commercial software',
+    blocks: [
+      { p: 'Elysium Designer is commercial software unless expressly identified as open-source. Access to Elysium Designer may require a paid license, subscription, activation, account, license key, online verification, or other entitlement. Trials, previews, betas, early-access builds, free tiers, promotional licenses, and evaluation copies may be time-limited, feature-limited, usage-limited, revocable, watermarked, telemetry-enabled where disclosed, or subject to additional terms.' },
+      { p: 'Unless an applicable End User License Agreement or purchase terms state otherwise, licenses to commercial software are personal, limited, revocable, non-exclusive, non-sublicensable, non-transferable, and intended only for the person or entity identified at purchase or activation. You may not share, resell, rent, lease, lend, sublicense, publish, bypass, disable, tamper with, or circumvent license keys, activation systems, entitlement checks, usage limits, security mechanisms, watermarking, digital signatures, or license-management features.' },
+      { p: 'Purchases, subscriptions, license delivery, activation, entitlement checks, account management, or downloads may be processed by PyLocket or other third-party service providers. We are not responsible for outages, delays, security incidents, data loss, pricing errors, processing errors, failed deliveries, failed activations, payment failures, or other acts or omissions of third-party providers, except to the extent required by applicable law.' },
+      { p: 'Generated Output from Elysium Designer is provided without guarantee. We do not promise that Generated Output will compile, run, render correctly, be accessible, be secure, be original, be free of defects, avoid third-party rights, satisfy app store or marketplace rules, meet customer requirements, or comply with any legal, regulatory, privacy, accessibility, security, or industry requirement.' },
+    ],
+  },
+  {
+    h: '8. Accounts, credentials, and license keys',
+    blocks: [
+      { p: 'You may need an account, license key, email address, device fingerprint, account identifier, payment method, activation token, or other credential to use certain Services. You are responsible for all activity under your accounts, devices, credentials, license keys, and payment methods. You must keep credentials confidential and promptly notify us of suspected unauthorized access or misuse.' },
+      { p: 'We may suspend, disable, revoke, or refuse accounts, license keys, activations, downloads, updates, support, or access if we believe there has been fraud, abuse, unauthorized sharing, excessive activations, chargebacks, security risk, violation of these Terms, violation of law, or misuse of the Services.' },
+    ],
+  },
+  {
+    h: '9. Fees, purchases, renewals, taxes, and refunds',
+    blocks: [
+      { p: 'Fees, pricing, license scope, subscription period, trial period, renewal terms, cancellation terms, refund eligibility, usage limits, and included support are stated at the point of purchase, in the applicable order form, or in separate product terms. Unless stated otherwise, fees are quoted in U.S. dollars, are due at purchase or renewal, and are non-refundable to the maximum extent permitted by law.' },
+      { p: 'You authorize us and our payment processors to charge the payment method you provide for all fees, renewals, taxes, and other amounts due. You are responsible for all taxes, duties, levies, bank fees, foreign exchange charges, and similar charges, except taxes based on our net income. Pricing and availability may change at any time, and we may correct pricing or typographical errors even after an order is submitted.' },
+      { p: 'If a subscription automatically renews, you are responsible for cancelling before the renewal date if you do not want to renew. Cancellation stops future renewal charges but does not automatically entitle you to a refund for amounts already paid unless applicable law or purchase terms require otherwise.' },
+    ],
+  },
+  {
+    h: '10. Acceptable use',
+    blocks: [
+      { p: 'You agree not to use the Site, Services, Software, or Generated Output in any way that:' },
+      {
+        ul: [
+          'violates any law, regulation, contract, third-party right, privacy right, publicity right, intellectual property right, export control, sanctions rule, or security requirement;',
+          'infringes, misappropriates, or violates copyrights, trademarks, patents, trade secrets, licenses, open-source obligations, or other rights;',
+          'introduces malware, spyware, ransomware, worms, viruses, logic bombs, backdoors, credential theft, denial-of-service behavior, or other harmful code;',
+          'attempts to gain unauthorized access to systems, accounts, repositories, license servers, payment systems, or data;',
+          'scrapes, crawls, probes, scans, load-tests, reverse engineers, or decompiles any non-open-source part of the Services except to the extent such restriction is prohibited by law;',
+          'bypasses, disables, interferes with, or circumvents security controls, activation systems, rate limits, license checks, access controls, or usage restrictions;',
+          'misrepresents your identity, affiliation, license status, product origin, endorsement, certification, or relationship with Lamaute Labs;',
+          'uses Elysium brand assets in a way that implies sponsorship, endorsement, official status, partnership, or affiliation without written permission;',
+          'is defamatory, obscene, harassing, abusive, deceptive, fraudulent, or otherwise harmful; or',
+          'places an unreasonable load on the Services or interferes with the use of the Services by others.',
+        ],
+      },
+    ],
+  },
+  {
+    h: '11. User Content and feedback',
+    blocks: [
+      { p: 'You retain ownership of your User Content, subject to any rights you grant to us, other users, or third parties. You represent and warrant that you have all rights needed to submit User Content and that your User Content does not violate law, these Terms, any license, or any third-party right.' },
+      { p: 'You grant Lamaute Labs a worldwide, non-exclusive, royalty-free, sublicensable, transferable license to host, store, reproduce, process, transmit, display, publish, modify, and use User Content as reasonably necessary to operate, improve, protect, provide, and support the Services, comply with law, enforce these Terms, and communicate with you.' },
+      { p: 'If you submit suggestions, ideas, bug reports, feature requests, comments, improvements, or other feedback, you grant Lamaute Labs a perpetual, irrevocable, worldwide, royalty-free right to use, copy, modify, publish, distribute, commercialize, and otherwise exploit that feedback for any purpose without restriction, attribution, or compensation to you.' },
+      { p: 'Do not submit confidential, proprietary, regulated, personal, sensitive, classified, export-controlled, or third-party confidential information unless you have a separate written agreement with us that expressly permits it. We do not agree to confidentiality obligations for unsolicited submissions.' },
+    ],
+  },
+  {
+    h: '12. Intellectual property and ownership',
+    blocks: [
+      { p: 'Except for rights expressly granted to you, Lamaute Labs and its licensors reserve all rights, title, and interest in and to the Site, Services, Elysium Designer, commercial software, documentation, trademarks, logos, product names, visual designs, user interface elements, icons, trade dress, domain names, proprietary technology, and other materials owned or controlled by Lamaute Labs.' },
+      { p: 'Nothing in these Terms transfers ownership of Lamaute Labs intellectual property to you. No rights are granted by implication, waiver, estoppel, or otherwise. You may not remove, obscure, or alter copyright, trademark, patent, attribution, license, or proprietary notices.' },
+      { p: 'Open-source components remain subject to their applicable open-source licenses. Third-party components remain owned by their respective owners and may be subject to separate licenses, notices, restrictions, and obligations.' },
+    ],
+  },
+  {
+    h: '13. Trademarks and brand assets',
+    blocks: [
+      { p: 'The "Elysium," "Elysium UI," "Elysium Designer," "Lamaute Labs," Blue Morpho logo, and related names, marks, logos, icons, slogans, and trade dress are trademarks or brand assets of Lamaute Labs or its licensors. You may not use them in a way that is confusing, misleading, disparaging, unlawful, or suggests sponsorship, approval, partnership, certification, or endorsement by Lamaute Labs without written permission.' },
+      { p: 'You may make truthful, nominative references to Elysium UI when describing compatibility or use of the Framework, provided your use complies with applicable brand guidelines and does not imply endorsement or official status.' },
+    ],
+  },
+  {
+    h: '14. Third-party services, dependencies, and links',
+    blocks: [
+      { p: 'The Services may link to or integrate with third-party services, repositories, package managers, payment processors, license providers, hosting providers, analytics providers, authentication providers, operating systems, developer tools, fonts, components, dependencies, and other third-party materials. We do not control and are not responsible for third-party services, content, code, data, security, availability, licenses, fees, changes, or practices.' },
+      { p: 'You are solely responsible for reviewing third-party terms, privacy policies, security practices, and licenses before using them. We do not warrant or support third-party services or dependencies, even if they are linked from the Site, referenced in documentation, bundled with examples, or required for a particular workflow.' },
+    ],
+  },
+  {
+    h: '15. Privacy',
+    blocks: [
+      { p: 'Your use of the Site and Services is subject to the Elysium UI Privacy Policy, available at https://www.elysiumui.com/privacy/. The Privacy Policy explains how personal information may be collected, used, disclosed, stored, and protected when you use the Site, contact us, purchase or activate software, receive support, or use related Services. By using the Site or Services, you acknowledge the Privacy Policy. If these Terms conflict with the Privacy Policy on a privacy-specific matter, the Privacy Policy controls for that matter.' },
+      { p: 'You are responsible for complying with all privacy, data protection, data security, breach notification, cookie, consent, biometric, telemetry, accessibility, and consumer protection laws that apply to your own products, sites, users, customers, employees, and data. We are not responsible for your privacy notices, consent flows, data processing practices, or legal compliance.' },
+    ],
+  },
+  {
+    h: '16. Security and data loss',
+    blocks: [
+      { p: 'No software, website, network, license system, update process, repository, package, download, or online service can be guaranteed to be secure, uninterrupted, or free from vulnerabilities. You are responsible for securing your systems, scanning downloads, reviewing source code and dependencies, maintaining backups, protecting credentials, applying updates, and implementing appropriate technical, administrative, and organizational safeguards.' },
+      { p: 'We are not responsible for lost data, corrupted files, failed builds, failed deployments, compromised systems, security incidents, unauthorized access, malware, dependency vulnerabilities, or other harms arising from your use of the Site, Services, Software, Generated Output, third-party services, or development environment.' },
+    ],
+  },
+  {
+    h: '17. Updates, changes, availability, and discontinuation',
+    blocks: [
+      { p: 'We may add, remove, modify, suspend, discontinue, rename, reprice, or restrict any Site feature, Service, software release, package, repository, documentation page, API, license mechanism, support channel, trial, beta, product plan, or commercial offering at any time without liability. We may also issue updates, patches, breaking changes, migrations, or deprecations, but we have no obligation to provide, maintain, or support any particular version, feature, or compatibility level.' },
+      { p: 'We do not guarantee that the Site, Services, repositories, downloads, license activations, updates, support, or commercial software will be available at any particular time or location, will be compatible with any device, operating system, browser, package manager, development environment, framework version, build process, or dependency, or will continue to operate without interruption or error.' },
+    ],
+  },
+  {
+    h: '18. Beta, preview, experimental, and free features',
+    blocks: [
+      { p: 'Beta, preview, experimental, early-access, internal, free, trial, or evaluation features are provided for testing only and may be unstable, incomplete, unsupported, inaccurate, insecure, changed, rate-limited, discontinued, or revoked at any time. You should not rely on them for production use, critical systems, regulated workloads, safety-sensitive uses, or legal compliance unless we expressly agree in writing.' },
+    ],
+  },
+  {
+    h: '19. No professional advice and no compliance guarantee',
+    blocks: [
+      { p: 'The Site, Services, Software, documentation, examples, and support communications do not provide legal, financial, tax, security, compliance, accessibility, procurement, engineering, or professional advice. You should consult qualified professionals before relying on the Services for any regulated, commercial, legal, security, accessibility, or mission-critical purpose.' },
+      { p: 'We do not guarantee compliance with WCAG, ADA, Section 508, GDPR, CCPA, CPRA, HIPAA, SOC 2, ISO standards, app store guidelines, marketplace requirements, customer procurement requirements, open-source policies, enterprise security standards, or any other standard, law, regulation, contract, certification, or policy.' },
+    ],
+  },
+  {
+    h: '20. Export controls and sanctions',
+    blocks: [
+      { p: 'You must comply with all applicable export control, sanctions, import, anti-boycott, and trade compliance laws and regulations. You may not access, download, export, re-export, transfer, or use the Site, Services, Software, or technical data in violation of those laws or for prohibited end uses. You represent that you are not located in, organized under the laws of, or ordinarily resident in a jurisdiction subject to comprehensive sanctions, and that you are not listed on any restricted-party list that would prohibit your use of the Services.' },
+    ],
+  },
+  {
+    h: '21. Copyright complaints',
+    blocks: [
+      { p: 'If you believe content on the Site infringes your copyright, contact us at support@elysiumui.com with information sufficient to identify the work, the allegedly infringing material, your contact information, a statement that you have a good-faith belief the use is unauthorized, a statement under penalty of perjury that your notice is accurate and that you are authorized to act for the copyright owner, and your physical or electronic signature. We may remove or disable access to allegedly infringing material and may terminate repeat infringers where appropriate.' },
+    ],
+  },
+  {
+    h: '22. Disclaimers of warranties',
+    blocks: [
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SITE, SERVICES, SOFTWARE, FRAMEWORK, ELYSIUM DESIGNER, DOCUMENTATION, DOWNLOADS, REPOSITORIES, PACKAGES, EXAMPLES, TEMPLATES, GENERATED OUTPUT, SUPPORT, THIRD-PARTY INTEGRATIONS, AND ALL RELATED MATERIALS ARE PROVIDED "AS IS," "AS AVAILABLE," AND "WITH ALL FAULTS." YOU USE THEM AT YOUR OWN RISK.' },
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS DISCLAIMS ALL WARRANTIES, REPRESENTATIONS, CONDITIONS, AND GUARANTEES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, QUIET ENJOYMENT, ACCURACY, AVAILABILITY, RELIABILITY, SECURITY, COMPATIBILITY, PERFORMANCE, WORKMANLIKE EFFORT, AND COURSE OF DEALING OR USAGE OF TRADE.' },
+      { p: 'WITHOUT LIMITING THE FOREGOING, LAMAUTE LABS DOES NOT WARRANT OR GUARANTEE THAT THE SITE, SERVICES, SOFTWARE, FRAMEWORK, ELYSIUM DESIGNER, GENERATED OUTPUT, OR ANY RELATED MATERIAL WILL MEET YOUR REQUIREMENTS, OPERATE WITHOUT INTERRUPTION, BE ERROR-FREE, BE SECURE, BE FREE OF BUGS OR VULNERABILITIES, BE COMPATIBLE WITH YOUR SYSTEMS, REMAIN AVAILABLE, REMAIN OPEN SOURCE OR COMMERCIAL, COMPILE, RENDER CORRECTLY, PRODUCE EXPECTED RESULTS, SATISFY LEGAL OR ACCESSIBILITY REQUIREMENTS, AVOID DATA LOSS, OR BE SUITABLE FOR ANY PARTICULAR PURPOSE.' },
+      { p: 'Some jurisdictions do not allow certain warranty exclusions. In those jurisdictions, the exclusions apply only to the maximum extent permitted by law.' },
+    ],
+  },
+  {
+    h: '23. Limitation of liability',
+    blocks: [
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS, ITS OWNERS, OFFICERS, DIRECTORS, EMPLOYEES, CONTRACTORS, AFFILIATES, LICENSORS, SUPPLIERS, SERVICE PROVIDERS, AND AGENTS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, PUNITIVE, ENHANCED, OR SIMILAR DAMAGES; LOSS OF PROFITS, REVENUE, GOODWILL, BUSINESS, OPPORTUNITY, SAVINGS, DATA, CONTENT, CODE, REPUTATION, OR USE; BUSINESS INTERRUPTION; SECURITY INCIDENTS; SYSTEM FAILURE; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; OR DAMAGES ARISING FROM YOUR PRODUCTS, CUSTOMERS, END USERS, DEPLOYMENTS, OR GENERATED OUTPUT, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.' },
+      { p: 'TO THE MAXIMUM EXTENT PERMITTED BY LAW, LAMAUTE LABS TOTAL AGGREGATE LIABILITY FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THESE TERMS, THE SITE, SERVICES, SOFTWARE, FRAMEWORK, ELYSIUM DESIGNER, GENERATED OUTPUT, OR RELATED MATERIALS WILL NOT EXCEED THE GREATER OF: (A) THE AMOUNT YOU PAID TO LAMAUTE LABS FOR THE SPECIFIC PAID SERVICE OR COMMERCIAL SOFTWARE GIVING RISE TO THE CLAIM DURING THE TWELVE MONTHS BEFORE THE EVENT GIVING RISE TO LIABILITY; OR (B) ONE HUNDRED U.S. DOLLARS (US $100).' },
+      { p: 'The limitations in this section apply to all theories of liability, including contract, tort, negligence, strict liability, warranty, statute, and otherwise, and apply even if a limited remedy fails of its essential purpose. Some jurisdictions do not allow certain liability limitations. In those jurisdictions, the limitations apply only to the maximum extent permitted by law.' },
+    ],
+  },
+  {
+    h: '24. Indemnification',
+    blocks: [
+      { p: 'To the maximum extent permitted by law, you will defend, indemnify, and hold harmless Lamaute Labs, its owners, officers, directors, employees, contractors, affiliates, licensors, suppliers, service providers, and agents from and against any claims, demands, actions, proceedings, damages, losses, liabilities, judgments, settlements, penalties, fines, costs, and expenses, including reasonable attorneys fees, arising out of or relating to:' },
+      {
+        ul: [
+          'your access to or use of the Site, Services, Software, Framework, Elysium Designer, Generated Output, or related materials;',
+          'your User Content, products, services, integrations, customers, end users, deployments, or business activities;',
+          'your violation of these Terms, any applicable license, any third-party terms, or any law or regulation;',
+          'your infringement, misappropriation, or violation of intellectual property, privacy, publicity, confidentiality, contractual, or other rights;',
+          'your security incidents, data processing practices, accessibility compliance, regulatory compliance, or failure to maintain backups; or',
+          'your misuse, modification, distribution, commercialization, or combination of the Software or Generated Output with other code, data, services, or materials.',
+        ],
+      },
+      { p: 'We may control the defense and settlement of any matter subject to indemnification, and you will cooperate with us. You may not settle any matter in a way that admits fault by Lamaute Labs or imposes obligations on Lamaute Labs without our prior written consent.' },
+    ],
+  },
+  {
+    h: '25. Termination',
+    blocks: [
+      { p: 'We may suspend or terminate your access to any Site, Service, account, license, activation, download, update, repository, support channel, community channel, or commercial software at any time if we believe you violated these Terms, violated law, created risk or liability, misused the Services, infringed rights, engaged in fraud or abuse, failed to pay amounts due, caused chargebacks, or used the Services in a way that could harm Lamaute Labs, other users, or third parties.' },
+      { p: 'You may stop using the Services at any time. Termination does not relieve you of obligations incurred before termination, including payment obligations, license restrictions, indemnity obligations, confidentiality obligations if any, or compliance with applicable open-source licenses. Sections that by their nature should survive termination will survive, including ownership, feedback, disclaimers, limitation of liability, indemnification, governing law, dispute resolution, and miscellaneous provisions.' },
+    ],
+  },
+  {
+    h: '26. Changes to these Terms',
+    blocks: [
+      { p: 'We may update these Terms from time to time. The updated Terms will be posted on the Site or otherwise made available. The "Last updated" date indicates when the Terms were last revised. Your continued use of the Site, Services, Software, or commercial features after updated Terms become effective means you accept the updated Terms. If you do not agree to updated Terms, you must stop using the Services.' },
+    ],
+  },
+  {
+    h: '27. Governing law and dispute resolution',
+    blocks: [
+      { p: 'These Terms are governed by the laws of the State of Washington and applicable U.S. federal law, without regard to conflict-of-law rules. Subject to any mandatory law that gives you the right to bring claims elsewhere, you and Lamaute Labs agree that the state and federal courts located in King County, Washington will have exclusive jurisdiction and venue for disputes arising out of or relating to these Terms, the Site, Services, Software, Framework, Elysium Designer, or related materials.' },
+      { p: 'Before filing a claim, each party agrees to try to resolve the dispute informally by providing written notice describing the claim and allowing thirty days for good-faith discussions, unless emergency injunctive relief is needed. You and Lamaute Labs waive any right to participate in a class action, class arbitration, private attorney general action, or other representative proceeding to the maximum extent permitted by law.' },
+    ],
+  },
+  {
+    h: '28. U.S. government users',
+    blocks: [
+      { p: 'The Software and documentation are "commercial products" or "commercial computer software" and "commercial computer software documentation" as those terms are used in applicable U.S. government acquisition regulations. U.S. government users receive only the rights granted to other users under these Terms and applicable licenses.' },
+    ],
+  },
+  {
+    h: '29. Miscellaneous',
+    blocks: [
+      { p: 'These Terms, together with any applicable open-source license, End User License Agreement, order form, purchase terms, Privacy Policy, brand policy, and other terms expressly incorporated by reference, are the entire agreement between you and Lamaute Labs for the Services they cover and supersede prior or contemporaneous understandings on those subjects.' },
+      { p: 'If any provision of these Terms is held invalid, illegal, or unenforceable, the remaining provisions will remain in effect, and the invalid provision will be modified to the minimum extent necessary to make it enforceable. Our failure to enforce any provision is not a waiver. You may not assign or transfer these Terms without our prior written consent, and any attempted assignment in violation of this section is void. We may assign these Terms in connection with a merger, acquisition, financing, reorganization, sale of assets, corporate transaction, or by operation of law.' },
+      { p: 'We are not liable for delay or failure to perform due to events beyond our reasonable control, including acts of God, natural disasters, labor disputes, war, terrorism, civil unrest, epidemics, pandemics, power failures, internet failures, cloud provider failures, third-party service failures, government actions, or supply-chain disruptions. Headings are for convenience only and do not affect interpretation. The words "including" and "such as" mean "including without limitation."' },
+    ],
+  },
+];
 ---
 
 <Layout title="Terms of Service — Elysium UI">
-  <main class="prose-legal mx-auto max-w-3xl px-6 pt-40 pb-24">
-    <h1 class="text-3xl font-[700]">Terms of Service</h1>
-    <p class="mt-2 text-[0.85rem] text-muted">Draft — pending legal review. Last updated July 2026.</p>
+  <main class="mx-auto max-w-3xl px-6 pt-40 pb-24">
+    <p class="eyebrow">Lamaute Labs LLC</p>
+    <h1 class="mt-3 text-3xl font-[700]">Elysium UI Terms of Service</h1>
+    <p class="mt-2 text-[0.85rem] text-muted">Last updated July 3, 2026 · Working draft under legal review.</p>
 
     <div class="mt-8 space-y-6 text-[0.95rem] leading-relaxed text-ink/90">
+      {
+        sections.map((s) => (
+          <>
+            <h2 class="text-xl font-[650]">{s.h}</h2>
+            {s.blocks.map((b) => (
+              <>
+                {b.p && <p>{b.p}</p>}
+                {b.ul && (
+                  <ul class="list-disc space-y-1 pl-6">
+                    {b.ul.map((li) => (
+                      <li>{li}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ))}
+          </>
+        ))
+      }
+
+      <h2 class="text-xl font-[650]">30. Contact</h2>
+      <p>Questions about these Terms may be sent to:</p>
       <p>
-        These terms are between you and <strong>Lamaute Labs LLC</strong> (“we”)
-        and govern your use of elysiumui.com and the software distributed from
-        it. By using the site you agree to them.
+        Lamaute Labs LLC<br />
+        Email: <a class="text-iris hover:underline" href="mailto:support@elysiumui.com">support@elysiumui.com</a><br />
+        Website: <a class="text-iris hover:underline" href="https://www.elysiumui.com/">https://www.elysiumui.com/</a>
       </p>
-      <h2 class="text-xl font-[650]">The framework</h2>
-      <p>
-        The Elysium UI framework is open-source software licensed under the
-        Apache License 2.0. Your use of the framework is governed by that
-        license, not these terms. The "Elysium" name and the Blue Morpho logo are
-        trademarks; see the brand policy in the repository.
-      </p>
-      <h2 class="text-xl font-[650]">Elysium Designer</h2>
-      <p>
-        Elysium Designer is commercial software provided under its
-        <a class="text-iris hover:underline" href="/eula">End User License Agreement</a>.
-        Trials are time-limited; licenses are personal and non-transferable
-        unless stated otherwise at purchase. Purchases and license delivery are
-        processed by PyLocket.
-      </p>
-      <h2 class="text-xl font-[650]">No warranty</h2>
-      <p>
-        The site and downloads are provided "as is" without warranty of any
-        kind. To the maximum extent permitted by law, we are not liable for any
-        damages arising from their use.
-      </p>
-      <h2 class="text-xl font-[650]">Contact</h2>
-      <p><a class="text-iris hover:underline" href="mailto:support@elysiumui.com">support@elysiumui.com</a></p>
     </div>
   </main>
 </Layout>
