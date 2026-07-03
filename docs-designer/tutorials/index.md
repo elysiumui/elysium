@@ -49,5 +49,5 @@ Each tutorial:
 
 - [Blue Morpho lead tutorial](../getting-started/butterfly/index.md)
  : the canonical first tutorial.
-- [Framework Tutorial Library](https://docs.elysium.dev/tutorials/)
+- [Framework Tutorial Library](https://docs.elysiumui.com/tutorials/)
  : runtime-side follow-ons.

@@ -42,4 +42,4 @@ in the Designer reference).
 
 - [Aether](../guides/aether.md)
 - [Recipes: custom tool](../recipes/24-custom-aether-tool.md)
-- [Designer > Aether](https://designer.elysium.dev/aether/)
+- [Designer > Aether](https://designer.elysiumui.com/aether/)

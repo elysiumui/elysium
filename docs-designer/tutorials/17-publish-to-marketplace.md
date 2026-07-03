@@ -26,7 +26,7 @@ The private key (`.hex`) never leaves your machine. The public key
 ## Register your public key
 
 The first time you publish, the registry asks you to claim a
-publisher namespace. Visit `https://skins.elysium.dev/register`
+publisher namespace. Visit `https://skins.elysiumui.com/register`
 in a browser, sign in, paste your `.pub` content.
 
 After the registry confirms (instant for new namespaces), every
@@ -66,7 +66,7 @@ A successful publish prints:
 ```
 ✓ Published dev.yourname.aurora-clock@0.1.0
   Install: elysium skins add dev.yourname.aurora-clock
-  URL:     https://skins.elysium.dev/dev.yourname.aurora-clock
+  URL:     https://skins.elysiumui.com/dev.yourname.aurora-clock
 ```
 
 ## Install (verify)
@@ -116,5 +116,5 @@ contact the registry maintainers.
 
 ## See also
 
-- [Marketplace](https://docs.elysium.dev/guides/marketplace/) (framework guide)
-- [CLI](https://docs.elysium.dev/guides/cli/)
+- [Marketplace](https://docs.elysiumui.com/guides/marketplace/) (framework guide)
+- [CLI](https://docs.elysiumui.com/guides/cli/)

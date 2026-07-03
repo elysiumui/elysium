@@ -5,7 +5,7 @@ Time: 6 minutes.
 ## What you are building
 
 Three short chapters take the `.esk` you produced in the Designer's
-[Blue Morpho to Monarch tutorial](https://designer.elysium.dev/getting-started/butterfly/)
+[Blue Morpho to Monarch tutorial](https://designer.elysiumui.com/getting-started/butterfly/)
 and turn it into the official Elysium logo treatment: a butterfly-
 shaped borderless transparent window that descends from the top of
 the screen, flaps its wings, and unfurls the Elysium wordmark behind

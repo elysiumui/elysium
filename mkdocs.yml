@@ -1,6 +1,6 @@
 site_name: Elysium UI
 site_description: Python desktop UI framework for borderless, shaped, GPU-accelerated, animated apps.
-site_url: https://docs.elysium.dev/
+site_url: https://docs.elysiumui.com/
 repo_url: https://github.com/elysium-ui/elysium
 edit_uri: edit/main/docs/
 

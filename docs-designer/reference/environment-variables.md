@@ -61,6 +61,6 @@ PYTHONPATH conventions.
 
 ## See also
 
-- [CLI](https://docs.elysium.dev/guides/cli/) (framework)
+- [CLI](https://docs.elysiumui.com/guides/cli/) (framework)
 - [File locations](file-locations.md)
 - [Hot reload internals](hot-reload-internals.md)

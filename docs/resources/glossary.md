@@ -16,7 +16,7 @@ Owns the event loop and the GPU device.
 
 **AOV**: Arbitrary Output Variable. A render pass that isolates
 one component of the final image (diffuse, specular, depth, etc.).
-See [Designer > AOVs](https://designer.elysium.dev/rendering/aovs/).
+See [Designer > AOVs](https://designer.elysiumui.com/rendering/aovs/).
 
 ## B
 
@@ -105,5 +105,5 @@ uses. Implements WebGPU; rides on Vulkan / Metal / DX12 underneath.
 
 ## See also
 
-- [Designer glossary](https://designer.elysium.dev/glossary/)  
+- [Designer glossary](https://designer.elysiumui.com/glossary/)  
   Designer-specific terms.

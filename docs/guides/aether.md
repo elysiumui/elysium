@@ -52,7 +52,7 @@ The full catalog (123 tools, 15 modules) is auto-generated from
 the shipping code and lives at:
 
 - Framework: [API > Aether](../api/aether.md)
-- Designer: [Aether tool reference](https://designer.elysium.dev/reference/aether-tool-reference/)
+- Designer: [Aether tool reference](https://designer.elysiumui.com/reference/aether-tool-reference/)
 
 Each tool has a docstring, an argument schema, and a "confirmation
 required" flag. The agent reads these to decide which tool to
@@ -104,7 +104,7 @@ daemon.set_safety_policy(
 )
 ```
 
-See [Designer > Aether > Safety and limits](https://designer.elysium.dev/aether/safety-and-limits/).
+See [Designer > Aether > Safety and limits](https://designer.elysiumui.com/aether/safety-and-limits/).
 
 ## Providers
 
@@ -128,7 +128,7 @@ client.send("aether.user_message", {"text": "make the wings warmer"})
 ```
 
 The Designer's chat panel and any embedded Aether sessions
-multiplex over this bridge. See [Bridge and port](https://designer.elysium.dev/aether/bridge-and-port/).
+multiplex over this bridge. See [Bridge and port](https://designer.elysiumui.com/aether/bridge-and-port/).
 
 ## Performance
 
@@ -141,4 +141,4 @@ many tool calls without explanation.
 
 - [AI workflows](ai.md): batch one-shot AI.
 - [Recipes: expose a custom tool](../recipes/24-custom-aether-tool.md)
-- [Designer > Aether](https://designer.elysium.dev/aether/)
+- [Designer > Aether](https://designer.elysiumui.com/aether/)

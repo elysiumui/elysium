@@ -78,6 +78,6 @@ distribution paths (uv, conda-forge, Homebrew, GitHub Releases, Docker).
 Authoring of `.esk` skin bundles happens in the standalone **Elysium Designer**
 app, which ships as a `.app` on macOS, `.exe` on Windows, and AppImage on
 Linux. The Designer's own documentation lives at
-[designer.elysium.dev](https://designer.elysium.dev/). Start with the
-[Blue Morpho to Monarch butterfly tutorial](https://designer.elysium.dev/getting-started/butterfly/)
+[designer.elysiumui.com](https://designer.elysiumui.com/). Start with the
+[Blue Morpho to Monarch butterfly tutorial](https://designer.elysiumui.com/getting-started/butterfly/)
 to learn the texture-transfer pipeline that produces the Elysium logo skin.

@@ -152,7 +152,7 @@ both at radius 180 around (180,180) keeps them in sync.
 `ticks` is a higher-level placement that generates a small group of
 line shapes around a circle. It compiles down to the same Path
 primitives you would draw by hand. The Designer's
-[Tool reference](https://designer.elysium.dev/reference/tool-reference/)
+[Tool reference](https://designer.elysiumui.com/reference/tool-reference/)
 explains the full kind catalog.
 
 ## Checkpoint

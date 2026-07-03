@@ -64,7 +64,7 @@ spelling.
 ## Coordinated disclosure
 
 For security issues do **not** open a public issue. Email
-`security@elysium.dev` with details. We acknowledge within 24
+`security@elysiumui.com` with details. We acknowledge within 24
 hours and ship a fix within 14 days for verified vulnerabilities.
 
 ## License

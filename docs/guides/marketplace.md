@@ -20,7 +20,7 @@ Installed skins land under `~/.elysium/skins/<id>/`. The native loader resolves 
 - `publish` reads the private signing key from `$ELYSIUM_SIGN_KEY` (hex-encoded 32-byte seed) so CI flows don't need an interactive prompt.
 
 ## Registry endpoint
-The registry URL is `$ELYSIUM_REGISTRY` (default: `https://skins.elysium.dev/v1`). Self-hosting the registry is supported: the wire format is:
+The registry URL is `$ELYSIUM_REGISTRY` (default: `https://skins.elysiumui.com/v1`). Self-hosting the registry is supported: the wire format is:
 
 - `GET /v1/search?q=...` → `[{id, version, description, ...}, ...]`
 - `GET /v1/skins/<id>` → `{manifest, download_url, publisher_pubkey, signature, size}`

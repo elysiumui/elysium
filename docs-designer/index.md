@@ -72,6 +72,6 @@ tablet pressure.
 
 The Designer authors `.esk` bundles. The Elysium UI Python framework loads
 them at runtime. The two are designed together; their docs sit at
-[docs.elysium.dev](https://docs.elysium.dev/). After you finish the butterfly
+[docs.elysiumui.com](https://docs.elysiumui.com/). After you finish the butterfly
 tutorial here, the framework site's Butterfly Banner tutorial takes the `.esk`
 you exported and wires it into a running borderless animated app.

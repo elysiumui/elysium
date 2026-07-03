@@ -37,5 +37,5 @@ a finished example in `examples/` plus the markdown walkthrough.
 - [Getting Started](../getting-started/index.md): the four lead
   demos.
 - [Recipes](../recipes/index.md): the focused cookbook.
-- [Designer tutorial library](https://designer.elysium.dev/tutorials/)
+- [Designer tutorial library](https://designer.elysiumui.com/tutorials/)
  : 17 Designer-side follow-on tutorials.

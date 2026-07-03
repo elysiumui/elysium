@@ -2,7 +2,7 @@
 
 Elysium is two products that are really one: the **framework** (this site) and
 the **Designer** (a visual authoring tool, documented at
-[designer.elysium.dev](https://designer.elysium.dev)). This guide is the bridge —
+[designer.elysiumui.com](https://designer.elysiumui.com)). This guide is the bridge —
 the end-to-end path from a design in the Designer to a running, shipped app.
 
 ## The contract: the `.esk` skin
@@ -26,7 +26,7 @@ See [Skins](skins.md) for the bundle format and the designer↔developer contrac
 
 Build the visual in the Designer — shapes, gradients, 3-D, brushes, themes — and
 mark the interactive parts with **hooks** (named slots the code binds to). The
-Designer's [getting-started tutorial](https://designer.elysium.dev) walks the
+Designer's [getting-started tutorial](https://designer.elysiumui.com) walks the
 authoring flow.
 
 ## 2. Wire it in code
@@ -67,9 +67,9 @@ See [Packaging](packaging.md) and [Auto-update](auto-update.md).
 
 ## Which docs, when
 
-- **This site** (`docs.elysium.dev`) — the Python framework: API, components,
+- **This site** (`docs.elysiumui.com`) — the Python framework: API, components,
   patterns, rendering, packaging.
-- **[Designer docs](https://designer.elysium.dev)** — the visual tool: modeling,
+- **[Designer docs](https://designer.elysiumui.com)** — the visual tool: modeling,
   sculpting, rigging, rendering, themes, and the Aether AI assistant.
 
 They cross-link throughout; treat them as one manual with two halves.

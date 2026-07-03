@@ -103,7 +103,7 @@ paths first-class.
 ## Touch and tablet
 
 Both frameworks handle multi-touch. Elysium's
-[Touch and dynamics](https://designer.elysium.dev/brush/touch-and-dynamics/)
+[Touch and dynamics](https://designer.elysiumui.com/brush/touch-and-dynamics/)
 documents the brush-side pipeline; for general gestures, the
 event model in Elysium is single-pointer with multi-pointer support
 via the `secondary_pointers` field on drag events.

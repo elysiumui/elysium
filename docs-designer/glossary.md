@@ -1,7 +1,7 @@
 # Glossary
 
 Designer-specific terms. For framework concepts (signals, effects,
-Tweens) see the [Framework glossary](https://docs.elysium.dev/resources/glossary/).
+Tweens) see the [Framework glossary](https://docs.elysiumui.com/resources/glossary/).
 
 ## A
 
@@ -132,5 +132,5 @@ references snapshots for rollback.
 
 ## See also
 
-- [Framework glossary](https://docs.elysium.dev/resources/glossary/)
+- [Framework glossary](https://docs.elysiumui.com/resources/glossary/)
 - [Manual index](manual-index.md)

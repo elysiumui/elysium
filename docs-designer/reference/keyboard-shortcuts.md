@@ -116,7 +116,7 @@ group.
 
 A PDF cheat sheet ships with the Designer at
 `Help > Print Shortcut Cheat Sheet`. Or download from
-[elysium.dev/cheatsheet.pdf](https://elysium.dev/cheatsheet.pdf).
+[elysiumui.com/cheatsheet.pdf](https://elysiumui.com/cheatsheet.pdf).
 
 ## See also
 

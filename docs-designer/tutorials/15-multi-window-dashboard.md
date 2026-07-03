@@ -70,7 +70,7 @@ for name, (x, y, w, h) in LAYOUT:
 
 Dock-and-follow: when the header is dragged, the other three move
 in lockstep. Use `@header.on("window.moved")` to reposition the
-rest (see [Aurora Clock Pro](https://docs.elysium.dev/tutorials/aurora-clock-pro/)
+rest (see [Aurora Clock Pro](https://docs.elysiumui.com/tutorials/aurora-clock-pro/)
 for the pattern).
 
 ## Inter-window state
@@ -115,6 +115,6 @@ dashboard/
 
 ## See also
 
-- [Aurora Clock Pro framework tutorial](https://docs.elysium.dev/tutorials/aurora-clock-pro/)
+- [Aurora Clock Pro framework tutorial](https://docs.elysiumui.com/tutorials/aurora-clock-pro/)
 - [Aether scaffold a settings panel](08-aether-scaffold-settings-panel.md)
 - [Themes](../themes/index.md)

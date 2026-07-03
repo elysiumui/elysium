@@ -125,7 +125,7 @@ wgpu compute shaders integrate via:
 canvas.compute(shader_wgsl, x=0, y=0, w=512, h=512, entry="main")
 ```
 
-See [Brush > Authoring custom brushes](https://designer.elysium.dev/brush/authoring-custom-brushes/)
+See [Brush > Authoring custom brushes](https://designer.elysiumui.com/brush/authoring-custom-brushes/)
 for a full example.
 
 ## Frame budget

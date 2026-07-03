@@ -47,7 +47,7 @@ from elysium.text.richtext import RichDocument, Run, Break, Image, RichTextView
 
 doc = RichDocument(default_size=15)
 doc.add(Run(text="Title", bold=True, size=22)).add(Break())
-doc.add(Run(text="A ")).add(Run(text="link", link="https://elysium.dev"))
+doc.add(Run(text="A ")).add(Run(text="link", link="https://elysiumui.com"))
 doc.add(Run(text=" and ")).add(Run(text="italic", italic=True))
 
 view = RichTextView(document=doc, x=20, y=20, w=360, on_link=open_url)

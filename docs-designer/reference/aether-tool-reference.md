@@ -52,4 +52,4 @@ result = call_tool("mesh.transfer_polar_normal", {
 - [Aether](../aether/index.md)
 - [Aether > Tool reference](../aether/tool-reference.md): same
   content reached from the Aether section.
-- Framework: [aether-tools.partial.md](https://docs.elysium.dev/api/aether-tools.partial.md)
+- Framework: [aether-tools.partial.md](https://docs.elysiumui.com/api/aether-tools.partial.md)

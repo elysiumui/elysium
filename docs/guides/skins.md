@@ -123,7 +123,7 @@ The most common kinds in skins:
 | `light` / `camera` | 3D scene parts |
 | `canvas` | Custom-drawn region (recv DisplayList from Python) |
 
-The Designer's [Toolbox](https://designer.elysium.dev/interface/toolbox/)
+The Designer's [Toolbox](https://designer.elysiumui.com/interface/toolbox/)
 maps to these kinds one-for-one.
 
 ## Loading at runtime
@@ -198,5 +198,5 @@ frames are cheap.
   `window.shape` field.
 - [Code Link](code-link.md): designer-to-code wiring.
 - [Hot reload](hot-reload.md): live editing.
-- [Designer .esk bundle reference](https://designer.elysium.dev/reference/esk-bundle-format/)
+- [Designer .esk bundle reference](https://designer.elysiumui.com/reference/esk-bundle-format/)
  : full schema.

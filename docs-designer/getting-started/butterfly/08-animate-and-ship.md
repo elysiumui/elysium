@@ -130,7 +130,7 @@ This `.esk` is a complete Elysium skin. It contains:
 
 ## Next: take it into the Framework
 
-The [Framework's Butterfly Banner tutorial](https://docs.elysium.dev/getting-started/butterfly-banner-01-load-the-skin/)
+The [Framework's Butterfly Banner tutorial](https://docs.elysiumui.com/getting-started/butterfly-banner-01-load-the-skin/)
 picks up exactly where this leaves off. In three chapters it walks
 through:
 
@@ -156,4 +156,4 @@ You should have:
 Congratulations. You are done with the Blue Morpho to Monarch
 tutorial.
 
-[Back to the tutorial index](index.md) · [Continue into the Framework >>](https://docs.elysium.dev/getting-started/butterfly-banner-01-load-the-skin/)
+[Back to the tutorial index](index.md) · [Continue into the Framework >>](https://docs.elysiumui.com/getting-started/butterfly-banner-01-load-the-skin/)

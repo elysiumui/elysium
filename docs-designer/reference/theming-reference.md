@@ -89,7 +89,7 @@ custom = Theme(
 set_theme(custom)
 ```
 
-See [Theming](https://docs.elysium.dev/guides/theming/) (framework).
+See [Theming](https://docs.elysiumui.com/guides/theming/) (framework).
 
 ## See also
 

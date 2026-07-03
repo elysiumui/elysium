@@ -68,7 +68,7 @@ The mask round-trips through the `.esk` save: with
 it as an image overlay at load time.
 
 For the full Designer-side brush workflow see the
-[Brush system](https://designer.elysium.dev/brush/) section.
+[Brush system](https://designer.elysiumui.com/brush/) section.
 
 ## AI Enhance
 
@@ -86,7 +86,7 @@ pipeline.
 
 The two starred Designer pipelines (Polar + Bake + Normal Map; and
 BBox + Landmark Gaps + Bake + Normal Map) are documented in detail
-in the [Designer's transfer pipelines reference](https://designer.elysium.dev/rendering/texture-transfer-pipelines/).
+in the [Designer's transfer pipelines reference](https://designer.elysiumui.com/rendering/texture-transfer-pipelines/).
 The framework consumes the bakes; the Designer authors them.
 
 ## Procedural textures
@@ -132,4 +132,4 @@ need point-sampled crisp pixels.
 - [PBR](pbr.md): materials that consume textures.
 - [Brush](brush.md): brush engines + presets.
 - [Rendering](rendering.md): composition pipeline.
-- [Designer > Texture transfer pipelines](https://designer.elysium.dev/rendering/texture-transfer-pipelines/)
+- [Designer > Texture transfer pipelines](https://designer.elysiumui.com/rendering/texture-transfer-pipelines/)

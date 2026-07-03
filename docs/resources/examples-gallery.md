@@ -13,7 +13,7 @@ button click. Used for smoke tests of the native renderer.
 
 [examples/butterfly/](https://github.com/elysium-ui/elysium/tree/main/examples/butterfly)
   the Monarch model + Blue Morpho reference image used in the
-[Designer's Blue Morpho tutorial](https://designer.elysium.dev/getting-started/butterfly/)
+[Designer's Blue Morpho tutorial](https://designer.elysiumui.com/getting-started/butterfly/)
 and the framework's [Butterfly Banner](../getting-started/butterfly-banner-01-load-the-skin.md)
 demo. Holds the source `.3ds`, the reference photo, and the
 produced `butterfly.esk` bundle.

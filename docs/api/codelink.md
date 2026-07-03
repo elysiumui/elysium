@@ -33,4 +33,4 @@ PyCharm, IntelliJ, Neovim, Vim, Emacs, and Xed in that order.
 ## See also
 
 - [Code Link](../guides/code-link.md)
-- [Designer > Code Link](https://designer.elysium.dev/code-link/)
+- [Designer > Code Link](https://designer.elysiumui.com/code-link/)

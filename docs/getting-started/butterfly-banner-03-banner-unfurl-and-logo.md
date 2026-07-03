@@ -156,7 +156,7 @@ the docs hero) and the gif (for README badges).
 
 ## Use the banner as the docs hero
 
-This gif is the page-load animation for `docs.elysium.dev` itself.
+This gif is the page-load animation for `docs.elysiumui.com` itself.
 Drop the produced file into `docs/assets/butterfly-banner.gif` and
 reference it from `docs/index.md`:
 

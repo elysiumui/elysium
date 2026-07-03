@@ -78,7 +78,7 @@ See [Roadmap](roadmap.md) for what's planned next.
 ## Subscribing to releases
 
 - GitHub watch the [releases tab](https://github.com/elysium-ui/elysium/releases).
-- The Sparkle appcast at `https://elysium.dev/appcast.xml` powers
+- The Sparkle appcast at `https://elysiumui.com/appcast.xml` powers
   in-app auto-update for packaged apps.
 - The PyPI listing at `pypi.org/project/elysium` is the
   authoritative source of wheel releases.

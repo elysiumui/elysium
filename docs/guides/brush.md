@@ -7,7 +7,7 @@ by tablet pressure / tilt / rotation, and import of `.abr`
 (Photoshop), `.sut` (Clip Studio Paint), and `.elybrush` (native)
 brush packs.
 
-The Designer's [Brush system](https://designer.elysium.dev/brush/)
+The Designer's [Brush system](https://designer.elysiumui.com/brush/)
 section covers the authoring side. This guide covers the framework's
 Python API for embedding brush surfaces in apps.
 
@@ -134,7 +134,7 @@ brush.register_engine(DottedLineEngine())
 ```
 
 The Designer's
-[Authoring custom brushes](https://designer.elysium.dev/brush/authoring-custom-brushes/)
+[Authoring custom brushes](https://designer.elysiumui.com/brush/authoring-custom-brushes/)
 page covers the full surface.
 
 ## Imports
@@ -154,5 +154,5 @@ import.
 ## See also
 
 - [API: elysium.brush](../api/brush.md)
-- [Designer > Brush system](https://designer.elysium.dev/brush/)
+- [Designer > Brush system](https://designer.elysiumui.com/brush/)
 - [Textures](textures.md): `PaintMask` and the texture pipeline.

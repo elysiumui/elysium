@@ -4,7 +4,7 @@ Time: 25 minutes. Difficulty: Beginner.
 
 Author a compact star-shaped now-playing widget skin in the
 Designer. The Designer side of the
-[framework tutorial of the same name](https://docs.elysium.dev/tutorials/borderless-music-widget/).
+[framework tutorial of the same name](https://docs.elysiumui.com/tutorials/borderless-music-widget/).
 
 ## Prerequisites
 
@@ -49,7 +49,7 @@ Designer auto-exposes `click` on every button).
 
 `File > Export > .esk Bundle`. You now have a `widget.esk/`
 folder. Hand it to the
-[framework tutorial](https://docs.elysium.dev/tutorials/borderless-music-widget/)
+[framework tutorial](https://docs.elysiumui.com/tutorials/borderless-music-widget/)
 for runtime wiring.
 
 ## What you exercised

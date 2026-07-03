@@ -102,5 +102,5 @@ which Designer panel issued the request.
 
 - [Hot reload](hot-reload.md): what plays alongside Code Link.
 - [Events](events.md): handler signature details.
-- [Designer > Code Link](https://designer.elysium.dev/code-link/)
+- [Designer > Code Link](https://designer.elysiumui.com/code-link/)
  : Designer-side workflow.

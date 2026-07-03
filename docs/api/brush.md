@@ -58,4 +58,4 @@ GUI sits on top of this.
 ## See also
 
 - [Brush](../guides/brush.md)
-- [Designer > Brush system](https://designer.elysium.dev/brush/)
+- [Designer > Brush system](https://designer.elysiumui.com/brush/)

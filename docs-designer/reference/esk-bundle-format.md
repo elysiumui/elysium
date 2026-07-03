@@ -133,6 +133,6 @@ the runtime resolves relative paths against the folder root.
 
 ## See also
 
-- [Skins](https://docs.elysium.dev/guides/skins/) (framework
+- [Skins](https://docs.elysiumui.com/guides/skins/) (framework
   guide)
 - [Project files](../project-files/index.md)

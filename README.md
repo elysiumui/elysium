@@ -16,9 +16,9 @@ for what's in and what's left to the Python ecosystem.
 
 ## Documentation
 
-- **Framework**: [docs.elysium.dev](https://docs.elysium.dev) (the
+- **Framework**: [docs.elysiumui.com](https://docs.elysiumui.com) (the
   `elysium` Python package)
-- **Designer**: [designer.elysium.dev](https://designer.elysium.dev)
+- **Designer**: [designer.elysiumui.com](https://designer.elysiumui.com)
   (the `.esk` authoring app)
 
 Both sites build from this repo: `docs/` and `docs-designer/`.
@@ -52,10 +52,10 @@ The Getting Started tutorials walk through four flagship apps:
 
 | Demo | Time | What you build |
 |---|---|---|
-| [Aurora Clock](https://docs.elysium.dev/getting-started/aurora-clock-01-window/) | 30 min | Borderless transparent ellipse clock with breathing aurora glow |
-| [Pomodoro Timer](https://docs.elysium.dev/getting-started/pomodoro-01-shape-and-modes/) | 25 min | Rounded-rect Pomodoro with radial progress + popover settings |
-| [Stylized Music Player](https://docs.elysium.dev/getting-started/stylized-music-01-the-faceplate/) | 90 min | Late-1990s-style irregular faceplate music player skin |
-| [Butterfly Banner](https://docs.elysium.dev/getting-started/butterfly-banner-01-load-the-skin/) | 20 min | The Elysium logo: a butterfly descends and unfurls the wordmark |
+| [Aurora Clock](https://docs.elysiumui.com/getting-started/aurora-clock-01-window/) | 30 min | Borderless transparent ellipse clock with breathing aurora glow |
+| [Pomodoro Timer](https://docs.elysiumui.com/getting-started/pomodoro-01-shape-and-modes/) | 25 min | Rounded-rect Pomodoro with radial progress + popover settings |
+| [Stylized Music Player](https://docs.elysiumui.com/getting-started/stylized-music-01-the-faceplate/) | 90 min | Late-1990s-style irregular faceplate music player skin |
+| [Butterfly Banner](https://docs.elysiumui.com/getting-started/butterfly-banner-01-load-the-skin/) | 20 min | The Elysium logo: a butterfly descends and unfurls the wordmark |
 
 Together they exercise the entire public API: `App`, `Window`,
 shaped windows, skins, signals, effects, Tweens, Springs,
@@ -72,10 +72,10 @@ per OS:
 
 Download from [releases](https://github.com/elysium-ui/elysium/releases),
 or build from source (see
-[the build-from-source guide](https://designer.elysium.dev/installation/build-from-source/)).
+[the build-from-source guide](https://designer.elysiumui.com/installation/build-from-source/)).
 
 The Designer's lead tutorial is the
-[Blue Morpho to Monarch butterfly](https://designer.elysium.dev/getting-started/butterfly/)
+[Blue Morpho to Monarch butterfly](https://designer.elysiumui.com/getting-started/butterfly/)
 texture-transfer workflow, which produces the same `.esk` the
 Butterfly Banner framework demo loads.
 
@@ -109,7 +109,7 @@ ELYSIUM_RUN_WINDOW_TEST=1 pytest tests/test_smoke.py::test_phase0_live_window_en
 ```
 
 Contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[contributing guide on the docs site](https://docs.elysium.dev/resources/contributing/).
+[contributing guide on the docs site](https://docs.elysiumui.com/resources/contributing/).
 
 ### Where the artifacts land
 
@@ -146,8 +146,8 @@ Permissive. See [LICENSE](LICENSE).
 
 ## Links
 
-- [docs.elysium.dev](https://docs.elysium.dev) (framework)
-- [designer.elysium.dev](https://designer.elysium.dev) (Designer)
+- [docs.elysiumui.com](https://docs.elysiumui.com) (framework)
+- [designer.elysiumui.com](https://designer.elysiumui.com) (Designer)
 - [GitHub Releases](https://github.com/elysium-ui/elysium/releases)
 - [PyPI](https://pypi.org/project/elysium)
 - [Issues](https://github.com/elysium-ui/elysium/issues)

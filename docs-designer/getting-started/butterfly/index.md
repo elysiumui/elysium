@@ -20,7 +20,7 @@ By the end of chapter 8 you will have produced:
 5. A borderless app window shaped like the butterfly's silhouette.
 
 The Elysium UI framework's
-[Butterfly Banner tutorial](https://docs.elysium.dev/getting-started/butterfly-banner-01-load-the-skin/)
+[Butterfly Banner tutorial](https://docs.elysiumui.com/getting-started/butterfly-banner-01-load-the-skin/)
 takes the `.esk` you produce here and wires it into a running Python app
 that flies the butterfly down a real desktop.
 
