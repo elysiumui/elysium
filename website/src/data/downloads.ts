@@ -30,51 +30,28 @@ export interface DesignerBuild {
   os: OsKey;
   label: string;
   arch: string;
-  /** PyLocket-hosted trial installer URL. TODO(PyLocket): real per-OS URLs. */
-  trialUrl: string;
   icon: 'apple' | 'windows' | 'linux';
 }
 
-const PYLOCKET_BASE = 'https://pylocket.com/d/elysium-designer'; // TODO(PyLocket): confirm
-
 export const designer = {
   name: 'Elysium Designer',
-  version: '1.1.1',
-  trialDays: 30,
+  version: '1.0.0',
+  trialDays: 14,
   priceMonthly: 8,
   priceYearly: 79,
-  /** TODO(PyLocket): real checkout URL once the product is registered. */
-  buyUrl: 'https://pylocket.com/buy/elysium-designer',
+  /** One PyLocket trial link for every OS — the user enters their email and
+   *  picks the platform there. */
+  trialUrl: 'https://get.pylocket.com/t/AwTOf_-qftFk8P2qdhd3quTdomjcHVgnkDNPphAqsKc',
+  /** Stripe account still under review — no checkout links yet. When they
+   *  arrive, set buyUrl and the "coming soon" state disappears. */
+  buyUrl: '',
   eulaPath: '/eula',
+  /** Platform availability (display only — the trial link covers them all). */
   builds: [
-    {
-      os: 'mac-arm',
-      label: 'macOS',
-      arch: 'Apple Silicon',
-      trialUrl: `${PYLOCKET_BASE}/macos-arm64`,
-      icon: 'apple',
-    },
-    {
-      os: 'mac-intel',
-      label: 'macOS',
-      arch: 'Intel',
-      trialUrl: `${PYLOCKET_BASE}/macos-x86_64`,
-      icon: 'apple',
-    },
-    {
-      os: 'windows',
-      label: 'Windows',
-      arch: 'x64',
-      trialUrl: `${PYLOCKET_BASE}/windows-x64`,
-      icon: 'windows',
-    },
-    {
-      os: 'linux',
-      label: 'Linux',
-      arch: 'x86_64 AppImage',
-      trialUrl: `${PYLOCKET_BASE}/linux-x86_64`,
-      icon: 'linux',
-    },
+    { os: 'mac-arm', label: 'macOS', arch: 'Apple Silicon', icon: 'apple' },
+    { os: 'mac-intel', label: 'macOS', arch: 'Intel', icon: 'apple' },
+    { os: 'windows', label: 'Windows', arch: 'x64', icon: 'windows' },
+    { os: 'linux', label: 'Linux', arch: 'x86_64 AppImage', icon: 'linux' },
   ] satisfies DesignerBuild[],
 } as const;
 

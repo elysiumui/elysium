@@ -67,8 +67,16 @@ import { framework, designer, links } from '../data/downloads';
         animation on canvas — then ship straight to your Python code.
       </p>
       <div class="mt-6 flex flex-wrap gap-3">
-        <a href="/download#designer" class="btn-primary text-[0.92rem]">Download free trial</a>
-        <a href={designer.buyUrl} class="btn-ghost text-[0.92rem]" rel="noopener">Buy a license</a>
+        <a href={designer.trialUrl} class="btn-primary text-[0.92rem]" rel="noopener">
+          Start {designer.trialDays}-day free trial
+        </a>
+        {
+          designer.buyUrl ? (
+            <a href={designer.buyUrl} class="btn-ghost text-[0.92rem]" rel="noopener">Buy a license</a>
+          ) : (
+            <span class="btn-ghost cursor-default text-[0.92rem] opacity-80">Purchasing coming soon</span>
+          )
+        }
       </div>
       <p class="tnum mt-4 text-[0.9rem] text-ink/90">
         <span class="font-[680]">${designer.priceMonthly}/month</span>
