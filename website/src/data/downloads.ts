@@ -15,7 +15,7 @@ export const framework = {
   pipCommand: 'pip install elysium-ui',
   importName: 'elysium',
   /** Static fallback shown until the live-version fetch resolves. */
-  version: '1.1.1',
+  version: '1.1.2',
   license: 'Apache-2.0',
   pypiUrl: 'https://pypi.org/project/elysium-ui/',
   /** The public framework repo (post-split). TODO: flip when the split lands. */
