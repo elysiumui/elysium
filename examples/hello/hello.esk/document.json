@@ -1,0 +1,37 @@
+{
+  "root": {
+    "type": "scene",
+    "id": "root",
+    "size": { "w": 480, "h": 320 },
+    "children": [
+      {
+        "type": "path",
+        "id": "card",
+        "d": "M 18 6 L 462 6 Q 478 6 478 22 L 478 298 Q 478 314 462 314 L 18 314 Q 2 314 2 298 L 2 22 Q 2 6 18 6 Z",
+        "fill": { "type": "linear_gradient",
+                  "stops": [[0, "#6B5BFF"], [1, "#E83E8C"]],
+                  "angle": 90 }
+      },
+      {
+        "type": "text",
+        "id": "message",
+        "value": "Hello, Elysium",
+        "x": 130, "y": 168, "font_size": 32,
+        "color": "#FAF7FF"
+      },
+      {
+        "type": "path",
+        "id": "greeting_button",
+        "d": "M 190 208 L 290 208 Q 304 208 304 222 L 304 244 Q 304 258 290 258 L 190 258 Q 176 258 176 244 L 176 222 Q 176 208 190 208 Z",
+        "fill": { "type": "color", "value": "#FFFFFF" }
+      },
+      {
+        "type": "text",
+        "id": "greeting_button_label",
+        "value": "Say Hi",
+        "x": 219, "y": 240, "font_size": 14,
+        "color": "#5B3FF5"
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "id": "dev.elysium.pomodoro.stem",
+  "name": "Pomodoro Stem Cluster",
+  "version": "0.1.0",
+  "color_space": "srgb",
+  "kind": "component"
+}

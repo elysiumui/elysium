@@ -1,0 +1,24 @@
+{
+  "id": "elysium.bristle.charcoal",
+  "name": "Charcoal",
+  "engine": "Bristle",
+  "params": {
+    "size": 32,
+    "opacity": 0.9,
+    "hardness": 0.6,
+    "flow": 0.75,
+    "spacing": 0.05,
+    "strands": 20,
+    "scatter": 0.45,
+    "strand_size": 0.18
+  },
+  "color_mode": "active",
+  "category": "Bristle",
+  "tags": [
+    "charcoal",
+    "rough",
+    "sketch"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_bristle_charcoal.png"
+}

@@ -1,0 +1,152 @@
+name: Build single-file binaries (Designer + examples)
+
+# Run on demand or on a release tag. PyInstaller cannot cross-compile —
+# this matrix runs one job per OS so the artifacts come from a real
+# matching runner.
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "Comma-separated list. Use 'all' to build everything."
+        default: "example:hello,example:butterfly,example:components,example:agent-cursor,example:snapshot-relay"
+        required: true
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: ${{ matrix.os }}  ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        target:
+          - example:hello
+          - example:butterfly
+          - example:components
+          - example:agent-cursor
+          - example:snapshot-relay
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            elysium-native/target
+          key: cargo-${{ matrix.os }}-${{ hashFiles('elysium-native/**/Cargo.lock') }}
+
+      - name: Install Linux GUI deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          # Runtime libs for winit / wgpu / xcb (the `1` packages) PLUS
+          # the matching `-dev` headers/symlinks so the Rust LINKER can
+          # find `-lfontconfig` / `-lfreetype` when building the native
+          # crate. Runtime-only `libfontconfig1` etc. don't ship the
+          # bare `libfontconfig.so` symlink the linker needs.
+          sudo apt-get install -y \
+            libgl1-mesa-dev libxkbcommon-x11-0 libxkbcommon-dev \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 \
+            libfontconfig1 libfontconfig1-dev \
+            libfreetype6 libfreetype-dev \
+            libwayland-dev libegl1-mesa-dev
+
+      - name: Install Python deps + maturin
+        shell: bash
+        run: |
+          # `maturin develop` requires a virtualenv or conda env. The
+          # GitHub Actions Python (setup-python) is a bare system
+          # interpreter, so create a project-local .venv that maturin
+          # (and scripts/build.py downstream) will find automatically.
+          python -m venv .venv
+          if [ -f .venv/bin/activate ]; then
+            source .venv/bin/activate
+          else
+            source .venv/Scripts/activate   # Windows venv layout
+          fi
+          python -m pip install --upgrade pip
+          # Editable install of the project (including [build] extras)
+          # so the `elysium` Python package is on `sys.path` for the
+          # downstream Build step's `_check_native()` import. This
+          # also builds the native extension via maturin once.
+          pip install -e ".[build]"
+          # Persist the venv's python on PATH for subsequent steps —
+          # GitHub Actions starts each `run:` block in a fresh shell,
+          # so we need to emit the activated PATH/VIRTUAL_ENV explicitly.
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+          echo "$VIRTUAL_ENV/bin"      >> "$GITHUB_PATH"
+          echo "$VIRTUAL_ENV/Scripts"  >> "$GITHUB_PATH"
+
+      - name: Parse target
+        id: parse
+        shell: bash
+        run: |
+          t="${{ matrix.target }}"
+          if [ "$t" = "designer" ]; then
+            echo "kind=designer" >> "$GITHUB_OUTPUT"
+            echo "name=" >> "$GITHUB_OUTPUT"
+            echo "label=Designer" >> "$GITHUB_OUTPUT"
+          else
+            name="${t#example:}"
+            echo "kind=example" >> "$GITHUB_OUTPUT"
+            echo "name=$name" >> "$GITHUB_OUTPUT"
+            echo "label=example-$name" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        shell: bash
+        run: |
+          # `--skip-native`: the previous step already ran `maturin
+          # develop` via `pip install -e .`, so the native extension
+          # is built and importable. Running `maturin develop` a
+          # second time here triggers a known maturin/ELF-parse bug
+          # on Linux when cargo hits its incremental cache.
+          if [ "${{ steps.parse.outputs.kind }}" = "designer" ]; then
+            python scripts/build.py designer --clean --skip-native
+          else
+            python scripts/build.py example "${{ steps.parse.outputs.name }}" --clean --skip-native
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: elysium-${{ steps.parse.outputs.label }}-${{ matrix.os }}
+          path: dist/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    # If this run was triggered by a vX.Y.Z tag, attach every artifact
+    # to a GitHub Release. Otherwise this job is skipped.
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Show what we have
+        run: find artifacts -type f -printf '%p  %s bytes\n'
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: artifacts/**/*
+          draft: true
+          generate_release_notes: true

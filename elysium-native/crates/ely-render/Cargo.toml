@@ -1,0 +1,21 @@
+[package]
+name             = "ely-render"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ely-core      = { path = "../ely-core" }
+wgpu          = { workspace = true }
+skia-safe     = { workspace = true }
+pollster      = "0.4"
+raw-window-handle = { workspace = true }
+naga          = { workspace = true }
+parking_lot   = { workspace = true }
+thiserror     = { workspace = true }
+tracing       = { workspace = true }
+crossbeam-channel = { workspace = true }
+bytes         = { workspace = true }
+bytemuck      = { workspace = true }
+futures       = { workspace = true }

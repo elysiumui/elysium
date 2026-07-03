@@ -1,0 +1,25 @@
+{
+  "id": "elysium.wet.watercolor",
+  "name": "Watercolor",
+  "engine": "WetMix",
+  "params": {
+    "size": 36,
+    "opacity": 0.55,
+    "hardness": 0.25,
+    "flow": 0.5,
+    "spacing": 0.06,
+    "wetness": 0.85,
+    "dilution": 0.55,
+    "dry_rate": 0.08
+  },
+  "color_mode": "active",
+  "category": "Wet Media",
+  "tags": [
+    "watercolor",
+    "wet",
+    "blend",
+    "wash"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_wet_watercolor.png"
+}

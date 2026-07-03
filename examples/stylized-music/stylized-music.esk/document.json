@@ -1,0 +1,15 @@
+{
+  "root": {
+    "type": "scene",
+    "id": "root",
+    "size": { "w": 600, "h": 480 },
+    "children": [
+      {
+        "type": "image",
+        "id": "stereo_photo",
+        "src": "/Users/KenleyJacquesLamaute/ElysiumUI/examples/stylized-music/assets/fusion-stereo-1x.png",
+        "d": "M 0 0 L 600 0 L 600 480 L 0 480 Z"
+      }
+    ]
+  }
+}

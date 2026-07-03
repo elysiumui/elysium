@@ -1,0 +1,201 @@
+{
+  "window": {
+    "name": "MainWindow",
+    "title": "Butterfly with Timeline",
+    "w": 800,
+    "h": 460,
+    "shape": "rect",
+    "path_d": "",
+    "bg_color": [
+      14,
+      11,
+      26,
+      255
+    ],
+    "gradient_end": [
+      50,
+      30,
+      90,
+      255
+    ],
+    "gradient_angle": 90.0,
+    "border_radius": 14,
+    "transparent": false,
+    "show_title_bar": true,
+    "title_bar_color": null,
+    "title_bar_color_end": null,
+    "studio": "Studio Beauty",
+    "texture_export_mode": "referenced",
+    "code_file": ""
+  },
+  "placements": [
+    {
+      "kind": "Mesh3D",
+      "x": 250,
+      "y": 220,
+      "w": 500,
+      "h": 320,
+      "name": "Butterfly3D",
+      "props": {},
+      "shape": "",
+      "points": [],
+      "path_d": "",
+      "fill": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "stroke": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "stroke_w": 1.5,
+      "image_path": "",
+      "states": [
+        {
+          "name": "rest",
+          "dx": 0,
+          "dy": 0,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.4,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        },
+        {
+          "name": "flap",
+          "dx": 0,
+          "dy": 0,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.18,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        },
+        {
+          "name": "hold",
+          "dx": 0,
+          "dy": 0,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.1,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        }
+      ],
+      "current_state": 1,
+      "on_click_target": "",
+      "on_click_state": 1,
+      "is_hotspot": false,
+      "pbr": {
+        "metallic": 0.85,
+        "roughness": 0.3,
+        "specular": 0.5,
+        "clearcoat": 0.8,
+        "clearcoat_roughness": 0.1,
+        "use_color_fill": false
+      },
+      "mesh": {
+        "kind": "Butterfly",
+        "wireframe": false,
+        "yaw": 0.45,
+        "pitch": 0.3,
+        "flap": 0.5,
+        "flap_freq": 0.0,
+        "flap_amp": 0.6,
+        "dist": 3.5,
+        "flip_y": false,
+        "roll": 0.0,
+        "part_textures": {},
+        "view_mode": "lit"
+      },
+      "cycle_states": true,
+      "gradient_angle": 90.0
+    },
+    {
+      "kind": "PBRSphere",
+      "x": 80,
+      "y": 220,
+      "w": 140,
+      "h": 140,
+      "name": "Ball",
+      "props": {},
+      "shape": "",
+      "points": [],
+      "path_d": "",
+      "fill": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "stroke": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "stroke_w": 1.5,
+      "image_path": "",
+      "states": [
+        {
+          "name": "rest",
+          "dx": 0,
+          "dy": 0,
+          "scale": 1.0,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.3,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        },
+        {
+          "name": "squish",
+          "dx": 40,
+          "dy": 0,
+          "scale": 0.85,
+          "opacity": 1.0,
+          "rotation": 0.0,
+          "duration": 0.15,
+          "easing": "ease_out",
+          "mesh_flap_target": null
+        }
+      ],
+      "current_state": 0,
+      "on_click_target": "",
+      "on_click_state": 1,
+      "is_hotspot": false,
+      "pbr_preset": "Metal \u2014 Gold",
+      "pbr": {
+        "metallic": 1.0,
+        "roughness": 0.18,
+        "specular": 0.5,
+        "clearcoat": 0.0,
+        "clearcoat_roughness": 0.05,
+        "use_color_fill": true
+      },
+      "mesh": {
+        "kind": "Sphere",
+        "wireframe": false,
+        "yaw": 0.4,
+        "pitch": 0.25,
+        "flap": 0.0,
+        "flap_freq": 0.0,
+        "flap_amp": 0.6,
+        "dist": 3.5,
+        "flip_y": false,
+        "roll": 0.0,
+        "part_textures": {},
+        "view_mode": "lit"
+      },
+      "cycle_states": true,
+      "gradient_angle": 90.0
+    }
+  ]
+}

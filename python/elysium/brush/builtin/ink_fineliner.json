@@ -1,0 +1,23 @@
+{
+  "id": "elysium.ink.fineliner",
+  "name": "Fineliner",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 4,
+    "opacity": 1.0,
+    "hardness": 0.95,
+    "flow": 1.0,
+    "spacing": 0.06,
+    "jitter": 0.0
+  },
+  "color_mode": "active",
+  "category": "Ink / Liners",
+  "tags": [
+    "ink",
+    "line",
+    "thin",
+    "pen"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_ink_fineliner.png"
+}

@@ -1,0 +1,18 @@
+{
+  "state_machines": {
+    "greeting_button": {
+      "initial": "idle",
+      "states": {
+        "idle":    { "scale": [1.00, 1.00], "glow_intensity": 0.0 },
+        "hover":   { "scale": [1.04, 1.04], "glow_intensity": 0.4 },
+        "pressed": { "scale": [0.96, 0.96], "glow_intensity": 0.7 }
+      },
+      "transitions": [
+        { "from": "*", "to": "hover",   "duration": 0.18, "easing": "ease-out-quad" },
+        { "from": "*", "to": "pressed", "duration": 0.08, "easing": "ease-in-quad" },
+        { "from": "*", "to": "idle",    "duration": 0.22, "easing": "ease-out-cubic" }
+      ]
+    }
+  },
+  "timelines": {}
+}

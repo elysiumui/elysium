@@ -1,0 +1,15 @@
+{
+  "root": {
+    "type": "scene",
+    "id": "root",
+    "size": {
+      "w": 1200.0,
+      "h": 800.0
+    },
+    "background": {
+      "type": "color",
+      "value": "#00000000"
+    },
+    "children": []
+  }
+}

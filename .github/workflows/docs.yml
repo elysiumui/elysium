@@ -1,0 +1,61 @@
+name: Docs
+
+# Build the MkDocs site on every push to `main`, push the rendered
+# HTML to an orphan `gh-pages` branch, and let GitHub Pages serve
+# from that branch. Keeps `main` clean of generated output — every
+# diff on `main` is real source, never re-rendered HTML.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/**
+      - python/elysium/**
+      - mkdocs.yml
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to push to gh-pages
+
+concurrency:
+  group: "gh-pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # `mkdocs gh-deploy` (and the equivalent action below) needs
+          # the full git history to detect the existing gh-pages
+          # branch and fast-forward it instead of recreating from
+          # scratch each time.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install MkDocs + plugins
+        run: |
+          pip install mkdocs-material mkdocstrings[python] pymdown-extensions
+
+      - name: Build site
+        run: mkdocs build --strict --site-dir site
+
+      - name: Deploy to gh-pages
+        # `peaceiris/actions-gh-pages` rewrites the orphan `gh-pages`
+        # branch atomically — old commits are dropped, so the branch
+        # never bloats over time. Equivalent to `mkdocs gh-deploy
+        # --force` but produces clean CI-attributed commits.
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          force_orphan: true
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "docs: deploy ${{ github.sha }}"

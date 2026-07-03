@@ -1,0 +1,45 @@
+[package]
+name             = "ely-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name        = "_native"
+crate-type  = ["cdylib"]
+
+[dependencies]
+pyo3                = { workspace = true }
+pyo3-async-runtimes = { workspace = true }
+ely-core            = { path = "../ely-core" }
+ely-platform        = { path = "../ely-platform" }
+ely-render          = { path = "../ely-render" }
+ely-skin            = { path = "../ely-skin" }
+serde_json          = { workspace = true }
+ely-ipc             = { path = "../ely-ipc" }
+naga                = { workspace = true }
+tokio               = { workspace = true }
+parking_lot         = { workspace = true }
+thiserror           = { workspace = true }
+tracing             = { workspace = true }
+tracing-subscriber  = { workspace = true }
+skia-safe           = { workspace = true }
+crossbeam-channel   = { workspace = true }
+# Cross-platform clipboard (text now; images later) — Tier-1 Qt parity.
+arboard             = "3"
+# Native OS file dialogs (open/save/folder) on macOS/Windows/Linux,
+# replacing the macOS-only NSOpenPanel path. `xdg-portal` keeps Linux on
+# the modern portal API (Flatpak/Wayland friendly) with a GTK fallback.
+rfd                 = { version = "0.14", default-features = false, features = ["xdg-portal", "tokio"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2              = "0.5"
+
+# Native OS integration — gated to macOS + Windows so Linux pulls NO new build
+# dependencies (no GTK / libdbus / X11): on Linux these features fall back to
+# subprocess (notify-send) or report unsupported via the capability API.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+notify-rust   = "4"
+tray-icon     = "0.19"
+global-hotkey = "0.6"

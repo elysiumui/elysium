@@ -1,0 +1,263 @@
+site_name: Elysium Designer
+site_description: The cross-platform desktop app for authoring borderless animated Python skins.
+site_url: https://designer.elysiumui.com/
+repo_url: https://github.com/elysiumui/elysium
+edit_uri: edit/main/docs-designer/
+docs_dir: docs-designer
+
+# `icon-redesign/README.md` would render to the same `index.html` as the
+# hand-authored gallery page in that folder, and `*.partial.md` files are
+# snippet includes (pulled in via pymdownx.snippets), not standalone pages.
+# Keep both out of the built site so `mkdocs build --strict` stays green.
+exclude_docs: |
+  icon-redesign/README.md
+  *.partial.md
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.expand
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - What's New: whats-new.md
+  - Release Notes: release-notes/index.md
+  - Installation:
+      - Pick your OS: installation/index.md
+      - macOS: installation/macos.md
+      - Windows: installation/windows.md
+      - Linux: installation/linux.md
+      - First run: installation/first-run.md
+      - Build from source: installation/build-from-source.md
+      - Uninstall and reset: installation/uninstall-and-reset.md
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Blue Morpho to Monarch:
+          - Welcome: getting-started/butterfly/index.md
+          - "1. Open Designer": getting-started/butterfly/01-open-designer.md
+          - "2. Import the Monarch model": getting-started/butterfly/02-import-the-monarch-model.md
+          - "3. Import the reference image": getting-started/butterfly/03-import-the-reference-image.md
+          - "4. Set up landmarks": getting-started/butterfly/04-set-up-landmarks.md
+          - "5. Run the Polar pipeline": getting-started/butterfly/05-run-polar-pipeline.md
+          - "6. Compare the BBox pipeline": getting-started/butterfly/06-compare-bbox-pipeline.md
+          - "7. Render and export": getting-started/butterfly/07-render-and-export.md
+          - "8. Animate and ship": getting-started/butterfly/08-animate-and-ship.md
+  - The Interface:
+      - Overview: interface/index.md
+      - Menu bar: interface/menu-bar.md
+      - Toolbox: interface/toolbox.md
+      - Status line: interface/status-line.md
+      - Shelf: interface/shelf.md
+      - Time slider: interface/time-slider.md
+      - View panel: interface/view-panel.md
+      - Project Explorer: interface/project-explorer.md
+      - Channel Box: interface/channel-box.md
+      - Properties pane: interface/properties-pane.md
+      - Tool Properties Dock: interface/tool-properties-dock.md
+      - Aether chat panel: interface/aether-chat-panel.md
+  - Project Files:
+      - Overview: project-files/index.md
+      - .esk bundle format: project-files/esk-bundle-format.md
+      - Save and open: project-files/save-open.md
+      - Assets folder: project-files/assets-folder.md
+      - Version control: project-files/version-control.md
+  - Modeling:
+      - Overview: modeling/index.md
+      - Lasso selection: modeling/lasso-selection.md
+      - Inspect tools: modeling/inspect-tools.md
+      - Render part mask: modeling/render-part-mask.md
+      - Path booleans: modeling/path-booleans.md
+      - Arrange and align: modeling/arrange-and-align.md
+  - Sculpting and Painting:
+      - Overview: sculpting/index.md
+      - Painting workflow: sculpting/painting-workflow.md
+      - Erase and fill: sculpting/erase-and-fill.md
+  - Brush System:
+      - Overview: brush/index.md
+      - Quick start: brush/quick-start.md
+      - Library tour: brush/library-tour.md
+      - Brush Studio: brush/brush-studio.md
+      - Authoring custom brushes: brush/authoring-custom-brushes.md
+      - Importing Photoshop .abr: brush/importing-photoshop-abr.md
+      - Importing CSP .sut: brush/importing-csp-sut.md
+      - Native .elybrush format: brush/native-elybrush-format.md
+      - Touch and dynamics: brush/touch-and-dynamics.md
+      - Engines reference: brush/engines-reference.md
+  - Curves and NURBS:
+      - Overview: curves/index.md
+      - NURBS: curves/nurbs.md
+      - Loft to mesh: curves/loft-to-mesh.md
+  - Deformers:
+      - Overview: deformers/index.md
+      - Bend, Twist, Sine: deformers/bend-twist-sine.md
+  - Rigging:
+      - Overview: rigging/index.md
+      - Joint chains: rigging/joint-chains.md
+      - Skin binding: rigging/skin-binding.md
+      - 2-Bone IK: rigging/ik-2-bone.md
+      - Paint weights: rigging/paint-weights.md
+      - Constraints: rigging/constraints.md
+  - Animation:
+      - Overview: animation/index.md
+      - Keyframes: animation/keyframes.md
+      - Graph editor: animation/graph-editor.md
+      - Dope sheet: animation/dope-sheet.md
+      - Trax and Time editor: animation/trax-and-time-editor.md
+      - Motion paths: animation/motion-paths.md
+      - Playback controls: animation/playback-controls.md
+  - Simulation:
+      - Overview: simulation/index.md
+      - Cloth: simulation/cloth.md
+      - Hair: simulation/hair.md
+      - Rigidbody: simulation/rigidbody.md
+  - Procedural:
+      - MASH scatter: procedural/mash-scatter.md
+  - Rendering and Lookdev:
+      - Overview: rendering/index.md
+      - Hypershade: rendering/hypershade.md
+      - Quality presets: rendering/quality-presets.md
+      - Lights: rendering/lights.md
+      - Render layers: rendering/render-layers.md
+      - Color space: rendering/color-space.md
+      - AOVs: rendering/aovs.md
+      - Texture transfer pipelines: rendering/texture-transfer-pipelines.md
+  - Themes and Appearance:
+      - Overview: themes/index.md
+      - Built-in themes: themes/built-in.md
+      - Customize and save: themes/customize-and-save.md
+  - Borderless Windows:
+      - Overview: borderless/index.md
+      - Shapes: borderless/shapes.md
+      - Transparency and title bar: borderless/transparency-and-titlebar.md
+      - Animated app cookbook: borderless/animated-app-cookbook.md
+  - Code Link:
+      - Overview: code-link/index.md
+      - Pair and open: code-link/pair-and-open.md
+      - Scaffold handlers: code-link/scaffold-handlers.md
+      - Editor integrations: code-link/editor-integrations.md
+  - Aether:
+      - Overview: aether/index.md
+      - Getting started: aether/getting-started.md
+      - Concepts: aether/concepts.md
+      - Cookbook: aether/cookbook.md
+      - Bridge and port: aether/bridge-and-port.md
+      - Safety and limits: aether/safety-and-limits.md
+      - Troubleshooting: aether/troubleshooting.md
+      - Tool reference: aether/tool-reference.md
+  - AI Workflows:
+      - Overview: ai/index.md
+      - Generate skin: ai/generate-skin.md
+      - Aether Enhance: ai/aether-enhance.md
+      - Magic Polish: ai/magic-polish.md
+      - Extract and apply texture: ai/extract-and-apply-texture.md
+  - Hot Reload:
+      - Overview: hot-reload/index.md
+      - Preview skin: hot-reload/preview-skin.md
+      - Live reload: hot-reload/live-reload.md
+  - Importing and Exporting:
+      - "3D models": importing/3d-models.md
+      - SVG, Figma, Lottie: importing/svg-figma-lottie.md
+      - Canva: importing/canva.md
+      - PNG and SVG: exporting/png-and-svg.md
+      - .esk bundle: exporting/esk-bundle.md
+  - Tutorial Library:
+      - Overview: tutorials/index.md
+      - "02. Borderless music widget": tutorials/02-borderless-music-widget.md
+      - "03. Star-shaped app window": tutorials/03-star-shaped-app-window.md
+      - "04. Custom brush from photo": tutorials/04-custom-brush-from-photo.md
+      - "05. Import a Figma screen": tutorials/05-import-a-figma-screen.md
+      - "06. Lottie loading spinner": tutorials/06-lottie-loading-spinner.md
+      - "07. SVG icon-pack skin": tutorials/07-svg-icon-pack-skin.md
+      - "08. Aether scaffolds a settings panel": tutorials/08-aether-scaffold-settings-panel.md
+      - "09. Rig a 2-bone arm": tutorials/09-rig-a-2-bone-arm.md
+      - "10. Cloth flag with wind": tutorials/10-cloth-flag-with-wind.md
+      - "11. Particle confetti celebration": tutorials/11-particle-confetti-celebration.md
+      - "12. PBR iridescence shader": tutorials/12-pbr-iridescence-shader.md
+      - "13. Importing Photoshop brushes": tutorials/13-importing-photoshop-brushes.md
+      - "14. Glass theme from scratch": tutorials/14-glass-theme-from-scratch.md
+      - "15. Multi-window dashboard": tutorials/15-multi-window-dashboard.md
+      - "16. Touch and pen painting app": tutorials/16-touch-pen-painting-app.md
+      - "17. Publish to marketplace": tutorials/17-publish-to-marketplace.md
+  - Reference:
+      - Keyboard shortcuts: reference/keyboard-shortcuts.md
+      - Menu reference: reference/menu-reference.md
+      - Tool reference: reference/tool-reference.md
+      - .esk bundle format: reference/esk-bundle-format.md
+      - Aether tool reference: reference/aether-tool-reference.md
+      - Hot reload internals: reference/hot-reload-internals.md
+      - Theming reference: reference/theming-reference.md
+      - Render quality table: reference/render-quality-table.md
+      - Color management: reference/color-management.md
+      - Touch and pen input: reference/touch-and-pen-input.md
+      - File locations: reference/file-locations.md
+      - Environment variables: reference/environment-variables.md
+  - Migration:
+      - From Maya: migration/from-maya.md
+      - From Blender: migration/from-blender.md
+  - Troubleshooting:
+      - Overview: troubleshooting/index.md
+      - Render and GPU: troubleshooting/render-and-gpu.md
+      - Aether and bridge: troubleshooting/aether-and-bridge.md
+  - Glossary: glossary.md
+  - Manual index: manual-index.md
+  # Internals: design specs in progress. Gated  do not link from
+  # the public IA pages until the spec is approved and the work
+  # ships. Listed in the nav so the team can review.
+  - Internals:
+      - Self-host design: internals/self-host-design.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/elysiumui/elysium
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/elysium-ui

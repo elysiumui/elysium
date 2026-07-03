@@ -1,0 +1,42 @@
+{
+  "name": "elysium-ui",
+  "displayName": "Elysium UI",
+  "description": "Hook completion, refactor, and diagnostics for Elysium UI projects.",
+  "version": "0.1.0",
+  "publisher": "elysium-ui",
+  "repository": { "type": "git", "url": "https://github.com/elysiumui/elysium" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Programming Languages", "Linters", "Other"],
+  "activationEvents": [
+    "onLanguage:python",
+    "workspaceContains:**/*.esk/document.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Elysium UI",
+      "properties": {
+        "elysium.lspPath": {
+          "type": "string",
+          "default": "elysium-lsp",
+          "description": "Command to launch the Elysium language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch":   "tsc -w -p .",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^2.30.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

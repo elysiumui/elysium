@@ -1,0 +1,36 @@
+[package]
+name             = "ely-platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ely-core           = { path = "../ely-core" }
+ely-render         = { path = "../ely-render" }
+winit              = { workspace = true }
+raw-window-handle  = { workspace = true }
+serde              = { workspace = true }
+parking_lot        = { workspace = true }
+crossbeam-channel  = { workspace = true }
+tracing-subscriber = { workspace = true, optional = true }
+thiserror          = { workspace = true }
+tracing            = { workspace = true }
+pollster           = "0.4"
+accesskit          = "0.16"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2            = "0.5"
+accesskit_macos  = "0.17"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+accesskit_windows = "0.22"
+# `windows` 0.54 is what accesskit_windows 0.22 pins transitively; we
+# need a direct dependency so we can construct an `HWND` from an
+# `isize` (winit hands the raw handle out as isize; HWND in this
+# version is a non-primitive wrapper struct, so `as` casts don't
+# compile).
+windows = { version = "0.54", features = ["Win32_Foundation"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+accesskit_unix    = "0.12"

@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members  = ["crates/*"]
+
+[workspace.package]
+version      = "1.1.1"
+authors      = ["Elysium UI Contributors"]
+edition      = "2021"
+rust-version = "1.90"
+license      = "Apache-2.0"
+repository   = "https://github.com/elysiumui/elysium"
+
+[workspace.dependencies]
+pyo3                   = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+pyo3-async-runtimes    = { version = "0.23", features = ["tokio-runtime"] }
+wgpu                   = "22"
+# Skia: the prebuilt binary cache only matches the default feature set.
+# Real feature-stripping (drop PDF/SVG export, GIF/WebP encoders, ICU
+# tables) requires a Skia-from-source build with custom GN args. Tracked
+# as a follow-up — current build keeps defaults so CI prebuilts apply.
+skia-safe              = { version = "0.78", features = ["textlayout"] }
+# Phase 0.2: opt-in `metal` feature for IOSurface-backed zero-copy interop
+# on macOS. Currently disabled because binary-cache prebuilts ship without
+# metal, and building Skia from source is fragile (gn/clang quirks). The
+# Phase 0 path uploads pixels via wgpu::Queue::write_texture instead.
+bytemuck               = { version = "1", features = ["derive"] }
+winit                  = { version = "0.30", features = ["rwh_06"] }
+raw-window-handle      = "0.6"
+tokio                  = { version = "1.40", features = ["full"] }
+tokio-util             = { version = "0.7", features = ["codec"] }
+serde                  = { version = "1.0", features = ["derive"] }
+serde_json             = "1.0"
+naga                   = { version = "22", features = ["wgsl-in"] }
+notify                 = "6"
+parking_lot            = "0.12"
+crossbeam-channel      = "0.5"
+thiserror              = "1.0"
+tracing                = "0.1"
+tracing-subscriber     = { version = "0.3", features = ["env-filter"] }
+zip                    = "2"
+ed25519-dalek          = "2"
+sha2                   = "0.10"
+bytes                  = "1"
+futures                = "0.3"
+
+[profile.release]
+lto              = "thin"
+codegen-units    = 1
+strip            = "symbols"
+panic            = "abort"
+
+[profile.dev]
+opt-level = 1

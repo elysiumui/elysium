@@ -1,0 +1,1 @@
+{"root": {"type": "scene", "background": {"type": "color", "value": "#202028"}, "children": [{"type": "text", "text": "Hello, world!", "transform": {"x": 40, "y": 60}}]}}

@@ -1,0 +1,25 @@
+{
+  "id": "elysium.pattern.splatter",
+  "name": "Splatter",
+  "engine": "Pattern",
+  "params": {
+    "size": 40,
+    "opacity": 0.85,
+    "flow": 0.7,
+    "spacing": 2.5,
+    "rotation": "random",
+    "scale_jitter": 0.7,
+    "hue_jitter": 0.0,
+    "pattern_path": ""
+  },
+  "color_mode": "active",
+  "category": "Pattern",
+  "tags": [
+    "splatter",
+    "ink",
+    "drip"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.4363708,
+  "thumbnail": "thumbs/elysium_pattern_splatter.png"
+}

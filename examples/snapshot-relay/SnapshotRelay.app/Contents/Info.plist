@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Snapshot Relay</string>
+    <key>CFBundleName</key>
+    <string>SnapshotRelay</string>
+    <key>CFBundleIdentifier</key>
+    <string>dev.elysium.snapshot-relay</string>
+    <key>CFBundleExecutable</key>
+    <string>snapshot-relay</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>Required for screen capture.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Snapshot Relay captures screenshots and serves them over a local HTTP API so other tools (and AI agents) can read your screen.</string>
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>

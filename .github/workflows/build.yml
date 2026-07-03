@@ -1,0 +1,109 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+  # Opt every JavaScript action into Node 24 — see build-binaries.yml.
+
+jobs:
+  rust:
+    name: cargo test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run: { working-directory: elysium-native }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.90
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "elysium-native -> target" }
+
+      - name: Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev libxkbcommon-dev libfontconfig1-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libvulkan-dev mesa-vulkan-drivers
+
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --all-features
+
+  python:
+    name: pytest (${{ matrix.os }})
+    needs: rust
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - uses: dtolnay/rust-toolchain@1.90
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "elysium-native -> target" }
+
+      - name: Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev libxkbcommon-dev libfontconfig1-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libvulkan-dev mesa-vulkan-drivers
+
+      - name: Install maturin & dev deps
+        run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pytest-cov pillow numpy
+
+      # `maturin develop` needs an active virtualenv, which the setup-python
+      # runner doesn't provide. Build a wheel and pip-install it instead —
+      # works identically on macOS / Windows / Linux without a venv.
+      - name: Build wheel & install
+        run: |
+          maturin build --release --out dist
+          pip install --find-links dist --force-reinstall elysium
+
+      - name: Run pytest (unit) with coverage
+        run: pytest -q --ignore=tests/snapshots --cov=elysium --cov-report=term-missing --cov-report=xml
+
+      # Coverage is reported, not gated (see docs/guides/api-stability.md).
+      - name: Coverage summary
+        if: runner.os == 'Linux'
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          try:
+              rate = float(ET.parse("coverage.xml").getroot().get("line-rate", 0))
+              print(f"### Coverage: {rate*100:.1f}% lines\n")
+          except Exception as e:
+              print(f"Coverage summary unavailable: {e}\n")
+          PY
+
+      # The golden-image visual tests live in tests/test_visual.py (+ the
+      # parametrized butterfly/designer snapshots) and already run in the
+      # pytest step above; they read goldens from tests/snapshots/<platform>/
+      # and self-skip where that platform's set isn't checked in. No separate
+      # snapshot step is needed (a bare `pytest tests/snapshots` collects
+      # nothing and exits 5).
+      - name: Upload diff artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-diffs-${{ matrix.os }}
+          path: tests/snapshots/_failed/
+          if-no-files-found: ignore

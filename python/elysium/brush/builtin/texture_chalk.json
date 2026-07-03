@@ -1,0 +1,26 @@
+{
+  "id": "elysium.texture.chalk",
+  "name": "Chalk",
+  "engine": "Texture",
+  "params": {
+    "size": 32,
+    "opacity": 0.85,
+    "hardness": 0.45,
+    "flow": 0.7,
+    "spacing": 0.08,
+    "grain_path": "",
+    "grain_scale": 1.5,
+    "grain_rotation": 0.0,
+    "grain_blend": "overlay",
+    "grain_depth": 0.8
+  },
+  "color_mode": "active",
+  "category": "Dry Media",
+  "tags": [
+    "chalk",
+    "rough",
+    "pastel"
+  ],
+  "source": "builtin",
+  "thumbnail": "thumbs/elysium_texture_chalk.png"
+}

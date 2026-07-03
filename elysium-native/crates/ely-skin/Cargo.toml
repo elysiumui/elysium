@@ -1,0 +1,18 @@
+[package]
+name             = "ely-skin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+ely-core      = { path = "../ely-core" }
+serde         = { workspace = true }
+serde_json    = { workspace = true }
+naga          = { workspace = true }
+zip           = { workspace = true }
+ed25519-dalek = { workspace = true }
+sha2          = { workspace = true }
+thiserror     = { workspace = true }
+tracing       = { workspace = true }
+

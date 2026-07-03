@@ -1,0 +1,146 @@
+name: Build library distro (wheels + sdist)
+
+# Builds platform-specific wheels of the `elysium` library plus a
+# universal sdist, ready for `pip install` or PyPI upload.
+#
+# maturin produces an abi3 wheel (Python ≥ 3.10) so each platform
+# needs just one wheel — not one per Python minor version.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # for attaching wheels to a Release on tag push
+
+jobs:
+  wheels:
+    name: wheel ${{ matrix.os }} ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact: macos-arm64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact: macos-x86_64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            artifact: linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: windows-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            elysium-native/target
+          key: cargo-${{ matrix.os }}-${{ matrix.target }}-${{ hashFiles('elysium-native/**/Cargo.lock', 'elysium-native/**/Cargo.toml') }}
+
+      - name: Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev libxkbcommon-dev libfontconfig1-dev \
+            libgl1-mesa-dev libegl1-mesa-dev
+
+      - name: Build wheel (manylinux on Linux, native elsewhere)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist-wheels
+          manylinux: ${{ runner.os == 'Linux' && '2_28' || 'auto' }}
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: elysium-wheel-${{ matrix.artifact }}
+          path: dist-wheels/*.whl
+          if-no-files-found: error
+          retention-days: 30
+
+  sdist:
+    name: sdist (universal source distribution)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist-wheels
+      - uses: actions/upload-artifact@v7
+        with:
+          name: elysium-sdist
+          path: dist-wheels/*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    # On a `vX.Y.Z` tag push, gather every wheel + the sdist and
+    # attach them to a draft GitHub Release. Manual `workflow_dispatch`
+    # runs stop after the artifact upload — releases stay opt-in via
+    # tagging to avoid accidental publishes.
+    needs: [wheels, sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - name: Flatten
+        run: |
+          mkdir release-files
+          find artifacts -type f \( -name "*.whl" -o -name "*.tar.gz" \) \
+            -exec cp {} release-files/ \;
+          ls -la release-files
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: release-files/*
+          draft: true
+          generate_release_notes: true
+
+  publish-pypi:
+    # PyPI Trusted Publishing (OIDC — no API token). Requires the "pypi"
+    # environment on this repo and a Trusted Publisher entry on PyPI for the
+    # elysium-ui project pointing at this repo + workflow + environment.
+    # Fires only on version tags, after the GitHub release job.
+    needs: [wheels, sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    environment:
+      name: pypi
+      url: https://pypi.org/project/elysium-ui/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+      - name: Flatten
+        run: |
+          mkdir dist
+          find artifacts -type f \( -name "*.whl" -o -name "*.tar.gz" \) \
+            -exec cp {} dist/ \;
+          ls -la dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

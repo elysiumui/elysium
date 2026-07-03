@@ -1,0 +1,212 @@
+{
+  "tb_tl_end": {
+    "category": "Timeline transport",
+    "purpose": "\u25b6\u25ae \u2014 go to last frame.",
+    "file": "current/tb_tl_end.svg"
+  },
+  "tb_tl_play_back": {
+    "category": "Timeline transport",
+    "purpose": "\u25c0 \u2014 play backwards.",
+    "file": "current/tb_tl_play_back.svg"
+  },
+  "tb_tl_set_breakdown": {
+    "category": "Timeline transport",
+    "purpose": "\u25c7 \u2014 outlined diamond for Set Breakdown.",
+    "file": "current/tb_tl_set_breakdown.svg"
+  },
+  "tb_tl_set_key": {
+    "category": "Timeline transport",
+    "purpose": "\u25c6 \u2014 solid diamond for Set Key.",
+    "file": "current/tb_tl_set_key.svg"
+  },
+  "tb_tl_start": {
+    "category": "Timeline transport",
+    "purpose": "\u25ae\u25c0 \u2014 go to first frame.",
+    "file": "current/tb_tl_start.svg"
+  },
+  "tb_tl_step_back": {
+    "category": "Timeline transport",
+    "purpose": "\u25ae\u25c0 small \u2014 step one frame back.",
+    "file": "current/tb_tl_step_back.svg"
+  },
+  "tb_tl_step_back_key": {
+    "category": "Timeline transport",
+    "purpose": "\u25c6\u25c0 \u2014 step to previous key.",
+    "file": "current/tb_tl_step_back_key.svg"
+  },
+  "tb_tl_step_fwd": {
+    "category": "Timeline transport",
+    "purpose": "\u25b6\u25ae small \u2014 step one frame forward.",
+    "file": "current/tb_tl_step_fwd.svg"
+  },
+  "tb_tl_step_fwd_key": {
+    "category": "Timeline transport",
+    "purpose": "\u25b6\u25c6 \u2014 step to next key.",
+    "file": "current/tb_tl_step_fwd_key.svg"
+  },
+  "tb_add_state": {
+    "category": "Toolbar",
+    "purpose": "Diamond keyframe + small \"+\" tucked into the upper-right corner.",
+    "file": "current/tb_add_state.svg"
+  },
+  "tb_auto_key": {
+    "category": "Toolbar",
+    "purpose": "Diamond keyframe + small \"AK\" badge in the upper-right.",
+    "file": "current/tb_auto_key.svg"
+  },
+  "tb_loop": {
+    "category": "Toolbar",
+    "purpose": "Circular \u21bb arrow \u2014 animation loop toggle.",
+    "file": "current/tb_loop.svg"
+  },
+  "tb_new": {
+    "category": "Toolbar",
+    "purpose": "Blank-document: rectangle with folded upper-right corner.",
+    "file": "current/tb_new.svg"
+  },
+  "tb_open": {
+    "category": "Toolbar",
+    "purpose": "Folder-open: back tab + curved front flap.",
+    "file": "current/tb_open.svg"
+  },
+  "tb_play": {
+    "category": "Toolbar",
+    "purpose": "Right triangle \u25b6 \u2014 playback start.",
+    "file": "current/tb_play.svg"
+  },
+  "tb_preview": {
+    "category": "Toolbar",
+    "purpose": "Eye glyph \u2014 preview / inspect.",
+    "file": "current/tb_preview.svg"
+  },
+  "tb_render": {
+    "category": "Toolbar",
+    "purpose": "Camera body + viewfinder + filled lens \u2014 final render trigger.",
+    "file": "current/tb_render.svg"
+  },
+  "tb_save": {
+    "category": "Toolbar",
+    "purpose": "Floppy-disk: outer square + label rectangle + corner clip.",
+    "file": "current/tb_save.svg"
+  },
+  "tb_show_manip": {
+    "category": "Toolbar",
+    "purpose": "T-bar gizmo glyph \u2014 vertical bar with two horizontal arrowhead caps + a small cube below to suggest \"manipulator over object\".",
+    "file": "current/tb_show_manip.svg"
+  },
+  "tb_snap_grid": {
+    "category": "Toolbar",
+    "purpose": "3\u00d73 grid of dots with the center dot highlighted accent.",
+    "file": "current/tb_snap_grid.svg"
+  },
+  "tb_soft_select": {
+    "category": "Toolbar",
+    "purpose": "Concentric circles fading center-to-edge (gradient falloff).",
+    "file": "current/tb_soft_select.svg"
+  },
+  "tb_stop": {
+    "category": "Toolbar",
+    "purpose": "Square \u25a0 \u2014 playback stop (Play swaps to this while running).",
+    "file": "current/tb_stop.svg"
+  },
+  "tb_theme": {
+    "category": "Toolbar",
+    "purpose": "Paint-roller: a small handle + the cylindrical roller head with three accent stripes hinting \"swap palette\".",
+    "file": "current/tb_theme.svg"
+  },
+  "tb_undo": {
+    "category": "Toolbar",
+    "purpose": "\u21b6 rewind arrow \u2014 curved 270\u00b0 arc + filled arrowhead.",
+    "file": "current/tb_undo.svg"
+  },
+  "tool_anchor": {
+    "category": "Transform tools",
+    "purpose": "Vertex / Anchor \u2014 polyline + handle squares, monoline.",
+    "file": "current/tool_anchor.svg"
+  },
+  "tool_gizmo": {
+    "category": "Transform tools",
+    "purpose": "Rotate (E) \u2014 monoline circular-arrows glyph (replaces the old multi-color 3-ellipse manipulator for a cohesive Studio set).",
+    "file": "current/tool_gizmo.svg"
+  },
+  "tool_lasso_select": {
+    "category": "Transform tools",
+    "purpose": "Lasso Select (Shift+Q): an irregular closed loop drawn with cubic-bezier segments + a small dashed terminator tail.",
+    "file": "current/tool_lasso_select.svg"
+  },
+  "tool_move": {
+    "category": "Transform tools",
+    "purpose": "Move (W) \u2014 4-way arrow, monoline.",
+    "file": "current/tool_move.svg"
+  },
+  "tool_paint_select": {
+    "category": "Transform tools",
+    "purpose": "Paint Select \u2014 a diagonal brush over a painted selection stroke.",
+    "file": "current/tool_paint_select.svg"
+  },
+  "tool_pivot_edit": {
+    "category": "Transform tools",
+    "purpose": "Pivot Edit \u2014 crosshair + center pin, monoline.",
+    "file": "current/tool_pivot_edit.svg"
+  },
+  "tool_scale": {
+    "category": "Transform tools",
+    "purpose": "Scale (R) \u2014 corner handles + diagonal, monoline.",
+    "file": "current/tool_scale.svg"
+  },
+  "tool_select": {
+    "category": "Transform tools",
+    "purpose": "Select (Q) \u2014 monoline pointer. Studio uniform 1.6px outline.",
+    "file": "current/tool_select.svg"
+  },
+  "vp_frame_all": {
+    "category": "Viewport / view modes",
+    "purpose": "Magnifier + scene brackets \u2014 Frame All.",
+    "file": "current/vp_frame_all.svg"
+  },
+  "vp_frame_sel": {
+    "category": "Viewport / view modes",
+    "purpose": "Bracket pair with a small cube inside \u2014 Frame Selected.",
+    "file": "current/vp_frame_sel.svg"
+  },
+  "vp_lighting": {
+    "category": "Viewport / view modes",
+    "purpose": "Bare lightbulb.",
+    "file": "current/vp_lighting.svg"
+  },
+  "vp_lit": {
+    "category": "Viewport / view modes",
+    "purpose": "Shaded cube + small light-bulb in the upper-right corner.",
+    "file": "current/vp_lit.svg"
+  },
+  "vp_reset_camera": {
+    "category": "Viewport / view modes",
+    "purpose": "3D house-of-cards cube with a circular-arrow ring \u2014 Reset Camera / Return to 3D. The cube reads as 'a 3D scene'; the arrow reads as 'snap back / orbit reset'.",
+    "file": "current/vp_reset_camera.svg"
+  },
+  "vp_shaded": {
+    "category": "Viewport / view modes",
+    "purpose": "Cube with a smoothly-shaded front face (gradient).",
+    "file": "current/vp_shaded.svg"
+  },
+  "vp_textured": {
+    "category": "Viewport / view modes",
+    "purpose": "Cube with a 2\u00d72 checker pattern on the front face.",
+    "file": "current/vp_textured.svg"
+  },
+  "vp_wire_shaded": {
+    "category": "Viewport / view modes",
+    "purpose": "Shaded cube with edge overlay (Alt+5).",
+    "file": "current/vp_wire_shaded.svg"
+  },
+  "vp_wireframe": {
+    "category": "Viewport / view modes",
+    "purpose": "Cube edges only \u2014 no fill.",
+    "file": "current/vp_wireframe.svg"
+  },
+  "vp_xray": {
+    "category": "Viewport / view modes",
+    "purpose": "Translucent cube \u2014 outline only, 30 % fill suggesting see-through.",
+    "file": "current/vp_xray.svg"
+  }
+}

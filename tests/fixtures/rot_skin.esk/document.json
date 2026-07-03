@@ -1,0 +1,1 @@
+{"root": {"type": "scene", "children": [{"type": "path", "d": "M 0 0 L 80 0 L 80 40 L 0 40 Z", "fill": {"type": "color", "value": "#FF0080"}, "transform": {"x": 100, "y": 60, "rotation": 0.5, "scale": [1.0, 1.0]}}]}}

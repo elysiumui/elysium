@@ -1,0 +1,23 @@
+{
+  "id": "elysium.round.chunky",
+  "name": "Chunky Round",
+  "engine": "RoundStamp",
+  "params": {
+    "size": 48,
+    "opacity": 1.0,
+    "hardness": 0.95,
+    "flow": 1.0,
+    "spacing": 0.15,
+    "jitter": 0.05
+  },
+  "color_mode": "active",
+  "category": "Round",
+  "tags": [
+    "round",
+    "thick",
+    "block"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.435714,
+  "thumbnail": "thumbs/elysium_round_chunky.png"
+}

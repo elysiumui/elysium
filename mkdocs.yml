@@ -1,0 +1,277 @@
+site_name: Elysium UI
+site_description: Python desktop UI framework for borderless, shaped, GPU-accelerated, animated apps.
+site_url: https://docs.elysiumui.com/
+repo_url: https://github.com/elysiumui/elysium
+edit_uri: edit/main/docs/
+
+# Legacy PHASE notes, AUDIT, Aether spec, and brush palette plan have been
+# moved to `.docs-staging/project-history/` (outside the docs tree) so the
+# public site stays focused. They remain in the repo for archival reference.
+validation:
+  omitted_files: ignore
+  absolute_links: warn
+  unrecognized_links: ignore
+  anchors: warn
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.expand
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: pink
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Install: getting-started/install.md
+      - Hello World: getting-started/hello-world.md
+      - Aurora Clock:
+          - "1. Open a borderless ellipse window": getting-started/aurora-clock-01-window.md
+          - "2. Draw the clock face": getting-started/aurora-clock-02-clockface.md
+          - "3. Reactive time": getting-started/aurora-clock-03-reactive-time.md
+          - "4. Animate the arc and glow": getting-started/aurora-clock-04-animation.md
+          - "5. Theme and events": getting-started/aurora-clock-05-theme-and-events.md
+      - Pomodoro Timer:
+          - "1. Window shape and mode state": getting-started/pomodoro-01-shape-and-modes.md
+          - "2. Radial progress": getting-started/pomodoro-02-radial-progress.md
+          - "3. Settings popover": getting-started/pomodoro-03-settings-popover.md
+          - "4. Notifications and shipping": getting-started/pomodoro-04-notifications-and-shipping.md
+      - Stylized Music Player:
+          - "1. The faceplate": getting-started/stylized-music-01-the-faceplate.md
+          - "2. Album art frame": getting-started/stylized-music-02-album-art-frame.md
+          - "3. Playback controls": getting-started/stylized-music-03-playback-controls.md
+          - "4. Scrubber": getting-started/stylized-music-04-scrubber.md
+          - "5. Equalizer visualizer": getting-started/stylized-music-05-equalizer-visualizer.md
+          - "6. Drag and hit-test": getting-started/stylized-music-06-drag-and-hit-test.md
+          - "7. Theme and polish": getting-started/stylized-music-07-theme-and-polish.md
+          - "8. Package and ship": getting-started/stylized-music-08-package-and-ship.md
+      - Butterfly Banner (the Elysium logo):
+          - "1. Load the skin": getting-started/butterfly-banner-01-load-the-skin.md
+          - "2. Flight animation": getting-started/butterfly-banner-02-flight-animation.md
+          - "3. Unfurl the wordmark": getting-started/butterfly-banner-03-banner-unfurl-and-logo.md
+      - Your first skin: getting-started/first-skin.md
+      - Troubleshooting: getting-started/troubleshooting.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Build a Shopify-style desktop app: tutorials/shopify-style-desktop-app.md
+      - Aurora Clock Pro: tutorials/aurora-clock-pro.md
+      - Borderless music widget: tutorials/borderless-music-widget.md
+      - Particle pet: tutorials/particle-pet.md
+      - Command palette launcher: tutorials/command-palette-launcher.md
+      - AI-assisted redesign: tutorials/ai-assisted-redesign.md
+      - Weather widget: tutorials/weather-widget.md
+  - Guides:
+      - Overview: guides/index.md
+      - Developer handoff: guides/developer-handoff.md
+      - Architecture: guides/architecture.md
+      - Borderless and shaped windows: guides/borderless-and-shaped.md
+      - Windowing: guides/windowing.md
+      - Components overview: guides/components-overview.md
+      - App shell: guides/app-shell.md
+      - Interactive 2D canvas: guides/graphics.md
+      - Documents and editing: guides/documents.md
+      - Charts and dashboards: guides/charts-and-dashboards.md
+      - The data grid: guides/data-grid.md
+      - Wizards and flows: guides/wizards-and-flows.md
+      - Commands and undo: guides/commands-and-undo.md
+      - Rich text: guides/rich-text.md
+      - Drag and drop: guides/drag-and-drop.md
+      - Completer: guides/completer.md
+      - Styling and accessibility: guides/styling-and-a11y.md
+      - Layout: guides/layout.md
+      - Animation: guides/animation.md
+      - Reactive bindings: guides/reactive.md
+      - Theming: guides/theming.md
+      - Skins: guides/skins.md
+      - Events: guides/events.md
+      - Focus: guides/focus.md
+      - Hot reload: guides/hot-reload.md
+      - Rendering: guides/rendering.md
+      - PBR materials: guides/pbr.md
+      - Textures and brush: guides/textures.md
+      - Brush system: guides/brush.md
+      - AI workflows: guides/ai.md
+      - Aether: guides/aether.md
+      - Accessibility: guides/accessibility.md
+      - Code Link: guides/code-link.md
+      - Packaging: guides/packaging.md
+      - Auto-update: guides/auto-update.md
+      - WebView: guides/webview.md
+      - CLI: guides/cli.md
+      - Marketplace: guides/marketplace.md
+      - Editor integration: guides/editors.md
+      - Designer → code → ship: guides/designer-to-code.md
+      - Porting from Qt: guides/porting-from-qt.md
+      - Text input and dialogs: guides/text-input-and-dialogs.md
+      - Scale and scroll: guides/scale-and-scroll.md
+      - Threading and services: guides/threading-and-services.md
+      - API stability: guides/api-stability.md
+  - Patterns:
+      - Overview: patterns/index.md
+      - CRUD app: patterns/crud-app.md
+      - Forms and validation: patterns/forms-and-validation.md
+      - Tables and Model/View: patterns/tables-and-modelview.md
+      - Dialogs: patterns/dialogs.md
+  - Recipes:
+      - Overview: recipes/index.md
+      - "Open a borderless window": recipes/01-open-borderless-window.md
+      - "Star-shaped hit region": recipes/02-star-shaped-hit-region.md
+      - "Ellipse transparent window": recipes/03-ellipse-transparent-window.md
+      - "Drag without title bar": recipes/04-drag-without-title-bar.md
+      - "Snap window to screen edge": recipes/05-snap-window-to-screen-edge.md
+      - "Second window from a button": recipes/06-second-window-from-button.md
+      - "Modal returns a value": recipes/07-modal-returns-value.md
+      - "Animate opacity on press": recipes/08-animate-opacity-on-press.md
+      - "Hover Spring scale": recipes/09-hover-spring-scale.md
+      - "Tween ping-pong forever": recipes/10-tween-pingpong-forever.md
+      - "Drive a Tween from a signal": recipes/11-tween-from-signal.md
+      - "Switch themes at runtime": recipes/12-switch-themes-runtime.md
+      - "React to system dark mode": recipes/13-react-to-system-dark-mode.md
+      - "Respect reduce-motion": recipes/14-respect-reduce-motion.md
+      - "Build a custom component": recipes/15-custom-component.md
+      - "Draw on Canvas with a Path": recipes/16-canvas-with-path.md
+      - "Image with rounded corners": recipes/17-rounded-image.md
+      - "Render a PBR sphere thumbnail": recipes/18-pbr-thumbnail.md
+      - "Global hotkey CommandPalette": recipes/19-global-hotkey-command-palette.md
+      - "Toast from anywhere": recipes/20-toast-from-anywhere.md
+      - "Persist window geometry": recipes/21-persist-window-geometry.md
+      - "Signal/computed derived label": recipes/22-signal-computed-derived-label.md
+      - "Long task without blocking": recipes/23-long-task-without-blocking.md
+      - "Custom Aether tool": recipes/24-custom-aether-tool.md
+      - "Aether redesigns your skin at runtime": recipes/25-aether-redesign-runtime.md
+  - API reference:
+      - Overview: api/index.md
+      - elysium: api/elysium.md
+      - elysium.components: api/components.md
+      - elysium.components.completer: api/completer.md
+      - elysium.components.daterange: api/daterange.md
+      - elysium.components.dashboard: api/dashboard.md
+      - elysium.components.dataentry: api/dataentry.md
+      - elysium.components.scroll: api/scroll.md
+      - elysium.components.virtual: api/virtual.md
+      - elysium.input: api/input.md
+      - elysium.text: api/text.md
+      - elysium.text.richtext: api/richtext.md
+      - elysium.dialogs: api/dialogs.md
+      - elysium.modelview: api/modelview.md
+      - elysium.modelview.grid: api/grid.md
+      - elysium.shell: api/shell.md
+      - elysium.graphics: api/graphics.md
+      - elysium.charts: api/charts.md
+      - elysium.commands: api/commands.md
+      - elysium.styling: api/styling.md
+      - elysium.dnd: api/dnd.md
+      - elysium.concurrency: api/concurrency.md
+      - elysium.windowing: api/windowing.md
+      - elysium.native: api/native.md
+      - elysium.i18n: api/i18n.md
+      - elysium.locale: api/locale.md
+      - elysium.settings: api/settings.md
+      - elysium.testing: api/testing.md
+      - elysium.layout: api/layout.md
+      - elysium.theme: api/theme.md
+      - elysium.anim: api/anim.md
+      - elysium.reactive: api/reactive.md
+      - elysium.render: api/render.md
+      - elysium.brush: api/brush.md
+      - elysium.aether: api/aether.md
+      - elysium.ai: api/ai.md
+      - elysium.codelink: api/codelink.md
+      - elysium.accessibility: api/accessibility.md
+      - elysium.events: api/events.md
+      - elysium.focus: api/focus.md
+      - elysium.pack: api/pack.md
+      - elysium.updater: api/updater.md
+      - elysium.webview: api/webview.md
+      - elysium.cli: api/cli.md
+  - Migration:
+      - Overview: migration/index.md
+      - From Tkinter: migration/from-tkinter.md
+      - From PyQt6: migration/from-pyqt6.md
+      - From PySide6: migration/from-pyside6.md
+      - From Kivy: migration/from-kivy.md
+      - From Flet: migration/from-flet.md
+  - Resources:
+      - Which Python GUI?: resources/which-python-gui.md
+      - Scope and batteries: resources/scope-and-batteries.md
+      - Comparison matrix: resources/comparison.md
+      - Examples gallery: resources/examples-gallery.md
+      - Component gallery: resources/component-gallery.md
+      - Glossary: resources/glossary.md
+      - FAQ: resources/faq.md
+      - Changelog: resources/changelog.md
+      - Contributing: resources/contributing.md
+      - Roadmap: resources/roadmap.md
+
+# `docs/resources/project-history/` holds legacy PHASE notes, the AUDIT, the
+# Aether spec, and the brush palette plan. They stay in the repo (URLs survive
+# for anyone who linked to them) but they are intentionally not in the nav: the
+# files reference relative paths into the source tree that don't resolve from
+# the published site, and the content is internal history rather than user-
+# facing documentation.
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [python]
+          options:
+            show_source: false
+            show_signature_annotations: true
+            show_bases: true
+            docstring_style: google
+            members_order: source
+            heading_level: 3
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/elysiumui/elysium
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/elysium-ui

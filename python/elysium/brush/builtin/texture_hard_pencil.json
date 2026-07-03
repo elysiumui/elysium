@@ -1,0 +1,26 @@
+{
+  "id": "elysium.texture.hard_pencil",
+  "name": "Hard Pencil",
+  "engine": "Texture",
+  "params": {
+    "size": 4,
+    "opacity": 1.0,
+    "hardness": 0.95,
+    "flow": 1.0,
+    "spacing": 0.04,
+    "grain_path": "",
+    "grain_scale": 0.6,
+    "grain_rotation": 0.0,
+    "grain_blend": "multiply",
+    "grain_depth": 0.3
+  },
+  "color_mode": "active",
+  "category": "Dry Media",
+  "tags": [
+    "pencil",
+    "hb"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.4364889,
+  "thumbnail": "thumbs/elysium_texture_hard_pencil.png"
+}

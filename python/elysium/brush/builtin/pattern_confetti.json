@@ -1,0 +1,25 @@
+{
+  "id": "elysium.pattern.confetti",
+  "name": "Confetti",
+  "engine": "Pattern",
+  "params": {
+    "size": 18,
+    "opacity": 1.0,
+    "flow": 1.0,
+    "spacing": 1.8,
+    "rotation": "random",
+    "scale_jitter": 0.6,
+    "hue_jitter": 0.4,
+    "pattern_path": ""
+  },
+  "color_mode": "active",
+  "category": "Pattern",
+  "tags": [
+    "confetti",
+    "scatter",
+    "playful"
+  ],
+  "source": "builtin",
+  "created_t": 1779321036.4362931,
+  "thumbnail": "thumbs/elysium_pattern_confetti.png"
+}
