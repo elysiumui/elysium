@@ -2,6 +2,17 @@
 
 > Python UI without the rectangles.
 
+> [!IMPORTANT]
+> **This is the PRIVATE monorepo (`klamaute/Elysium`) — the source of truth
+> for all development**, including the proprietary `website/`. It must stay
+> private forever (its history contains pre-split Designer source). The
+> public face is **[`elysiumui/elysium`](https://github.com/elysiumui/elysium)**
+> (framework-only, scrubbed history) — releases and docs deploy from there.
+> **Read [OPERATIONS.md](OPERATIONS.md) first**: repo topology, the
+> monorepo→public mirror rules, release/publish procedures, hosting, DNS,
+> secrets, and every hard-won CI gotcha. Do not copy this README (or any file
+> in the OPERATIONS.md exclusion list) to the public repo.
+
 **Status: 1.0 — production / stable.** The public API follows strict
 [semver](docs/guides/api-stability.md); see the [CHANGELOG](CHANGELOG.md).
 

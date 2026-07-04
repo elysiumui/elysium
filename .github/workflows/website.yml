@@ -4,8 +4,8 @@ name: Website
 # by DIRECT UPLOAD (wrangler) — no Cloudflare Git integration. The old
 # git-connected "elysium" Pages project went dormant when the website source
 # moved to this private repo (Pages cannot re-point a connected repository),
-# so this deploys to a fresh direct-upload project and migrates the custom
-# domains to it via the Pages API.
+# so this deploys to a fresh direct-upload project. Custom-domain moves are
+# handled separately by cf-domain-move.yml (attachment + DNS atomically).
 #
 # REQUIRED SECRETS: CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit),
 # CLOUDFLARE_ACCOUNT_ID.
@@ -30,7 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PROJECT: elysiumui-website
-      OLD_PROJECT: elysium
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -59,27 +58,7 @@ jobs:
           npx --yes wrangler@4 pages deploy website/dist \
             --project-name="$PROJECT" --branch=main
 
-      - name: Migrate custom domains to this project
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          api() { # method path [json-body]
-            curl -sS -X "$1" \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$2" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              ${3:+--data "$3"}
-          }
-          echo "--- domains currently on the old '$OLD_PROJECT' project ---"
-          api GET "/$OLD_PROJECT/domains" | python3 -c "import json,sys; d=json.load(sys.stdin); print([x['name'] for x in d.get('result') or []])" || true
-          for DOMAIN in www.elysiumui.com elysiumui.com; do
-            echo "--- migrating $DOMAIN ---"
-            api DELETE "/$OLD_PROJECT/domains/$DOMAIN" >/dev/null 2>&1 || true
-            api POST "/$PROJECT/domains" "{\"name\": \"$DOMAIN\"}" \
-              | python3 -c "import json,sys; d=json.load(sys.stdin); print('attached' if d.get('success') else d.get('errors'))"
-          done
-          echo "--- domains now on '$PROJECT' ---"
-          api GET "/$PROJECT/domains" | python3 -c "import json,sys; d=json.load(sys.stdin); print([x['name'] for x in d.get('result') or []])"
-          echo "NOTE: if DNS records still point at $OLD_PROJECT.pages.dev, update the"
-          echo "CNAME targets for www/apex to $PROJECT.pages.dev in the Cloudflare DNS app."
+      # Domain attachment is deliberately NOT managed here. Moving a custom
+      # domain between Pages projects must happen atomically with the DNS
+      # retarget or Cloudflare serves 522 (2026-07-03 incident) — that is
+      # cf-domain-move.yml's job, run on demand. This workflow only deploys.

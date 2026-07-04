@@ -18,7 +18,7 @@ export const framework = {
   version: '1.1.2',
   license: 'Apache-2.0',
   pypiUrl: 'https://pypi.org/project/elysium-ui/',
-  /** The public framework repo (post-split). TODO: flip when the split lands. */
+  /** The public framework repo. */
   repoUrl: 'https://github.com/elysiumui/elysium',
   releasesApi: 'https://api.github.com/repos/elysiumui/elysium/releases/latest',
 } as const;
@@ -51,7 +51,7 @@ export const designer = {
     { os: 'mac-arm', label: 'macOS', arch: 'Apple Silicon', icon: 'apple' },
     { os: 'mac-intel', label: 'macOS', arch: 'Intel', icon: 'apple' },
     { os: 'windows', label: 'Windows', arch: 'x64', icon: 'windows' },
-    { os: 'linux', label: 'Linux', arch: 'x86_64 AppImage', icon: 'linux' },
+    { os: 'linux', label: 'Linux', arch: 'x86_64', icon: 'linux' },
   ] satisfies DesignerBuild[],
 } as const;
 
