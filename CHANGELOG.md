@@ -7,6 +7,17 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-04
+
+### Fixed
+
+- **Dialog body text overflowed the modal**: `MessageDialog` rendered its body
+  with single-line `draw_text`, so any message longer than the card is wide ran
+  off the edge instead of wrapping. It now uses `draw_paragraph`, wrapped to the
+  card interior. The same fix is applied to the `InputDialog` prompt and the
+  `ProgressDialog` label (all three now share a `BaseDialog._paint_body_text`
+  helper).
+
 ## [1.1.4] - 2026-07-04
 
 ### Fixed
