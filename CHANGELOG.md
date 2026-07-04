@@ -7,6 +7,26 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-04
+
+### Fixed
+
+- **Dialog body text overflowed the modal**: `MessageDialog` rendered its body
+  with single-line `draw_text`, so any message longer than the card is wide ran
+  off the edge instead of wrapping. It now uses `draw_paragraph`, wrapped to the
+  card interior. The same fix is applied to the `InputDialog` prompt and the
+  `ProgressDialog` label (all three now share a `BaseDialog._paint_body_text`
+  helper).
+
+### Added
+
+- **DataGrid column-resize cursor affordance**: `DataGrid.cursor_at(mx, my)`
+  returns `"ew-resize"` (the horizontal double-arrow ↔) over a column-header
+  border or while a resize is in progress, so an app can show users where to
+  click-and-drag. Apply it each frame with
+  `win.set_cursor(grid.cursor_at(*win.cursor_position) or "default")` — see the
+  data-grid guide.
+
 ## [1.1.4] - 2026-07-04
 
 ### Fixed
