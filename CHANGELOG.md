@@ -7,6 +7,25 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-07-04
+
+### Fixed
+
+- **macOS keyboard input**: text fields silently ignored the keyboard on
+  macOS. `InputRouter` positioned the OS IME candidate area but never called
+  `set_ime_allowed`, the call that registers the window as a text-input
+  client. The native window enables IME once at creation, but on macOS that
+  is too early to take effect and nothing re-asserted it. `InputRouter.tick()`
+  now enables IME while a text-accepting widget is focused (and disables it
+  otherwise), toggling only on change so an in-flight IME composition is never
+  reset.
+- **macOS Designer crash on Apple Silicon**: the native `set_application_menu`
+  installed the NSMenu (`setMainMenu:` / activation policy) on the calling
+  thread. The Designer drives it from a background frame thread, and AppKit's
+  main menu is main-thread-only, so the app could abort at launch
+  (`NSInternalInconsistencyException`: "setting the main menu on a non-main
+  thread"). The install now runs on the macOS main dispatch queue.
+
 ## [1.1.2] - 2026-07-03
 
 ### Fixed
