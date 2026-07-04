@@ -190,6 +190,28 @@ class DataGrid(Component):
                 return c.key
         return None
 
+    def cursor_at(self, mx: float, my: float, grab: float = 4.0) -> Optional[str]:
+        """The mouse-cursor the grid wants at ``(mx, my)``: ``"ew-resize"`` —
+        the horizontal double-arrow (↔) resize affordance — while a column
+        resize is in progress, or when hovering the draggable border between
+        two column headers; otherwise ``None``.
+
+        This tells the user where to click-and-drag to resize a column. It is a
+        *hint*; the app applies it each frame against the live cursor position.
+        Coordinates are window-local (the same space as ``win.cursor_position``
+        and the grid's own ``x``/``y``), so pass the cursor straight through::
+
+            pos = win.cursor_position
+            if pos is not None:
+                win.set_cursor(grid.cursor_at(pos[0], pos[1]) or "default")
+
+        (``grab`` widens the hover hotspot on each side of the exact border.)"""
+        if self._resize_key is not None:
+            return "ew-resize"
+        if self.header_border_at(mx, my, grab) is not None:
+            return "ew-resize"
+        return None
+
     # --- selection --------------------------------------------------------
 
     def selected_range(self) -> Optional[tuple]:

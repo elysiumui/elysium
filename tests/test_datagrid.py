@@ -87,6 +87,19 @@ def test_header_border_for_resize():
     assert g.header_border_at(edge, 200) is None   # below header
 
 
+def test_cursor_at_resize_affordance():
+    # The grid asks for the ew-resize cursor (↔) over a header border and while
+    # actively resizing, so the user knows where to click-and-drag.
+    g = _grid()
+    edge = g._col_x(0) + g.visible_cols()[0].width
+    mid = g._col_x(0) + g.visible_cols()[0].width / 2
+    assert g.cursor_at(edge, 10) == "ew-resize"       # over the border
+    assert g.cursor_at(mid, 10) is None               # mid-header, no border
+    assert g.cursor_at(edge, 200) is None             # below header (data cell)
+    g._resize_key = "handle"                          # mid-drag
+    assert g.cursor_at(mid, 10) == "ew-resize"        # persists off the border
+
+
 # --- selection -------------------------------------------------------------
 
 def test_range_selection():
