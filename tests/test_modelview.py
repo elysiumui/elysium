@@ -136,6 +136,43 @@ def test_tableview_row_selection():
     assert tv.selected_row == 1 and picked == [1]
 
 
+def test_tableview_column_resize_and_cursor():
+    m = _people()
+    tv = TableView(x=0, y=0, w=300, h=160, model=m)
+    tv.paint(FakeDL())
+    name = m.columns[0]
+    edge = tv._col_x(1)          # border between column 0 and column 1
+    hy = tv.y + 5                # within the header band
+    # Over the border → resize target + the ew-resize (↔) cursor.
+    assert tv.header_border_at(edge, hy) == name.key
+    assert tv.cursor_at(edge, hy) == "ew-resize"
+    assert tv.cursor_at(tv._col_x(0) + name.width / 2, hy) is None   # mid-header
+    assert tv.cursor_at(edge, tv._body_top() + 5) is None            # below header
+    # Press-drag-release resizes; the cursor persists mid-drag.
+    assert tv.on_mouse_press(edge, hy) is True
+    assert tv._resize_key == name.key
+    assert tv.cursor_at(tv._col_x(0) + 5, hy) == "ew-resize"
+    tv.on_mouse_drag(edge + 40, hy)
+    assert name.width == 160.0   # 120 + 40
+    tv.on_mouse_release()
+    assert tv._resize_key is None
+
+
+def test_tableview_resize_beats_sort_and_clamps_min():
+    m = _people()
+    tv = TableView(x=0, y=0, w=300, h=160, model=m)
+    tv.paint(FakeDL())
+    name = m.columns[0]
+    edge = tv._col_x(1)
+    # Grabbing the border resizes rather than sorting.
+    tv.on_mouse_press(edge, tv.y + 5)
+    assert m.sort_state[0] is None
+    # Dragging far left clamps to the 40px minimum.
+    tv.on_mouse_drag(edge - 1000, tv.y + 5)
+    assert name.width == 40.0
+    tv.on_mouse_release()
+
+
 def test_tableview_inline_edit_commits_to_model():
     m = _people()
     m.columns[0].delegate = EditableCellDelegate()
