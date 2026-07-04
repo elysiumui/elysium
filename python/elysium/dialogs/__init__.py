@@ -154,6 +154,23 @@ class BaseDialog(Component):
                          t.font_size_title, t.on_surface)
         return card
 
+    def _paint_body_text(self, dl: Any, text: str, x: float, y: float,
+                         width: float, color: Any = None) -> None:
+        """Draw wrapping body/prompt/label text within ``width``. ``draw_text``
+        is single-line and overflows the card for any string longer than the
+        card is wide; ``draw_paragraph`` wraps to the given max width. Falls
+        back to ``draw_text`` on display lists without a paragraph path."""
+        if not text:
+            return
+        t = current_theme()
+        col = t.on_surface_muted if color is None else color
+        rgba = (col[0], col[1], col[2], col[3] if len(col) > 3 else 255)
+        try:
+            dl.draw_paragraph(text, x, y, width, t.font_size_body,
+                              rgba, 0, "", 0, [])
+        except Exception:
+            dl.draw_text(text, x, y, t.font_size_body, col)
+
     def _paint_buttons(self, dl: Any, buttons: list[_Button],
                         card: tuple[float, float, float, float]) -> None:
         t = current_theme()
@@ -230,9 +247,7 @@ class MessageDialog(BaseDialog):
         t = current_theme()
         card = self._paint_chrome(dl)
         scx, scy, sw, sh = card
-        if self.body:
-            dl.draw_text(self.body, scx + 24, scy + 78,
-                         t.font_size_body, t.on_surface_muted)
+        self._paint_body_text(dl, self.body, scx + 24, scy + 78, sw - 48)
         self._paint_buttons(dl, self._buttons, card)
 
     def click_button(self, index: int) -> None:
@@ -276,9 +291,7 @@ class InputDialog(BaseDialog):
         t = current_theme()
         card = self._paint_chrome(dl)
         scx, scy, sw, sh = card
-        if self.prompt:
-            dl.draw_text(self.prompt, scx + 24, scy + 72,
-                         t.font_size_body, t.on_surface_muted)
+        self._paint_body_text(dl, self.prompt, scx + 24, scy + 72, sw - 48)
         self.text_field.x = scx + 24
         self.text_field.y = scy + 92
         self.text_field.w = sw - 48
@@ -337,9 +350,7 @@ class ProgressDialog(BaseDialog):
         t = current_theme()
         card = self._paint_chrome(dl)
         scx, scy, sw, sh = card
-        if self.label:
-            dl.draw_text(self.label, scx + 24, scy + 76,
-                         t.font_size_body, t.on_surface_muted)
+        self._paint_body_text(dl, self.label, scx + 24, scy + 76, sw - 48)
         self.bar.x = scx + 24
         self.bar.y = scy + 92
         self.bar.w = sw - 48
