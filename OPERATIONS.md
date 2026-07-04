@@ -49,7 +49,7 @@ in the monorepo, then copied file-for-file to `elysiumui/elysium`. The public
 repo must **never** receive:
 
 - `website/` (proprietary — the public `NOTICE` says so explicitly)
-- `OPERATIONS.md`, `LAUNCH-CHECKLIST.md`, `.claude/`, `.docs-staging/`, `.coverage`
+- `OPERATIONS.md`, `RELEASING.md`, `LAUNCH-CHECKLIST.md`, `.claude/`, `.docs-staging/`, `.coverage`
 - `.github/workflows/website.yml`, `.github/workflows/cf-domain-move.yml`
 - `README.md` **differs deliberately** — the monorepo copy carries a private
   banner; don't copy it over the public one blindly.
@@ -100,6 +100,16 @@ Binaries are never hosted on our own infrastructure.
 ---
 
 ## 4 · Framework release → PyPI
+
+**Follow the step-by-step checklist in [`RELEASING.md`](RELEASING.md)** — this
+section is the reference; that file is the do-it list. Two CI gates now make a
+version mistake unshippable: `build.yml`'s **`version consistency`** job fails
+if `pyproject.toml` ≠ the Rust workspace version, and `release-library.yml`'s
+**`verify-published`** job installs the wheel from PyPI and fails if
+`elysium.__version__` ≠ the tag. Bump all version strings at once with
+`python scripts/bump-version.py X.Y.Z` (pyproject + Cargo workspace + the
+`__init__` fallback) — the version lives in **three** places and 1.1.3 shipped
+a wrong `__version__` because only pyproject was bumped.
 
 **Trusted Publishing (OIDC)** — there is **no PyPI API token anywhere**.
 PyPI account: **`lamautelabs`**. Publisher config on PyPI must exactly match:
