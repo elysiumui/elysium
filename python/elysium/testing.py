@@ -35,6 +35,11 @@ class FakeWindow:
         self._preedit = ""
         self._clip = ""
         self.cursor_position: Optional[tuple[float, float]] = None
+        # Model the native IME gate the real window enforces (macOS won't
+        # deliver typed text until this is on). Recorded so tests can assert
+        # the router enables it for focused editables.
+        self.ime_allowed: Optional[bool] = None
+        self.ime_allowed_calls: list[bool] = []
 
     # router reads
     def poll_key_event(self):
@@ -54,6 +59,10 @@ class FakeWindow:
 
     def set_ime_cursor_area(self, *a) -> None:
         pass
+
+    def set_ime_allowed(self, allowed: bool) -> None:
+        self.ime_allowed = allowed
+        self.ime_allowed_calls.append(allowed)
 
     # harness writes
     def queue_key(self, code: str, pressed: bool, mods: int, text: str) -> None:

@@ -181,6 +181,9 @@ class InputRouter:
         self._widgets: list[Any] = []
         self._by_id: dict[str, Any] = {}
         self._scrollables: list[Any] = []
+        # Last IME-allowed state pushed to the window, so we only toggle it
+        # on change (see tick()). None = never pushed yet.
+        self._ime_allowed: bool | None = None
 
     # -- registration -------------------------------------------------------
 
@@ -257,8 +260,29 @@ class InputRouter:
                     try: target.on_scroll(sx, sy, precise)
                     except Exception: pass
 
-        # 3) Park the OS IME candidate popup at the caret.
+        # 3) Drive the OS input-method state from focus: enable IME while a
+        #    text-accepting widget is focused, and park the candidate popup at
+        #    the caret.
+        #
+        #    Enabling IME is what registers the window as a text-input client;
+        #    without it macOS silently drops typed characters into focused
+        #    fields. winit enables it once at window creation, but on macOS
+        #    that is too early to take effect (the view isn't a live text
+        #    client yet), and nothing re-asserts it — so the router, which
+        #    owns the text-input lifecycle, does. Toggle only on *change*:
+        #    calling set_ime_allowed every frame can reset an in-flight IME
+        #    composition. (Harmless no-op on windows without the method, e.g.
+        #    the headless test fake — which is exactly why this gap went
+        #    unnoticed upstream.)
         focused = self.focused
+        want_ime = (focused is not None and _has(focused, "on_text")
+                    and (not _has(focused, "wants_keys") or focused.wants_keys()))
+        if want_ime != self._ime_allowed and _has(self.window, "set_ime_allowed"):
+            try:
+                self.window.set_ime_allowed(want_ime)
+                self._ime_allowed = want_ime
+            except Exception:
+                pass
         if focused is not None and _has(focused, "caret_rect"):
             try:
                 rect = focused.caret_rect()
