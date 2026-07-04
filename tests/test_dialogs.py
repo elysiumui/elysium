@@ -10,6 +10,7 @@ class FakeDL:
     def __init__(self):
         self.texts: list[str] = []
         self.fills = 0
+        self.para_calls: list[tuple] = []  # (text, max_width, size)
 
     def fill_path(self, *a):
         self.fills += 1
@@ -28,6 +29,9 @@ class FakeDL:
 
     def draw_paragraph(self, s, *a):
         self.texts.append(s)
+        # signature: (x, y, max_width, size, rgba, align, family, weight, feats)
+        if len(a) >= 4:
+            self.para_calls.append((s, a[2], a[3]))
         return 20.0
 
 
@@ -92,6 +96,38 @@ def test_message_dialog_paints_title_body_buttons():
     dl = FakeDL()
     m.paint(dl)
     assert {"Title", "Body", "OK"} <= set(dl.texts)
+
+
+def test_message_dialog_body_wraps_within_card():
+    # Regression: a long body must be drawn with draw_paragraph, wrapped to a
+    # width bounded by the card, instead of draw_text running off the modal.
+    long_body = ("Credentials and the remote link are removed. The local "
+                 "catalog snapshot, pending edits, snapshots and job history "
+                 "all stay on this machine.")
+    m = _shown(D.MessageDialog(title="Disconnect store?", body=long_body,
+                               buttons=["Cancel", "Disconnect"]))
+    dl = FakeDL()
+    m.paint(dl)
+    body_paras = [c for c in dl.para_calls if c[0] == long_body]
+    assert body_paras, "body was not wrapped via draw_paragraph (would overflow)"
+    _text, max_width, _size = body_paras[0]
+    assert 0 < max_width <= m.card_w, (
+        f"wrap width {max_width} not bounded by the card ({m.card_w})")
+
+
+def test_input_and_progress_body_text_wraps():
+    # The same fix applies to the InputDialog prompt and ProgressDialog label.
+    prompt = "Enter a new, sufficiently descriptive name for the connected store"
+    inp = _shown(D.InputDialog(title="Rename", prompt=prompt))
+    dl = FakeDL()
+    inp.paint(dl)
+    assert any(c[0] == prompt and 0 < c[1] <= inp.card_w for c in dl.para_calls)
+
+    label = "Uploading the full catalog snapshot and reconciling pending edits…"
+    prog = _shown(D.ProgressDialog(title="Sync", label=label))
+    dl2 = FakeDL()
+    prog.paint(dl2)
+    assert any(c[0] == label and 0 < c[1] <= prog.card_w for c in dl2.para_calls)
 
 
 # --- InputDialog ------------------------------------------------------------
