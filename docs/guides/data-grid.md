@@ -101,6 +101,28 @@ grid.set_col_visible("type", False) # hide (column chooser)
 grid.visible_cols()                 # the live, ordered, visible columns
 ```
 
+### Resize cursor affordance
+
+Users find the resize hotspot by the cursor: hovering the vertical line between
+two column headers should show the horizontal double-arrow (↔), the signal to
+click-and-drag. The grid reports that intent via `cursor_at(mx, my)` — it
+returns `"ew-resize"` over a header border (or while a resize is in progress)
+and `None` otherwise. Apply it each frame against the live cursor position:
+
+```python
+def on_frame(dt):
+    # ... paint the grid ...
+    pos = win.cursor_position                  # window-local, or None
+    if pos is not None:
+        win.set_cursor(grid.cursor_at(pos[0], pos[1]) or "default")
+```
+
+Coordinates are window-local — the same space as `win.cursor_position` and the
+grid's own `x`/`y` — so the cursor position passes straight through.
+`win.set_cursor` takes CSS-style names (`"ew-resize"`, `"ns-resize"`,
+`"pointer"`, `"grab"`, …); passing `"default"` when `cursor_at` returns `None`
+restores the arrow as the pointer leaves the border.
+
 ## Sorting
 
 Sorting is on by default (`DataGrid(sortable=True)`) and delegates to the model.
