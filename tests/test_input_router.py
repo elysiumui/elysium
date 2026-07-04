@@ -24,6 +24,7 @@ class FakeWindow:
         self._preedit = ""
         self._clip = ""
         self.ime_cursor_calls: list[tuple] = []
+        self.ime_allowed_calls: list[bool] = []
 
     # input the router reads
     def poll_key_event(self):
@@ -40,6 +41,9 @@ class FakeWindow:
 
     def set_ime_cursor_area(self, x, y, w, h):
         self.ime_cursor_calls.append((x, y, w, h))
+
+    def set_ime_allowed(self, allowed):
+        self.ime_allowed_calls.append(allowed)
 
     # test helpers
     def key(self, code, mods=0, text="", pressed=True):
@@ -221,6 +225,56 @@ def test_ime_cursor_area_parked_at_caret():
     r.tick()
     assert win.ime_cursor_calls  # caret_rect() forwarded to the window
     assert win.ime_cursor_calls[-1][0] == 24.0  # 3 chars * 8px
+
+
+def test_ime_enabled_while_editable_focused():
+    # Regression: the router must call set_ime_allowed(True) when a text
+    # widget is focused. On macOS the OS only delivers typed characters to a
+    # window that has been registered as a text-input client via this call;
+    # positioning the IME cursor area (which the router already did) is not
+    # enough. Without this the keyboard is silently ignored in fields.
+    a = FakeEditable("a")
+    win, r = _router_with([a])
+    r.focus_widget("a")
+    r.tick()
+    assert win.ime_allowed_calls, "router never enabled IME for a focused field"
+    assert win.ime_allowed_calls[-1] is True
+
+
+def test_ime_disabled_when_focus_leaves_editable():
+    a = FakeEditable("a")
+    win, r = _router_with([a])
+    r.focus_widget("a")
+    r.tick()
+    r.focus_widget(None)  # blur
+    r.tick()
+    assert win.ime_allowed_calls[-1] is False
+
+
+def test_ime_allowed_toggled_only_on_change():
+    # Calling set_ime_allowed every frame can reset an in-flight IME
+    # composition, so the router must toggle it only when the state changes.
+    a = FakeEditable("a")
+    win, r = _router_with([a])
+    r.focus_widget("a")
+    for _ in range(5):
+        r.tick()
+    # Exactly one enable across five ticks (plus possibly one initial disable
+    # before focus was applied), never a per-frame stream.
+    assert win.ime_allowed_calls.count(True) == 1
+
+
+def test_ime_not_enabled_for_non_text_focusable():
+    # A focusable that accepts no text (e.g. a button) must not turn on IME.
+    class Button:
+        focus_id = "btn"
+        def focus_rect(self):
+            return (0, 0, 40, 20)
+    b = Button()
+    win, r = _router_with([b])
+    r.focus_widget("btn")
+    r.tick()
+    assert True not in win.ime_allowed_calls
 
 
 def test_focused_widget_removed_drops_focus():
