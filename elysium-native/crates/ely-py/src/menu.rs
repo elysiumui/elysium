@@ -32,7 +32,15 @@ pub fn set_application_menu(
 ) -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
-        unsafe { install_native_menu(spec, app_name) }
+        // AppKit's main menu + activation-policy APIs are main-thread-only, but
+        // the Designer drives menu installs from a background frame thread
+        // (the render/frame callback is not the macOS main thread). Calling
+        // `setMainMenu:` off-main aborts the process with
+        // "setting the main menu on a non-main thread". Hop to the main
+        // dispatch queue. Fire-and-forget: the caller doesn't depend on
+        // completion, and async avoids any deadlock with the main run loop.
+        cocoa::install_native_menu_on_main(spec, app_name);
+        Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -48,12 +56,55 @@ mod cocoa {
     use objc2::msg_send;
     use objc2::runtime::{AnyClass, AnyObject, Bool, Sel};
     use objc2::{class, sel};
-    use pyo3::prelude::*;
     use std::ffi::CString;
+    use std::os::raw::c_void;
     use std::sync::OnceLock;
 
     static TRAMP_CLASS: OnceLock<&'static AnyClass> = OnceLock::new();
     static TRAMP_INSTANCE: OnceLock<usize> = OnceLock::new(); // *mut AnyObject as usize
+
+    // --- main-thread dispatch (libdispatch, part of libSystem) -------------
+    // The AppKit main-menu work below must run on the main thread. The caller
+    // is on a background frame thread, so we enqueue the whole install onto
+    // the main dispatch queue, which the winit event loop pumps.
+    extern "C" {
+        static _dispatch_main_q: c_void;
+        fn dispatch_async_f(
+            queue: *const c_void,
+            context: *mut c_void,
+            work: extern "C" fn(*mut c_void),
+        );
+    }
+
+    extern "C" fn main_thread_trampoline(ctx: *mut c_void) {
+        // SAFETY: `ctx` is exactly the pointer produced by `Box::into_raw`
+        // in `run_on_main`, run at most once.
+        let f = unsafe { Box::from_raw(ctx as *mut Box<dyn FnOnce() + Send>) };
+        f();
+    }
+
+    fn run_on_main<F: FnOnce() + Send + 'static>(f: F) {
+        // Double-box so the fat `dyn` pointer fits in one thin `*mut c_void`.
+        let boxed: Box<Box<dyn FnOnce() + Send>> = Box::new(Box::new(f));
+        let ctx = Box::into_raw(boxed) as *mut c_void;
+        unsafe {
+            dispatch_async_f(
+                core::ptr::addr_of!(_dispatch_main_q) as *const c_void,
+                ctx,
+                main_thread_trampoline,
+            );
+        }
+    }
+
+    /// Install the native menu on the macOS main thread (see the call site in
+    /// `set_application_menu`).
+    pub(super) fn install_native_menu_on_main(
+        spec: Vec<(String, Vec<(String, i64)>)>,
+        app_name: &str,
+    ) {
+        let app_name = app_name.to_string();
+        run_on_main(move || unsafe { install_native_menu(spec, &app_name) });
+    }
 
     extern "C" fn fired(_this: *mut AnyObject, _cmd: Sel, sender: *mut AnyObject) {
         unsafe {
@@ -115,7 +166,7 @@ mod cocoa {
     pub(super) unsafe fn install_native_menu(
         spec: Vec<(String, Vec<(String, i64)>)>,
         app_name: &str,
-    ) -> PyResult<()> {
+    ) {
         let _ = ensure_class();
         // Build (or reuse) trampoline instance.
         let target_ptr = *TRAMP_INSTANCE.get_or_init(|| {
@@ -187,9 +238,5 @@ mod cocoa {
 
         let _: () = msg_send![app, setMainMenu: root];
         let _: () = msg_send![app, activateIgnoringOtherApps: true];
-        Ok(())
     }
 }
-
-#[cfg(target_os = "macos")]
-use cocoa::install_native_menu;
