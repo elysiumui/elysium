@@ -1,9 +1,11 @@
 name: CF domain move
 
-# One-off operational tool: move the site's custom domains between the old
-# git-connected Pages project ("elysium") and the direct-upload project
-# ("elysiumui-website"). Needed because domain attachment must match the DNS
-# CNAME target or Cloudflare serves 522.
+# Operational tool: move the site's custom domains (www.elysiumui.com + apex)
+# between the old git-connected Pages project ("elysium") and the
+# direct-upload project ("elysiumui-website"), AND retarget the DNS CNAME
+# records to match — domain attachment and DNS must agree or Cloudflare
+# serves 522. Requires the CLOUDFLARE_API_TOKEN to have BOTH
+# "Account > Cloudflare Pages > Edit" and "Zone > DNS > Edit" (elysiumui.com).
 
 on:
   workflow_dispatch:
@@ -21,24 +23,39 @@ jobs:
   move:
     runs-on: ubuntu-latest
     steps:
-      - name: Move domains
+      - name: Move domains + retarget DNS
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TARGET: ${{ inputs.target }}
         run: |
           OTHER=elysium; [ "$TARGET" = "elysium" ] && OTHER=elysiumui-website
-          api() {
-            curl -sS -X "$1" \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$2" \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              -H "Content-Type: application/json" ${3:+--data "$3"}
-          }
+          CF="https://api.cloudflare.com/client/v4"
+          AUTH=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json")
+
+          pages() { curl -sS -X "$1" "$CF/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects$2" "${AUTH[@]}" ${3:+--data "$3"}; }
+
+          ZONE=$(curl -sS "$CF/zones?name=elysiumui.com" "${AUTH[@]}" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['result'][0]['id'])")
+          echo "zone: $ZONE"
+
           for DOMAIN in www.elysiumui.com elysiumui.com; do
-            echo "--- $DOMAIN: $OTHER -> $TARGET ---"
-            api DELETE "/$OTHER/domains/$DOMAIN" >/dev/null 2>&1 || true
-            api POST "/$TARGET/domains" "{\"name\": \"$DOMAIN\"}" \
-              | python3 -c "import json,sys; d=json.load(sys.stdin); print('attached' if d.get('success') else d.get('errors'))"
+            echo "=== $DOMAIN -> project $TARGET ==="
+            pages DELETE "/$OTHER/domains/$DOMAIN" >/dev/null 2>&1 || true
+            pages POST "/$TARGET/domains" "{\"name\": \"$DOMAIN\"}" \
+              | python3 -c "import json,sys; d=json.load(sys.stdin); print('  attach:', 'ok' if d.get('success') else d.get('errors'))"
+            # Retarget the DNS record to the target project's pages.dev.
+            REC=$(curl -sS "$CF/zones/$ZONE/dns_records?name=$DOMAIN" "${AUTH[@]}")
+            RID=$(echo "$REC" | python3 -c "import json,sys; r=json.load(sys.stdin)['result']; print(r[0]['id'] if r else '')")
+            if [ -n "$RID" ]; then
+              curl -sS -X PATCH "$CF/zones/$ZONE/dns_records/$RID" "${AUTH[@]}" \
+                --data "{\"type\": \"CNAME\", \"name\": \"$DOMAIN\", \"content\": \"$TARGET.pages.dev\", \"proxied\": true}" \
+                | python3 -c "import json,sys; d=json.load(sys.stdin); print('  dns:', 'ok -> ' + d['result']['content'] if d.get('success') else d.get('errors'))"
+            else
+              curl -sS -X POST "$CF/zones/$ZONE/dns_records" "${AUTH[@]}" \
+                --data "{\"type\": \"CNAME\", \"name\": \"$DOMAIN\", \"content\": \"$TARGET.pages.dev\", \"proxied\": true}" \
+                | python3 -c "import json,sys; d=json.load(sys.stdin); print('  dns created:', 'ok' if d.get('success') else d.get('errors'))"
+            fi
           done
-          echo "--- domains on $TARGET now ---"
-          api GET "/$TARGET/domains" | python3 -c "import json,sys; d=json.load(sys.stdin); print([x['name'] for x in d.get('result') or []])"
+          echo "=== domains on $TARGET ==="
+          pages GET "/$TARGET/domains" | python3 -c "import json,sys; print([x['name'] for x in json.load(sys.stdin).get('result') or []])"
