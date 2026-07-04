@@ -380,6 +380,7 @@ class TableView(Component):
     _editor: Optional[TextField] = field(default=None, init=False, repr=False)
     _edit_cell: tuple[int, int] = field(default=(-1, -1), init=False, repr=False)
     _header_rects: list[tuple[int, tuple]] = field(default_factory=list, init=False, repr=False)
+    _resize_key: Optional[str] = field(default=None, init=False, repr=False)
 
     # -- geometry -----------------------------------------------------------
 
@@ -469,9 +470,51 @@ class TableView(Component):
             cx += col.width
         return -1
 
+    # -- column resize ------------------------------------------------------
+
+    def header_border_at(self, mx: float, my: float, grab: float = 4.0) -> Optional[str]:
+        """The column key whose right header border is under ``mx`` (a resize
+        target), or None. Only within the header band."""
+        if self.model is None or not self.show_header:
+            return None
+        if not (self.y <= my <= self.y + self.header_height):
+            return None
+        cx = self.x - self.scroll_x
+        for col in self.model.columns:
+            cx += col.width
+            if abs(mx - cx) <= grab:
+                return col.key
+        return None
+
+    def resize_col(self, key: str, width: float) -> None:
+        """Set column ``key``'s width, clamped to a sensible minimum (40px)."""
+        if self.model is None:
+            return
+        for c in self.model.columns:
+            if c.key == key:
+                c.width = max(40.0, float(width))
+                return
+
+    def cursor_at(self, mx: float, my: float, grab: float = 4.0) -> Optional[str]:
+        """``"ew-resize"`` — the horizontal double-arrow (↔) resize affordance —
+        over a column-header border, or while a resize is in progress; else
+        ``None``. Coordinates are window-local (the same space as
+        ``win.cursor_position`` and the view's ``x``/``y``); apply it each frame,
+        e.g. ``win.set_cursor(table.cursor_at(*win.cursor_position) or "default")``."""
+        if self._resize_key is not None:
+            return "ew-resize"
+        if self.header_border_at(mx, my, grab) is not None:
+            return "ew-resize"
+        return None
+
     def on_mouse_press(self, mx: float, my: float, *, double: bool = False) -> bool:
         if self.model is None:
             return False
+        # A header border grabs a column resize (takes priority over sort).
+        border = self.header_border_at(mx, my)
+        if border is not None:
+            self._resize_key = border
+            return True
         # Header click → sort.
         if self.show_header and self.y <= my <= self.y + self.header_height:
             for ci, (hx, hy, hw, hh) in self._header_rects:
@@ -493,6 +536,20 @@ class TableView(Component):
             try: self.on_activate(row)
             except Exception: pass
         return True
+
+    def on_mouse_drag(self, mx: float, my: float) -> None:
+        """Continue an in-progress column resize; no-op otherwise, so an app can
+        forward every drag here safely. Pairs with :meth:`on_mouse_release`."""
+        if self._resize_key is None or self.model is None:
+            return
+        cols = self.model.columns
+        j = next((i for i, c in enumerate(cols) if c.key == self._resize_key), None)
+        if j is not None:
+            self.resize_col(self._resize_key, mx - self._col_x(j))
+
+    def on_mouse_release(self) -> None:
+        """End a column resize (drop the grabbed header border)."""
+        self._resize_key = None
 
     # -- inline editing -----------------------------------------------------
 
