@@ -150,6 +150,18 @@ Repo: `klamaute/elysium-designer`, workflow `release-designer.yml`
 `elysiumui/elysium` — **no token needed** (the `FRAMEWORK_REPO_TOKEN` secret
 still exists there but is unused; safe to delete).
 
+**Bundled Python: 3.13** (2026-07-04, was 3.11). PyInstaller freezes the
+interpreter it runs under, so the single `actions/setup-python` pin
+(`python-version: "3.13"`) IS what determines the interpreter shipped inside
+every artifact — there is no separate "bundle Python" step. The workflow
+guards this three ways: a build-interpreter assert right after setup-python,
+a grep of PyInstaller's own log for `Python: 3.13` (the version it froze),
+and a scan of `build/`+`dist/` that fails on any non-3.13 CPython runtime.
+To move to a future version, change ONLY that pin (and confirm no stdlib
+module removed in the new version is imported by the framework or Designer —
+the 3.13 audit found none). Verified end-to-end by the CI smoke tests
+(elysium-designer PR #1, run 28700235020).
+
 ### Artifacts (PyLocket accepts RAW builds only — installers are rejected)
 
 | Artifact | Format |
