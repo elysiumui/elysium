@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-07-04
+
+### Fixed
+
+- **`elysium.__version__` lagged the release**: it was sourced from the native
+  module's compiled-in `CARGO_PKG_VERSION`, and 1.1.3 was published with the
+  Rust workspace still at 1.1.2 — so the 1.1.3 wheel reported `__version__ ==
+  "1.1.2"`. `__version__` now comes from the installed distribution metadata
+  (always the wheel's version), the Rust workspace version is bumped in lockstep
+  with `pyproject.toml`, and CI fails the build if the two ever disagree. (No
+  API or behavior change beyond the reported version string. 1.1.4 carries the
+  same fixes as 1.1.3; upgrade to get a correct version string.)
+
 ## [1.1.3] - 2026-07-04
 
 ### Fixed

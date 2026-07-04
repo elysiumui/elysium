@@ -12,6 +12,24 @@ env:
   # Opt every JavaScript action into Node 24 — see build-binaries.yml.
 
 jobs:
+  # Guard: the wheel version (pyproject) and the native crate version (Rust
+  # workspace, compiled into `_n.__version__`) must match. They desynced once —
+  # 1.1.3 shipped a 1.1.2-stamped .so — so fail fast if a release bumps only one.
+  version-sync:
+    name: version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: pyproject version == Rust workspace version
+        run: |
+          py=$(grep -m1 '^version' pyproject.toml | sed -E 's/[^"]*"([^"]+)".*/\1/')
+          rs=$(grep -m1 '^version' elysium-native/Cargo.toml | sed -E 's/[^"]*"([^"]+)".*/\1/')
+          echo "pyproject=$py  rust-workspace=$rs"
+          if [ "$py" != "$rs" ]; then
+            echo "::error::pyproject version ($py) != Rust workspace version ($rs) — bump both."
+            exit 1
+          fi
+
   rust:
     name: cargo test (${{ matrix.os }})
     strategy:
