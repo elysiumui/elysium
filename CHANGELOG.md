@@ -7,6 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-07-04
+
+### Added
+
+- **TableView column resize**: `TableView` gains the same drag-to-resize
+  affordance as `DataGrid` — `header_border_at()` hit-tests the border between
+  two headers, `on_mouse_press` / `on_mouse_drag` / `on_mouse_release` drive the
+  resize (grabbing a border takes priority over sorting; width clamps to 40px),
+  `resize_col(key, width)` sets a width directly, and `cursor_at(mx, my)`
+  returns `"ew-resize"` (↔) over a border or mid-resize so the app can show the
+  affordance via `win.set_cursor`.
+
 ## [1.1.5] - 2026-07-04
 
 ### Fixed

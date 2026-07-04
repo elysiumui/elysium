@@ -34,7 +34,7 @@ clipboard actions to whichever widget holds focus. Tab/arrows move focus.
 | `QCalendarWidget` | `dataentry.CalendarWidget` | arrows move day, PageUp/Down month |
 | `QComboBox` (editable) | `dataentry.EditableComboBox` | filter-as-you-type + keyboard select |
 | `QAbstractItemModel` | `modelview.ItemModel` (+ `QtItemModelAdapter`) | reactive; sort/filter; CRUD |
-| `QTableView` | `modelview.TableView` | virtualized, sortable headers, inline edit |
+| `QTableView` | `modelview.TableView` | virtualized, sortable headers, column resize, inline edit |
 | `QListView` | `modelview.ListView` | single-column convenience |
 | `QTreeView` | `modelview.TreeView` | `TreeNode` hierarchy, expand/collapse |
 | `QStyledItemDelegate` | `modelview.Delegate` (+ `TextDelegate`, `EditableCellDelegate`, `Mesh3DDelegate`) | the 3-D delegate has no Qt equivalent |

@@ -62,6 +62,25 @@ editor.set_value("New name")
 table.commit_edit()                         # or table.cancel_edit()
 ```
 
+## Column resize
+
+`TableView` resizes columns by dragging a header border, the same as `DataGrid`.
+Forward pointer events through `on_mouse_press` / `on_mouse_drag` /
+`on_mouse_release`: pressing on a header border grabs a resize (in preference to
+sorting), the drag sets the width (clamped to 40px), and release drops it.
+
+Show the affordance so users find the hotspot — `cursor_at(mx, my)` returns
+`"ew-resize"` (the horizontal double-arrow ↔) over a border or mid-resize, else
+`None`. Apply it each frame against the window-local cursor:
+
+```python
+pos = win.cursor_position
+if pos is not None:
+    win.set_cursor(table.cursor_at(pos[0], pos[1]) or "default")
+```
+
+`table.resize_col("price", 120)` sets a width directly.
+
 ## Scale & virtualization
 
 The view paints only the rows inside its rect — the windowing math lives in
