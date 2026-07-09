@@ -192,11 +192,23 @@ impl AppHandler {
         let win = event_loop
             .create_window(attrs)
             .map_err(|e| AppError::Window(e.to_string()))?;
-        // Allow OS input-method composition by default so CJK / dead-key
-        // input works as soon as a text widget is focused. winit only
-        // emits `WindowEvent::Ime` during an actual composition, so this
-        // is free when the user isn't composing. The Python input router
-        // may toggle it per focus via `set_ime_allowed`.
+        // Allow OS input-method composition by default so CJK / dead-key input
+        // works as soon as a text widget is focused. On macOS/Linux this is
+        // free: the window keeps delivering `KeyboardInput` with `text` even
+        // while IME is allowed, so a consumer that just reads `KeyEvent.text`
+        // still sees every keystroke.
+        //
+        // NOT so on Windows: an IME-allowed window stops populating
+        // `KeyboardInput.text` and delivers typed characters ONLY through
+        // `WindowEvent::Ime(Ime::Commit)`. Any consumer that reads
+        // `KeyEvent.text` without also handling the `ImeCommit` path then goes
+        // completely deaf to typing — which is exactly what dead-keyboarded the
+        // Designer (a hand-rolled key loop, not the InputRouter) on Windows
+        // while macOS was fine. So on Windows we leave IME at winit's default
+        // (off) and let the Python `InputRouter` turn it on per focus via
+        // `set_ime_allowed` — its text widgets handle `on_ime_commit`, so
+        // router-driven text fields still get CJK composition on Windows too.
+        #[cfg(not(target_os = "windows"))]
         win.set_ime_allowed(true);
         let win = Arc::new(win);
 
