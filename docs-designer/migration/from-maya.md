@@ -78,9 +78,11 @@ when you migrate.
   paired Python handler. Maya has no analogue.
 - **Hot reload.** The Designer can patch its own running code via
   `dev.reload_designer_module`: no restart, no scene loss.
-- **AI Aether agent.** `File ▸ 🌌 Aether…` opens a chat with an agent
-  that can read your scene, suggest changes, and call any Designer
-  tool (every menu action is exposed as an Aether tool).
+- **AI Aether agent.** Aether is a headless agent — there is no
+  menu item or window. It reads your scene, suggests changes, and
+  calls any Designer tool (every menu action is exposed as an
+  Aether tool), driven over the bridge API on `127.0.0.1:8183`.
+  See [Aether](../aether/index.md). Maya has no analogue.
 - **Magic Polish.** Single-shot AI pass that improves shading,
   lighting, and texture quality on the selected mesh.
 - **Themes.** Light / Dark / OLED / Glass / Frost palettes; Customize

@@ -16,6 +16,17 @@
 > (intentionally kept as RGBA  picker swatches, gizmo axes,
 > butterfly procedural ink).
 
+!!! warning "Historical: the Aether FAB / panel was removed (2026-07)"
+    This document describes an earlier design in which Aether was
+    surfaced in-app as a Floating Action Button (FAB) with a
+    slide-in flyout panel and a `Window > Show Aether Agent` menu
+    entry. **That front-end was removed in 2026-07.** Aether is now
+    a **headless** backend agent, reachable only over the
+    AetherBridge HTTP API on `127.0.0.1:8183` (see
+    [Aether](../aether/index.md)). The FAB / flyout / panel /
+    `Show Aether Agent` sections below are retained as historical
+    design record only — they no longer describe shipping UI.
+
 ---
 
 ## 0. Implementation log + architecture clarification

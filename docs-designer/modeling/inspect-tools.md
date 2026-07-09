@@ -82,11 +82,11 @@ runtime budget set in `Preferences > Runtime > Texture Budget`.
 ## Bounding box logging
 
 `Mesh > Inspect > Bounding Box → Console` writes the current
-selection's bounding box to the
-[Aether chat panel's console section](../interface/aether-chat-panel.md)
-(or to a paired Python file's logging surface if Code Link is on).
-Useful when you want to position a placement programmatically and
-need the source coordinates.
+selection's bounding box to the Designer log, readable over the
+Aether bridge at [`GET /logs`](../aether/index.md) on
+`127.0.0.1:8183` (or to a paired Python file's logging surface if
+Code Link is on). Useful when you want to position a placement
+programmatically and need the source coordinates.
 
 ## See also
 

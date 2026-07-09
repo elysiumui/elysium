@@ -51,9 +51,9 @@ Themes...**.
 
 ## Forking the chrome `.esk`
 
-Power-users who want to tune column widths, replace the toolbox
-icons with their own sprite set, or swap the Aether FAB position
-can fork the Designer's chrome bundle.
+Power-users who want to tune column widths or replace the toolbox
+icons with their own sprite set can fork the Designer's chrome
+bundle.
 
 The chrome bundle lives at
 [`elysium-designer/designer-chrome.esk/`](https://github.com/elysiumui/elysium/tree/main/elysium-designer/designer-chrome.esk).

@@ -18,14 +18,14 @@ export OPENAI_API_KEY=sk-...
 Then restart the Designer. Provider can also be picked at runtime
 in `Preferences > AI > Provider`.
 
-## Aether chat unresponsive
+## Aether unresponsive
 
 | Try | Why |
 |---|---|
-| Refresh the chat panel (`Cmd/Ctrl+R`) | Reconnects to the bridge socket |
+| Re-request the bridge: `curl http://127.0.0.1:8183/state` | Confirms the bridge is up and accepting connections |
 | Check the bridge socket exists at `~/.elysium/sessions/elysium-default.sock` | The IPC server may have stopped |
-| Switch provider | Provider may be rate-limited |
-| Open the dev console (`Help > Open Aether Log`) | See stack traces |
+| Switch provider (`POST /chat` with `"provider"`) | Provider may be rate-limited |
+| Read the log over the bridge: `GET /logs` | See stack traces |
 
 ## Tool call rejected
 
@@ -43,7 +43,7 @@ The Aether bridge binds to `localhost:<random-high-port>` by
 default. To pin:
 
 ```sh
-export ELYSIUM_BRIDGE_PORT=51001
+export ELYSIUM_AETHER_BRIDGE_PORT=51001
 ```
 
 Useful when running multiple Designers, or when corporate firewalls
@@ -60,7 +60,7 @@ all) to see the full 123-tool catalog.
 
 | Cause | Fix |
 |---|---|
-| Anthropic provider with large input | Truncate the conversation history (`Session > New`) |
+| Anthropic provider with large input | Start a fresh conversation (a new `POST /chat` session) |
 | OpenAI provider rate-limited | Wait, or switch to Anthropic |
 | Ollama on CPU | Use a discrete GPU, or switch to a cloud provider |
 | Network proxy | Ensure HTTPS proxy is reachable from the Designer |
@@ -84,7 +84,8 @@ It does **not** read:
 
 | Where | What |
 |---|---|
-| `Help > Open Aether Log` | Per-session log: model calls, tool calls, errors |
+| `GET /logs` on `127.0.0.1:8183` | Per-session log over the bridge: model calls, tool calls, errors |
+| `GET /events` on `127.0.0.1:8183` | Live Server-Sent Events stream of the same activity |
 | `~/Library/Logs/Elysium Designer/aether.log` (macOS) | Persisted log; same for Windows / Linux per platform conventions |
 | `Preferences > AI > Log Level` | `debug` / `info` / `warn` / `error` |
 
