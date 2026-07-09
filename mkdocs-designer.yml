@@ -80,7 +80,7 @@ nav:
       - Channel Box: interface/channel-box.md
       - Properties pane: interface/properties-pane.md
       - Tool Properties Dock: interface/tool-properties-dock.md
-      - Aether chat panel: interface/aether-chat-panel.md
+      - Aether agent: interface/aether-chat-panel.md
   - Project Files:
       - Overview: project-files/index.md
       - .esk bundle format: project-files/esk-bundle-format.md

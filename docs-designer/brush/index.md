@@ -39,7 +39,7 @@ live in [Engines reference](engines-reference.md).
 | Tool Properties dock | Below the View Panel | Engine + preset + size + opacity + dynamics for the active brush |
 | Brush Library panel | `Window > Brush Library` | Searchable, taggable preset list with thumbnails |
 | Brush Studio | `Window > Brush Studio` | Full editor: engine params, dynamics curves, texture pick, preview |
-| Aether chat | `Cmd+/` | Talk to the agent to make brushes; "give me a soft watercolor wash" |
+| Aether agent | Bridge on `:8183` | Ask the headless agent to make brushes via `POST /chat`; "give me a soft watercolor wash" |
 
 ## Stroke pipeline (top to bottom)
 

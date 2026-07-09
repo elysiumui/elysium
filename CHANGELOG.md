@@ -7,6 +7,28 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-07-09
+
+### Fixed
+
+- **Windows: typed text was dropped by hand-rolled key loops.** The framework
+  enabled the OS IME at window creation for every window, but on Windows an
+  IME-allowed window delivers typed characters only via `Ime::Commit` and
+  leaves `KeyboardInput.text` empty — so any consumer reading `KeyEvent.text`
+  without handling the commit path received nothing (this dead-keyboarded the
+  Designer on Windows). IME now stays at winit's default (off) on Windows; the
+  `InputRouter` still enables it per focus for router-driven text fields (which
+  handle `on_ime_commit`), so CJK/dead-key composition keeps working. macOS and
+  Linux are unchanged.
+
+### Added
+
+- **Real OS-level input test** (`examples/input-probe` + `tests/test_os_input.py`,
+  run by `input-e2e.yml`): injects actual OS keyboard/mouse events (xdotool on
+  Linux, pywinauto on Windows) and asserts the round-trip via `KeyboardInput` —
+  the coverage the launch-only smoke test couldn't provide, and which now guards
+  the Windows regression above.
+
 ## [1.1.6] - 2026-07-04
 
 ### Added

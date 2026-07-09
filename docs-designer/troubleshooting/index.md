@@ -27,7 +27,7 @@ See [Aether and bridge](aether-and-bridge.md).
 | Symptom | Try |
 |---|---|
 | "No AI provider configured" | Set `ANTHROPIC_API_KEY` (or use Ollama locally) |
-| Aether chat unresponsive | Check `~/.elysium/sessions/elysium-default.sock` permissions |
+| Aether bridge unresponsive | Check `curl http://127.0.0.1:8183/state`, and `~/.elysium/sessions/elysium-default.sock` permissions |
 | Tool call rejected | Check the safety policy in `Preferences > AI > Safety` |
 
 ## Skin loading issues

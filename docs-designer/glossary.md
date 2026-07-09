@@ -9,8 +9,10 @@ Tweens) see the [Framework glossary](https://docs.elysiumui.com/resources/glossa
 shortcut. Looks like `mesh.transfer_polar_normal`. Used by Aether
 and by scripting.
 
-**Aether**: The in-app AI agent. Chat panel; 123 tools across 15
-modules.
+**Aether**: The Designer's headless backend AI agent. It drives
+the Designer through ~123 tools across 15 modules, reached over the
+[AetherBridge](aether/index.md) HTTP API on `127.0.0.1:8183`. There
+is no in-app panel.
 
 **Animation Clip**: A reusable animation track. See
 [Trax and Time Editor](animation/trax-and-time-editor.md).

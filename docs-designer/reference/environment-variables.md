@@ -52,7 +52,7 @@ job, or the OS user environment.
 |---|---|
 | `ELYSIUM_DESIGNER_HOME` | Override the per-user state directory |
 | `ELYSIUM_DESIGNER_PLUGINS` | Path to extra plugins folder |
-| `ELYSIUM_BRIDGE_PORT` | Override the Aether bridge port |
+| `ELYSIUM_AETHER_BRIDGE_PORT` | Override the Aether bridge port |
 
 ## CLI
 
