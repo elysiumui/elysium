@@ -135,6 +135,10 @@ impl AppLoop {
             live: Vec::new(),
             quit_flag: self.handle.quit_flag.clone(),
             init_error: None,
+            a11y_disabled: matches!(
+                std::env::var("ELYSIUM_DISABLE_A11Y").as_deref(),
+                Ok(v) if v != "0"
+            ),
         };
 
         event_loop
@@ -157,6 +161,12 @@ struct AppHandler {
     live: Vec<LiveWindow>,
     quit_flag: Arc<std::sync::atomic::AtomicBool>,
     init_error: Option<AppError>,
+    /// When true, skip attaching the platform accessibility (accesskit)
+    /// adapter. Set from `ELYSIUM_DISABLE_A11Y` (any value other than "0").
+    /// Useful for headless / CI / server runs: on Linux `accesskit_unix`
+    /// opens an AT-SPI2 connection over zbus, which panics when there is no
+    /// D-Bus session bus (e.g. under Xvfb).
+    a11y_disabled: bool,
 }
 
 impl AppHandler {
@@ -779,6 +789,7 @@ impl ApplicationHandler for AppHandler {
         // Drain Python-posted window requests every iteration so
         // set_outer_position / set_blur_behind / etc. fire within a
         // frame of being requested.
+        let a11y_disabled = self.a11y_disabled;
         for lw in &mut self.live {
             for req in lw.handle.drain_window_requests() {
                 apply_window_request(&lw.winit_window, req);
@@ -786,8 +797,10 @@ impl ApplicationHandler for AppHandler {
             // First-time accessibility attach: as soon as we know the
             // window's native handle, hook the accesskit adapter to it.
             // The bridge then publishes the (already-shared) A11yState
-            // to NSAccessibility / UIA / AT-SPI2 on every refresh.
-            if lw.a11y_bridge.is_none() {
+            // to NSAccessibility / UIA / AT-SPI2 on every refresh. Skipped
+            // entirely when ELYSIUM_DISABLE_A11Y is set — the bridge is then
+            // never created, so the refresh arm below never runs either.
+            if !a11y_disabled && lw.a11y_bridge.is_none() {
                 let mut bridge = crate::a11y_bridge::A11yBridge::new(lw.handle.a11y().clone());
                 #[cfg(target_os = "macos")]
                 if let Some(view) = ns_view_ptr(&lw.winit_window) {
