@@ -6,7 +6,7 @@ A → Z for searchability.
 
 ## A
 
-- [Aether chat panel](interface/aether-chat-panel.md)
+- [Aether agent (headless)](interface/aether-chat-panel.md)
 - [Aether: bridge and port](aether/bridge-and-port.md)
 - [Aether: concepts](aether/concepts.md)
 - [Aether: cookbook](aether/cookbook.md)

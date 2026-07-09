@@ -16,7 +16,6 @@ Windows / Linux. Where they differ, both are listed.
 | `Cmd+Z` / `Ctrl+Z` | Undo |
 | `Cmd+Shift+Z` / `Ctrl+Shift+Z` | Redo |
 | `Cmd+,` / `Ctrl+,` | Preferences |
-| `Cmd+/` / `Ctrl+/` | Open Aether chat |
 
 ## Menu sets
 
@@ -97,14 +96,6 @@ Windows / Linux. Where they differ, both are listed.
 | `S` | Set Key |
 | `Shift+S` | Set Breakdown |
 | `G` | Open Graph Editor |
-
-## Aether
-
-| Shortcut | Action |
-|---|---|
-| `Cmd+/` / `Ctrl+/` | Open chat |
-| `Cmd+K` / `Ctrl+K` | Quick command (within chat) |
-| `Esc` | Close chat panel |
 
 ## Customizing
 
