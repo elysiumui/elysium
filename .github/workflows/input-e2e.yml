@@ -1,0 +1,93 @@
+name: Input E2E
+
+# Real OS-level keyboard + mouse test (see tests/test_os_input.py). Injects
+# actual OS input into the examples/input-probe window and asserts the app
+# received it — the coverage the launch-only smoke test can't provide, and the
+# gap that let a Windows "typing is dead" bug ship.
+#
+# Runs on demand and on PRs that touch the input path. Not on every push:
+# real-input CI is inherently finicky (window focus, headless GPU) and slower.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - elysium-native/**
+      - python/elysium/input/**
+      - examples/input-probe/**
+      - tests/test_os_input.py
+      - .github/workflows/input-e2e.yml
+
+permissions:
+  contents: read
+
+jobs:
+  # --- Linux: Xvfb (virtual X display) + xdotool (XTEST) --------------------
+  # The probe renders a real wgpu window, so the runner needs a software GPU
+  # (llvmpipe) under Xvfb — this is the piece most likely to need tuning; the
+  # Designer's own CI skipped Linux smoke precisely because it has no display.
+  linux:
+    runs-on: ubuntu-22.04
+    env:
+      WINIT_UNIX_BACKEND: x11
+      # Prefer software Vulkan (lavapipe) — usually the most reliable headless
+      # wgpu path — with software GL (llvmpipe) as the fallback. The GL force
+      # ('gl') failed to bring the probe window up; the test now prints the
+      # probe's output so a wgpu-init failure is visible in the log.
+      WGPU_BACKEND: vulkan
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      GALLIUM_DRIVER: llvmpipe
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - uses: dtolnay/rust-toolchain@1.90
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "elysium-native -> target" }
+
+      - name: System deps (native build + Xvfb + xdotool + software GL)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-0 libfontconfig1-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libvulkan-dev mesa-vulkan-drivers vulkan-tools \
+            xvfb xdotool libgl1-mesa-dri x11-utils dbus-x11
+
+      - name: Build & install the framework
+        run: |
+          pip install "maturin>=1.7,<2" pytest
+          maturin build --release --out dist
+          pip install --force-reinstall dist/*.whl
+
+      - name: OS input test (under Xvfb + dbus session)
+        # dbus-run-session gives the accesskit AT-SPI (zbus) bridge a session
+        # bus; without it the a11y adapter panics under Xvfb. xkbcommon-x11 +
+        # this were the two headless deps the launch-only smoke test never
+        # needed (it has no window).
+        run: |
+          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
+            echo "--- software GPU probe ---"; vulkaninfo --summary 2>&1 | head -20 || true
+            pytest tests/test_os_input.py -v --no-header'
+
+  # --- Windows: pywinauto (send_keys / click_input = real SendInput) --------
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.12" }
+      - uses: dtolnay/rust-toolchain@1.90
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: "elysium-native -> target" }
+
+      - name: Build & install the framework
+        shell: pwsh
+        run: |
+          pip install "maturin>=1.7,<2" pytest pywinauto
+          maturin build --release --out dist
+          pip install --force-reinstall (Get-ChildItem dist/*.whl).FullName
+
+      - name: OS input test
+        shell: pwsh
+        run: pytest tests/test_os_input.py -v --no-header
