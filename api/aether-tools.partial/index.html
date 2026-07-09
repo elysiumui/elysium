@@ -1,0 +1,7367 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python desktop UI framework for borderless, shaped, GPU-accelerated, animated apps.">
+      
+      
+      
+        <link rel="canonical" href="https://docs.elysiumui.com/api/aether-tools.partial/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Aether tools.partial - Elysium UI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="pink">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#mesh-26" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Elysium UI" class="md-header__button md-logo" aria-label="Elysium UI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Elysium UI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Aether tools.partial
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/elysiumui/elysium" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../patterns/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Patterns
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../recipes/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Recipes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../migration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Migration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../resources/which-python-gui/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Resources
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Elysium UI" class="md-nav__button md-logo" aria-label="Elysium UI" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Elysium UI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/elysiumui/elysium" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/hello-world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hello World
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurora Clock
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Aurora Clock
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/aurora-clock-01-window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Open a borderless ellipse window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/aurora-clock-02-clockface/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Draw the clock face
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/aurora-clock-03-reactive-time/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Reactive time
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/aurora-clock-04-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Animate the arc and glow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/aurora-clock-05-theme-and-events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. Theme and events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pomodoro Timer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Pomodoro Timer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/pomodoro-01-shape-and-modes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Window shape and mode state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/pomodoro-02-radial-progress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Radial progress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/pomodoro-03-settings-popover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Settings popover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/pomodoro-04-notifications-and-shipping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Notifications and shipping
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stylized Music Player
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Stylized Music Player
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-01-the-faceplate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. The faceplate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-02-album-art-frame/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Album art frame
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-03-playback-controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Playback controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-04-scrubber/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4. Scrubber
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-05-equalizer-visualizer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5. Equalizer visualizer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-06-drag-and-hit-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    6. Drag and hit-test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-07-theme-and-polish/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    7. Theme and polish
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/stylized-music-08-package-and-ship/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    8. Package and ship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Butterfly Banner (the Elysium logo)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Butterfly Banner (the Elysium logo)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly-banner-01-load-the-skin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    1. Load the skin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly-banner-02-flight-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2. Flight animation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/butterfly-banner-03-banner-unfurl-and-logo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3. Unfurl the wordmark
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-skin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your first skin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/shopify-style-desktop-app/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a Shopify-style desktop app
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/aurora-clock-pro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurora Clock Pro
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/borderless-music-widget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Borderless music widget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/particle-pet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Particle pet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/command-palette-launcher/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command palette launcher
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/ai-assisted-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI-assisted redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/weather-widget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weather widget
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../guides/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/developer-handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/borderless-and-shaped/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Borderless and shaped windows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/windowing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windowing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/components-overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Components overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/app-shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    App shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/graphics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interactive 2D canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documents and editing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/charts-and-dashboards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Charts and dashboards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/data-grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The data grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/wizards-and-flows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Wizards and flows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/commands-and-undo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands and undo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/rich-text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rich text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/drag-and-drop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drag and drop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/completer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Completer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/styling-and-a11y/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Styling and accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/reactive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reactive bindings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/theming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Theming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/skins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/focus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Focus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/hot-reload/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hot reload
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/rendering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rendering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/pbr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PBR materials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/textures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Textures and brush
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/brush/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brush system
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/aether/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/code-link/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Link
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/packaging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Packaging
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/auto-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Auto-update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/webview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebView
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/marketplace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Marketplace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/editors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/designer-to-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Designer → code → ship
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/porting-from-qt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Porting from Qt
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/text-input-and-dialogs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text input and dialogs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/scale-and-scroll/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scale and scroll
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/threading-and-services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Threading and services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/api-stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API stability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../patterns/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Patterns
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Patterns
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../patterns/crud-app/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CRUD app
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../patterns/forms-and-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forms and validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../patterns/tables-and-modelview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tables and Model/View
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../patterns/dialogs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dialogs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../recipes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Recipes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/01-open-borderless-window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open a borderless window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/02-star-shaped-hit-region/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Star-shaped hit region
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/03-ellipse-transparent-window/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ellipse transparent window
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/04-drag-without-title-bar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drag without title bar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/05-snap-window-to-screen-edge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Snap window to screen edge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/06-second-window-from-button/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Second window from a button
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/07-modal-returns-value/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modal returns a value
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/08-animate-opacity-on-press/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animate opacity on press
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/09-hover-spring-scale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hover Spring scale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/10-tween-pingpong-forever/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tween ping-pong forever
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/11-tween-from-signal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drive a Tween from a signal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/12-switch-themes-runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switch themes at runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/13-react-to-system-dark-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    React to system dark mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/14-respect-reduce-motion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Respect reduce-motion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/15-custom-component/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a custom component
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/16-canvas-with-path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Draw on Canvas with a Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/17-rounded-image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image with rounded corners
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/18-pbr-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render a PBR sphere thumbnail
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/19-global-hotkey-command-palette/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Global hotkey CommandPalette
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/20-toast-from-anywhere/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Toast from anywhere
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/21-persist-window-geometry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Persist window geometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/22-signal-computed-derived-label/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Signal/computed derived label
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/23-long-task-without-blocking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Long task without blocking
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/24-custom-aether-tool/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom Aether tool
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../recipes/25-aether-redesign-runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aether redesigns your skin at runtime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../elysium/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../components/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../completer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components.completer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../daterange/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components.daterange
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components.dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dataentry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components.dataentry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scroll/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components.scroll
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../virtual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.components.virtual
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../input/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.input
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../richtext/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.text.richtext
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dialogs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.dialogs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../modelview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.modelview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../grid/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.modelview.grid
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../graphics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.graphics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../charts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.charts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../styling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.styling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dnd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.dnd
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concurrency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.concurrency
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../windowing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.windowing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../native/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.native
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../i18n/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.i18n
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../locale/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.locale
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.layout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theme/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.theme
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../anim/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.anim
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reactive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.reactive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../render/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.render
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../brush/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.brush
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../aether/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.aether
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.ai
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../codelink/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.codelink
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../accessibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../focus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.focus
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pack/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.pack
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../updater/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.updater
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../webview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.webview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    elysium.cli
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../migration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Migration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-tkinter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From Tkinter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-pyqt6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From PyQt6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-pyside6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From PySide6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-kivy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From Kivy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../migration/from-flet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    From Flet
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Resources
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/which-python-gui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Which Python GUI?
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/scope-and-batteries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scope and batteries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparison matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/examples-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/component-gallery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Component gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../resources/roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#mesh-26" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mesh (26)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#texture-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Texture (15)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#material-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Material (5)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animation-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Animation (11)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placement-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement (12)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shape-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shape (4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brush-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brush (7)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code (3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#code-link-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code Link (3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hook-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hook (3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#window-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Window (8)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#snapshot-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Snapshot (4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meta-13" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Meta (13)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run (6)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tester-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tester (3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Aether tools.partial</h1>
+
+<!-- Auto-generated by scripts/gen_aether_tool_reference.py. -->
+<!-- Do not edit by hand. -->
+
+<p>Catalog of every Aether-callable tool. Currently <strong>123 tools across 15 modules</strong>. Re-generated on every doc build.</p>
+<h2 id="mesh-26">Mesh (26)<a class="headerlink" href="#mesh-26" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mesh.import</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Import a .obj / .gltf / .glb and add it as a Mesh3D placement.</td>
+</tr>
+<tr>
+<td><code>mesh.import_3d</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Import a 3D model file (.3ds / .obj / .gltf / .glb / .fbx): the same one-action flow as File → Import 3D Model… in the Designer. Parses the file, registers it in the mesh library under its filename stem, and adds a Mesh3D placement centered on the canvas. Returns the new placement's id, the mesh library name, and the triangle / vertex counts so the caller can confirm the import succeeded.</td>
+</tr>
+<tr>
+<td><code>mesh.register_from_file</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Load a .3ds / .obj / .gltf / .glb / .fbx and register it in the MESH_LIBRARY under <code>name</code> <em>without</em> creating a new placement. Use this on launch when a saved .esk references a named mesh (e.g. 'butterfly') that the fresh process has not yet loaded: calling this rebinds the name so the existing Mesh3D placement starts rendering again.</td>
+</tr>
+<tr>
+<td><code>mesh.uv_unwrap</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Re-generate the UV coordinates of a Mesh3D's underlying mesh using a projection scheme. Modes:</td>
+</tr>
+<tr>
+<td>- 'planar'      : flatten from a viewing axis (yaw,pitch);                     front-facing surface gets a [0,1]² mapping.</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- 'planar_xy'   : project along +Z onto XY plane.</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- 'cylindrical' : wrap around the Y axis (u=angle, v=height).</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>- 'spherical'   : wrap around origin (u=longitude, v=latitude).</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Mutates the cached mesh object's <code>vert_uvs</code> in place. Does NOT alter vertices, faces, normals, rigging, or part ids: the model's geometry stays identical. Returns the new per-part UV bbox so callers can re-render or rebuild atlases against it.</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>material.project_photo</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>'Projection painting': bake a photo onto the mesh from a camera angle (yaw, pitch, dist), then save the result as a UV-aligned albedo atlas and bind it. For each mesh vertex, the camera maps it to a screen-space point in the photo; that pixel becomes the color at the vertex's UV. Triangle interior pixels in the atlas are filled by rasterising the UV triangles with bilinear-sampled photo colors. Geometry untouched. The current camera angle on the placement (mesh_yaw/mesh_pitch) is used by default.</td>
+</tr>
+<tr>
+<td><code>material.project_per_part</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Per-part proportional projection painting. Aligns each named mesh part to a caller-supplied photo bbox, then for every atlas pixel inside that part: finds its 3D position via barycentric coords, normalises that position within the part's 3D screen-space bbox (x,y from a given camera view), and samples the photo at the equivalent normalized position inside the part's photo bbox. Result: the top 1% of the mesh's left wing samples the top 1% of the photo's left wing, and so on: every section of every wing/body lines up proportionally to its counterpart in the reference.</td>
+</tr>
+</tbody>
+</table>
+<p><code>part_photo_bboxes</code> maps mesh part name -&gt; {x,y,w,h} in source-image pixel coords. Defaults supplied for parts that look like wing/body using a simple symmetric split of the photo's opaque bbox (left half = first wing-named part, right half = second wing-named part, central vertical strip = body-named part). When the photo's wing is mirrored relative to the mesh's wing (head-on view swap), pass <code>flip_h_for=[part_names]</code> to mirror that part's photo sampling horizontally. Auto-binds the baked atlas as the placement's albedo. Geometry untouched. |
+| <code>mesh.read_render_bbox</code> | SideEffect.READ | No | Return the tight bbox (in placement-bbox local pixels) of where the rendered Mesh3D actually occupies space: i.e. the alpha-bbox of the cached mesh PNG, scaled into the placement bbox. Lets a caller stamp paint exactly onto the visible mesh region (e.g. the butterfly's wings + body) instead of guessing in empty bbox space. |
+| <code>mesh.read_part_render_bbox</code> | SideEffect.READ | No | Return the screen-pixel bbox of EACH named sub-mesh part (Wing_Left, Wing_Right, Body, …) inside the placement's rendered output. Projects every vertex of every part through the placement's current camera (mesh_yaw / mesh_pitch / mesh_dist), maps NDC into the rendered image, then scales into placement-bbox local pixels. Lets a caller crop the reference photo to the EXACT pixel dimensions of a model's wing region before applying: the basis for pixel-perfect transfer. |
+| <code>mesh.read_parts</code> | SideEffect.READ | No | List the named sub-meshes inside a Mesh3D placement's imported model (e.g. for the butterfly .3ds: Wing_Right, Wing_Left, Body) along with their vertex counts. Returns an empty list for procedural meshes that weren't imported from a file. |
+| <code>mesh.read_uv_bbox</code> | SideEffect.READ | No | Report the UV bounding box (umin, vmin, umax, vmax) for each sub-mesh of a Mesh3D placement. UV coords are in [0,1] and indicate which region of an albedo texture a part samples: essential for picking a photo crop that lands on the correct anatomy at the right size. |
+| <code>mesh.set_camera</code> | n/a | n/a | Set yaw / pitch / distance for a Mesh3D placement. |
+| <code>mesh.toggle_wireframe</code> | n/a | n/a | Toggle wireframe rendering on a Mesh3D placement. |
+| <code>mesh.render_final</code> | SideEffect.READ | No | Path-traced 'Render Final' for the selected mesh; saves to .elysium/renders/. Returns the absolute output path. |
+| <code>mesh.render_part_mask</code> | SideEffect.READ | No | Render the named sub-mesh part of a Mesh3D placement to a binary mask sized at the placement's on-canvas pixel dimensions (p.w × p.h). The mask is what the user sees - byte-for-byte identical camera + projection as the real PBR render: so any pixel that's '1' on the mask is a pixel the user sees coloured by that part on the checkerboard canvas. Returns the PNG path + pixel count + canvas-space bbox of the part.</p>
+<p>Pass <code>parts=[]</code> (omit <code>part</code>) to get the union mask for the whole mesh. |
+| <code>mesh.world_to_screen</code> | SideEffect.READ | No | Project a world-space (x, y, z) point through a Mesh3D placement's camera and return the resulting CANVAS (x, y) pixel: i.e. the same coordinate space as the Designer's drag-drop placements. Useful for putting a marker on a known model vertex (wing tip, antenna, etc.). |
+| <code>mesh.lasso_tip_pct</code> | SideEffect.WRITE | No | Pixel-accurate lasso of the top N % of a Mesh3D placement's named part, ordered tip-first.</p>
+<p>Algorithm: render the part to a binary mask at the placement's canvas resolution (so each mask pixel maps 1:1 to a canvas pixel), pick the wing tip as the extreme corner of the mask (auto-detected from the part name unless <code>anchor</code> is given), sort every mask pixel by Euclidean distance to the tip, take the top N %. Returns the ordered list of CANVAS-space (x, y) pixels plus the tip + its canvas coordinate.</p>
+<p>Optionally builds a marching-ants Shape placement that outlines those pixels (set <code>create_overlay=True</code>). |
+| <code>image.lasso_left_wing_tip_pct</code> | SideEffect.WRITE | No | Pixel-accurate lasso on the upper-outer tip of an Image placement's left wing: the Image counterpart of mesh.lasso_tip_pct. Algorithm: alpha + non-white silhouette pass on the source photo, split at the horizontal midpoint to isolate the left wing, find the upper-outer corner (min y+x), sort by Euclidean distance to that tip, take the top N % closest pixels, map them into canvas coords using the placement's current size, optionally emit a marching-ants Shape overlay. |
+| <code>mesh.transfer_wing_from_reference</code> | SideEffect.WRITE | No | Pattern-preserving transfer of a reference Image's wing onto a Mesh3D placement's wing. The source wing's bbox is cropped from the reference photo and image-warped to the model wing's bbox (preserving spatial pattern), then each model wing pixel reads its color from the warped crop at its bbox-local position. Painted into the placement's PaintMask so the result composites over the mesh immediately.</p>
+<p>method='bbox_warp' (default): image-warps the source crop so stripes/spots stay in the right place even when the wings have different shapes.
+method='sweep'     : legacy zig-zag row-major copy (loses pattern; only useful as a comparison baseline).</p>
+<p>n_regions controls progress reporting (and the row subdivision used in 'sweep' mode); bbox_warp samples every pixel from the warped image, independent of n_regions.</p>
+<p>clear_mask=True wipes the previous PaintMask first so successive transfers don't bleed through. |
+| <code>mesh.bake_paint_mask_to_uv_albedo</code> | SideEffect.WRITE | No | Back-project a placement's screen-space PaintMask into UV space and bind the result as the named sub-mesh part's <code>albedo</code> map (per-part material slot). Uses the same ray-trace pass as the renderer so each canvas pixel maps to the exact mesh UV the renderer would sample from that pixel.</p>
+<p>After baking the tool optionally clears the PaintMask (default ON) so PBR shading takes over from the screen-space overlay: that's what lets <code>mesh.generate_normal_map_from_albedo</code> actually catch light through the PBR shader on subsequent renders. Saves the UV-mapped PNG under <code>~/.elysium/textures/&lt;placement&gt;_&lt;part&gt;_baked.png</code>. |
+| <code>mesh.generate_normal_map_from_albedo</code> | SideEffect.WRITE | No | Generate a tangent-space normal map from a placement's UV-mapped albedo texture (the one currently bound for the named part) by running a Sobel gradient on the albedo's luminance, then bind it via material.set_part_texture(slot="normal"). Use after <code>mesh.bake_paint_mask_to_uv_albedo</code> so the normal map is derived from the just-baked Blue Morpho color, giving the PBR shader something to catch light off (iridescence). |
+| <code>mesh.transfer_polar_with_normal_map</code> | SideEffect.WRITE | No | One-shot pipeline: run polar transfer for Wing_Left, bake the PaintMask into a UV-space albedo for the part, then generate + bind a Sobel-derived normal map so the wing catches light through the PBR shader. This is the full path from a reference photo to a PBR-lit iridescent wing in one menu click. |
+| <code>mesh.save_landmarks</code> | n/a | n/a | Persist a list of paired source/target landmarks as a JSON preset under ~/.elysium/landmarks/<name>.json so the manual landmark transfer can be replayed across sessions / wings / models. |
+| <code>mesh.load_landmarks</code> | SideEffect.READ | No | Read a landmark preset saved by mesh.save_landmarks. |
+| <code>mesh.list_landmark_presets</code> | SideEffect.READ | No | List all saved landmark presets under ~/.elysium/landmarks. |
+| <code>mesh.transfer_landmark_with_normal_map</code> | SideEffect.WRITE | No | One-shot pipeline using manually placed landmarks: run TPS transfer driven by the supplied landmark pairs, bake the result to a UV-space albedo for the named part, then generate + bind a normal map for PBR-driven iridescence under the studio lighting. |
+| <code>mesh.transfer_bbox_then_landmark_gaps</code> | SideEffect.WRITE | No | Layered transfer: run bbox_warp first (fills the bulk of the wing with the source pattern's overall layout), then run landmark TPS in <code>paint_only_empty</code> mode to fill only the gaps bbox_warp left transparent (where the source butterfly silhouette didn't cover the warped bbox), then bake to a UV-space albedo and generate a normal map for PBR-driven iridescence.</p>
+<p>Needs ≥6 paired landmarks. Use this when the bbox-warp baseline looks good for the wing's central pattern but leaves anatomical regions (wing tip / outer rim / inner cell) uncovered. |</p>
+<h2 id="texture-15">Texture (15)<a class="headerlink" href="#texture-15" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>texture.extract_from_image</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Crop/clean an image into a seamless tile in the user's texture library at ~/.elysium/textures/. Pass <code>crop</code> as [x, y, w, h] in source-image pixel coords to extract just that region. <code>saturation</code> and <code>contrast</code> are signed deltas in [-1, 1] applied before tiling.</td>
+</tr>
+<tr>
+<td><code>texture.apply_layer</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Add a texture layer to a placement (multi-layer stack).</td>
+</tr>
+<tr>
+<td><code>texture.list_library</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>List every texture in the user's local library along with its pixel dimensions, aspect ratio, and file size.</td>
+</tr>
+<tr>
+<td><code>texture.crop_to_match</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Crop a source image to an arbitrary aspect ratio and resolution, save to the user's texture library, return the tile path. Unlike texture.extract_from_image, this preserves the cropped pixels exactly (no tiling pass) and produces an output of the requested dimensions. Use it after mesh.read_uv_bbox to pick a region of the source photo that matches a sub-mesh's UV bbox aspect ratio. Pass either <code>crop</code> [x,y,w,h] in source-pixel coords, or <code>crop_norm</code> [u_min, v_min, u_max, v_max] in [0,1] coords. If <code>out_w</code>/<code>out_h</code> are given, the cropped region is resized to those dimensions; otherwise the crop's native dimensions are kept.</td>
+</tr>
+<tr>
+<td><code>texture.stamp_region</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Stamp a section of a source image onto a placement's PaintMask at the given target rect (in placement-local coords [0,0] = top-left of the bbox). Equivalent of using the Brush tool with a custom image stamp instead of a solid color: lets a caller build up a complex texture section by section. Pass <code>src_crop</code> [x,y,w,h] in source-pixel coords (defaults to whole image) and <code>dst_rect</code> [x,y,w,h] in placement-bbox px (defaults to (0,0,placement.w,placement.h)). <code>opacity</code> (0..1) controls blend strength.</td>
+</tr>
+<tr>
+<td><code>texture.assemble_atlas</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Build a single albedo atlas image that aligns regions of a source photo to a mesh's UV layout. <code>regions</code> is a list of {src_crop:[x,y,w,h], dst_uv_bbox:[umin,vmin,umax,vmax], flip_v:bool}. For each entry the source crop is extracted from <code>src</code> (in source-image pixel coords), scaled to fit the destination UV bbox (translated to pixel coords in a fresh size×size canvas), and pasted in. <code>flip_v</code> defaults to True (matching the .3ds loader's V-flip so on-screen anatomy is right-side up). Existing destination pixels are overwritten: paint anatomy from background → foreground (wings first, body last). Returns the saved atlas path so it can be bound via material.set_texture.</td>
+</tr>
+<tr>
+<td><code>texture.clear_paint_mask</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Wipe a placement's PaintMask (the screen-space brush overlay) back to fully transparent. Equivalent to selecting the placement, picking the Eraser, and dragging across the entire bbox: but in one tool call. Use to revert all freehand painting on a placement before restarting.</td>
+</tr>
+<tr>
+<td><code>texture.read_info</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Inspect an image file on disk. Returns its size, the tight bounding box of opaque pixels (alpha &gt; 200), and the tight bbox of pixels matching an optional color filter so you can pick crops by content instead of guessing. <code>color_filter</code> is one of: 'blue', 'red', 'iridescent', 'dark', or absent (skip). Returns the centroid of matched pixels too, for easy 'aim here' stamping.</td>
+</tr>
+<tr>
+<td><code>texture.generate_pbr_maps</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Generate a full set of PBR maps (diffuse / albedo, normal, roughness, displacement) from a single flat photograph. Diffuse strips baked highlights/shadows via tone-curve normalisation; normal map comes from luminance gradients (Sobel) encoded as tangent-space RGB; roughness is the inverse of local luminance variance (smooth areas = low roughness); displacement is the photo's luminance. Returns a dict with one path per generated map.</td>
+</tr>
+<tr>
+<td><code>texture.transfer_section</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Strict 1:1 pixel transfer from a source-image region to a target placement's PaintMask (screen-space overlay). The source crop is scaled to EXACTLY the target rect's pixel dimensions, then copied row-by-row top-down so each pixel in the source maps to one pixel in the target.</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>row_start</code> / <code>row_end</code> (in [0,1] of the section) to transfer only a partial vertical band: that's the basis for the progressive top-down workflow: call repeatedly with row_end stepping from 0→1 and screenshot between each call to watch the wing fill in section by section.</p>
+<p>The transfer is additive on the PaintMask: existing paint below it is overwritten only in the band being painted. |
+| <code>lasso.wing_perimeter</code> | SideEffect.WRITE | No | Compute the perimeter polygon of a wing's top vertical band, INSIDE the wing silhouette (not a bbox rectangle). Returns a Shape placement-ready polygon point list following the wing outline at rows in [v_start, v_end] of the wing.</p>
+<p>For a Mesh3D placement: projects each face's vertices through the placement's camera, identifies which faces fall in the vertical band, then traces the outer edge of those faces as a polygon: so the lasso hugs the actual wing perimeter at that altitude.</p>
+<p>For an Image placement: reads the photo's alpha channel inside <code>source_bbox</code> (in source-image pixel coords), finds opaque pixels in the band, returns left/right extents per row as a polygon outline in placement-local canvas pixels (so the polygon is sized to the on-screen image).</p>
+<p>Optionally CREATES a marching-ants Shape placement with that polygon when <code>create_overlay=True</code>. |
+| <code>texture.transfer_uv_band</code> | n/a | n/a | Copy a horizontal band of pixels from a source image into a Mesh3D placement's UV-mapped albedo texture (the texture that's baked onto the mesh's surface: NOT a screen overlay).</p>
+<p>Algorithm: identify the named sub-mesh part's UV bbox in the atlas → compute the atlas pixel rect that corresponds to the part's [v_start, v_end] vertical band → crop the source wing region from <code>src_wing_bbox</code> → scale it to the part's render-pixel dimensions (so each source pixel lands on one render pixel after PBR sampling) → take the [v_start, v_end] vertical band of the scaled crop → resample to the atlas-pixel band → write into the atlas and save. If the placement has no albedo bound yet a fresh transparent atlas of <code>size</code>×<code>size</code> is created. The existing atlas (if any) is preserved in regions outside this band so consecutive calls accumulate.</p>
+<p>Per-part UV bboxes come from mesh.read_uv_bbox; pixel dimensions of the part on screen come from mesh.read_part_render_bbox. Both are needed. |
+| <code>texture.flush_caches</code> | n/a | n/a | Clear every in-memory texture/mesh cache so the next render re-reads files from disk. Use after overwriting a texture in the library: without this, pbr._TEX_CACHE keeps the stale pixels even though the file changed. |
+| <code>texture.delete_from_library</code> | n/a | n/a | Delete a texture from the user's library. Pass the tile's filename stem (e.g. 'bm_wing'). The tile is unlinked from disk but any placement still referencing it will keep its current binding string: the next render will hit a missing file. Bind a different tile via material.set_texture / material.set_part_texture before deleting. |
+| <code>texture.paint_mask</code> | n/a | n/a | Paint a brush stroke onto a placement's PaintMask. |</p>
+<h2 id="material-5">Material (5)<a class="headerlink" href="#material-5" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>material.set</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Apply a material to a Mesh3D / PBRSphere placement. Either pick a <code>preset</code> from the material library or pass individual params.</td>
+</tr>
+<tr>
+<td><code>material.set_texture</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Bind an image as a material texture map. <code>slot</code> is albedo / metallic_rough / normal / ao / emissive.</td>
+</tr>
+<tr>
+<td><code>material.set_part_texture</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Bind an albedo texture to ONE named sub-mesh of a Mesh3D placement (use mesh.read_parts to discover names). Lets a user re-skin the wings and the body of an imported model with different tiles. Pass an empty path to clear the binding for that part.</td>
+</tr>
+<tr>
+<td><code>material.clear</code></td>
+<td>SideEffect.DESTRUCTIVE</td>
+<td>n/a</td>
+<td>Wipe every material customization on a placement so it renders as the bare imported model. Clears: all PBR texture slots (albedo / metallic_rough / normal / ao / emissive), all per-part textures, the texture-layer stack, the painted PaintMask, and resets PBR knobs to neutral. Use to revert before restarting a texturing workflow from scratch.</td>
+</tr>
+<tr>
+<td><code>material.read</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Read a placement's material parameters.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="animation-11">Animation (11)<a class="headerlink" href="#animation-11" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>animation.add_state</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Append an AnimState to a placement.</td>
+</tr>
+<tr>
+<td><code>animation.modify_state</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Patch an existing AnimState by name.</td>
+</tr>
+<tr>
+<td><code>animation.delete_state</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Remove an AnimState by name.</td>
+</tr>
+<tr>
+<td><code>animation.play</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Start the global animation playhead.</td>
+</tr>
+<tr>
+<td><code>animation.set_playhead</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Seek the animation playhead to a wall-clock time.</td>
+</tr>
+<tr>
+<td><code>animation.read</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Dump every AnimState on a placement.</td>
+</tr>
+<tr>
+<td><code>animation.add_scene</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Append a Scene (keyframed pose snapshot) to a placement. Same data model as animation.add_state: alternate name matching the Designer's UI terminology.</td>
+</tr>
+<tr>
+<td><code>animation.modify_scene</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Patch a Scene by name (alias of animation.modify_state).</td>
+</tr>
+<tr>
+<td><code>animation.delete_scene</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Remove a Scene by name (alias of animation.delete_state).</td>
+</tr>
+<tr>
+<td><code>animation.set_loop</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Toggle the Designer's animation-loop mode. When True, the timeline cycles continuously while playing. When False (the default) the timeline plays once and stops at the final scene. Drives the same toggle as the toolbar's ↻ Loop button.</td>
+</tr>
+<tr>
+<td><code>animation.read_loop</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Report whether play-loop is on (continuous) or off (one-shot).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="placement-12">Placement (12)<a class="headerlink" href="#placement-12" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>placement.add</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Create a new placement on the canvas. <code>kind</code> is one of the catalog entries (Button, Card, Mesh3D, PBRSphere, Image, Label, Slider, Toggle, Shape, Region, ...).</td>
+</tr>
+<tr>
+<td><code>placement.remove</code></td>
+<td>SideEffect.DESTRUCTIVE</td>
+<td>n/a</td>
+<td>Delete a placement by id.</td>
+</tr>
+<tr>
+<td><code>placement.move</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Translate a placement to absolute coordinates.</td>
+</tr>
+<tr>
+<td><code>placement.resize</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Resize a placement to (w, h).</td>
+</tr>
+<tr>
+<td><code>placement.rename</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Rename a placement.</td>
+</tr>
+<tr>
+<td><code>placement.select</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Select a placement by id (so subsequent keyboard nudges, Properties-panel edits, etc. target it). Pass id='' to deselect everything.</td>
+</tr>
+<tr>
+<td><code>placement.set_property</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Set an arbitrary property on a placement. Use this for things like color_fill, font_size, label, image_path, or any kind-specific field.</td>
+</tr>
+<tr>
+<td><code>placement.duplicate</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Clone a placement with an optional offset.</td>
+</tr>
+<tr>
+<td><code>placement.bring_forward</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Move a placement up one Z order.</td>
+</tr>
+<tr>
+<td><code>placement.send_backward</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Move a placement down one Z order.</td>
+</tr>
+<tr>
+<td><code>placement.list</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>List every placement on the canvas with id / kind / name / bounds. Read-only: call this after changes to verify state.</td>
+</tr>
+<tr>
+<td><code>placement.read</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Get the full property dump for one placement.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="shape-4">Shape (4)<a class="headerlink" href="#shape-4" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>shape.draw_rect</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Add a rectangle shape placement.</td>
+</tr>
+<tr>
+<td><code>shape.draw_ellipse</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Add an ellipse / circle shape.</td>
+</tr>
+<tr>
+<td><code>shape.draw_path</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Add a custom SVG-path shape. <code>d</code> uses the path mini-language (M / L / Q / C / Z; no A).</td>
+</tr>
+<tr>
+<td><code>shape.boolean_op</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Run a boolean path op on two or more selected shapes. <code>op</code> is union / intersect / subtract / exclude.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="brush-7">Brush (7)<a class="headerlink" href="#brush-7" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>brush.set_texture</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Activate a tileable RGBA tile as the current Brush stamp. Either pass <code>name</code> (a tile already in the designer's brush palette / texture library at ~/.elysium/textures/) or <code>path</code> (absolute file path). Once set, the Brush tool paints with that texture instead of <code>brush_color</code>; switch back to solid color with brush.clear_texture. <code>scale</code> (default 1.0) stretches the tile in placement-pixel units: 0.5 = pattern twice as dense, 2.0 = pattern twice as large.</td>
+</tr>
+<tr>
+<td><code>brush.clear_texture</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Return the Brush tool to solid-color mode (paints with <code>brush_color</code> again).</td>
+</tr>
+<tr>
+<td><code>brush.slurp</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Eyedropper a tileable swatch out of a source image and stash it in the brush palette under <code>name</code>. <code>crop</code> is [x, y, w, h] in source-image pixel coords; omit to use the whole image. If <code>seamless</code> is true (default) the tile is feathered/wrapped so it tiles without seams. The new tile is also set as the active brush stamp so the very next brush stroke uses it.</td>
+</tr>
+<tr>
+<td><code>brush.list_palette</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>List every brush swatch the designer has cached this session (the in-memory palette plus on-disk tiles under ~/.elysium/textures/).</td>
+</tr>
+<tr>
+<td><code>brush.read</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Report the current brush state: tool, radius, opacity, hardness, solid color, and the active texture stamp (if any) plus its scale.</td>
+</tr>
+<tr>
+<td><code>brush.stroke</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Lay a brush stroke on a placement's PaintMask using the currently active brush state (texture if set, otherwise solid brush_color). Coordinates are in placement-bbox local pixels: [0,0] = top-left of the bbox. <code>from</code> and <code>to</code> define the stroke endpoints; pass equal points for a single dab. Honours brush_radius, brush_opacity, brush_hardness, brush_texture_scale. Additive only: no alpha cutout, never erases the underlying model.</td>
+</tr>
+<tr>
+<td><code>brush.set_params</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Adjust brush size / opacity / hardness / color without switching tools. Any omitted field is left alone. <code>color</code> is [r, g, b] or [r, g, b, a] in 0-255.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="code-3">Code (3)<a class="headerlink" href="#code-3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code.read_file</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Read a UTF-8 text file from inside the project root.</td>
+</tr>
+<tr>
+<td><code>code.write_file</code></td>
+<td>SideEffect.DESTRUCTIVE</td>
+<td>n/a</td>
+<td>Write a file inside the project root. <code>mode</code> is 'overwrite' (default, destructive) or 'append'.</td>
+</tr>
+<tr>
+<td><code>code.patch</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Replace the first occurrence of <code>find</code> with <code>replace</code>. Fails when <code>find</code> is not unique unless <code>count</code> is set.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="code-link-3">Code Link (3)<a class="headerlink" href="#code-link-3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>codelink.scaffold</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Append a Python handler stub for a hook into the skin's paired source file. Idempotent.</td>
+</tr>
+<tr>
+<td><code>codelink.goto</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Open the user's editor at the handler for the given hook (scaffolds it first if missing).</td>
+</tr>
+<tr>
+<td><code>codelink.read_handler</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Return the source of the handler function for a hook.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hook-3">Hook (3)<a class="headerlink" href="#hook-3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hook.declare</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Declare a hook on a placement (event / text / value / state / image / slot / style). For state hooks pass <code>options.states</code>; for value hooks pass <code>options.range</code>.</td>
+</tr>
+<tr>
+<td><code>hook.set_accessible</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Set the accessibility role / label / description on a placement's hook so screen readers (VoiceOver / JAWS / Orca) announce it correctly.</td>
+</tr>
+<tr>
+<td><code>hook.read</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Read the hook + accessibility metadata for a placement.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="window-8">Window (8)<a class="headerlink" href="#window-8" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>window.set_chrome</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Toggle the OS window chrome. <code>shape</code> is 'rect' / 'ellipse' / 'path'; pass <code>path_d</code> when shape='path'.</td>
+</tr>
+<tr>
+<td><code>window.set_size</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Resize the design canvas.</td>
+</tr>
+<tr>
+<td><code>window.set_bg</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Set the window background. <code>color</code> is an [r,g,b,a] 0-255 tuple; pass <code>gradient_end</code> to switch to a linear gradient with <code>angle</code> degrees.</td>
+</tr>
+<tr>
+<td><code>window.set_studio</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Pick one of the lighting studios (see agent.list_studios). Affects every PBR/Mesh3D placement.</td>
+</tr>
+<tr>
+<td><code>window.set_theme</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Switch the active theme (Light / Dark / OLED / Glass / Frost).</td>
+</tr>
+<tr>
+<td><code>window.read</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Dump the current window definition.</td>
+</tr>
+<tr>
+<td><code>view.set_zoom</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Set the canvas (form-area) zoom factor (1.0 = 100%). Equivalent to Cmd+= / Cmd+- / Cmd+0 keyboard shortcuts and trackpad pinch. Clamped to the Designer's zoom limits.</td>
+</tr>
+<tr>
+<td><code>view.read_zoom</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Read the current canvas zoom factor (1.0 = 100%).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="snapshot-4">Snapshot (4)<a class="headerlink" href="#snapshot-4" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>snapshot.list</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>List every snapshot in the current session.</td>
+</tr>
+<tr>
+<td><code>snapshot.restore</code></td>
+<td>SideEffect.DESTRUCTIVE</td>
+<td>No</td>
+<td>Roll the project back to the named snapshot.</td>
+</tr>
+<tr>
+<td><code>snapshot.diff</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Unified diff of the document.json between two snapshots.</td>
+</tr>
+<tr>
+<td><code>snapshot.branch</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Label the current point as a branch the user can revisit.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="meta-13">Meta (13)<a class="headerlink" href="#meta-13" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>agent.search_docs</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Substring-search the framework's docs (under docs/).</td>
+</tr>
+<tr>
+<td><code>agent.list_components</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Return every Elysium component class shipped in v1.</td>
+</tr>
+<tr>
+<td><code>agent.list_studios</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Return every lighting studio preset.</td>
+</tr>
+<tr>
+<td><code>agent.list_presets</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Return every PBR material preset.</td>
+</tr>
+<tr>
+<td><code>dev.reload_module</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Hot-reload a Python module by dotted name (e.g. 'elysium.render.pbr', 'elysium.aether.tools.window'). Uses importlib.reload: fresh calls hit the new code. Tools registered via @register_tool re-register on reload. Module-level state (caches, registries that aren't decorator-driven) is recreated, so caller may also want a follow-up cache flush. Does NOT reload elysium-designer/<strong>main</strong>.py: the running Designer instance retains its old class methods; for those changes, use <code>dev.reload_designer_module</code> (which monkey-patches the Designer class onto the live instance) or restart.</td>
+</tr>
+<tr>
+<td><code>dev.designer_module_info</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Diagnostic: report what sys.modules key the running Designer's class lives under, plus a sample of candidate module names from sys.modules.</td>
+</tr>
+<tr>
+<td><code>dev.dump_placement_attrs</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Diagnostic: dump raw attribute values + presence on a placement instance, so we can tell whether a hot-reload field addition actually took effect on the live instance.</td>
+</tr>
+<tr>
+<td><code>dev.dump_tool</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Dump runtime info about a registered tool: module, code object id, function id, and a few co_consts strings: so callers can verify hot-reload actually replaced the function reference.</td>
+</tr>
+<tr>
+<td><code>dev.reload_designer_module</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Hot-reload the running Designer's <strong>main</strong> module and monkey-patch every non-dunder method/function from the fresh module onto the live Designer instance + class, so subsequent calls execute the new code without a restart. Returns the number of attributes patched. Existing in-flight state (placements, selection, animation clock) is preserved.</td>
+</tr>
+<tr>
+<td><code>dev.eval</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Diagnostic-only: eval a Python expression in a context with <code>session</code>, <code>designer</code>, <code>pbr</code> and <code>dp</code> (designer_preview) pre-bound. Returns repr(result) trimmed.</td>
+</tr>
+<tr>
+<td><code>dev.thread_dump</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Capture a quick snapshot of every Python thread's current stack so we can see if the render thread is blocked.</td>
+</tr>
+<tr>
+<td><code>dev.probe_designer</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Quick liveness probe: returns selected attributes/methods on the live Designer class so callers can verify a hot-reload actually patched what they expect.</td>
+</tr>
+<tr>
+<td><code>agent.report_capability_gap</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>File a framework feature request the agent has just hit. Persists to ~/.elysium/feedback/<date>.jsonl.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="run-6">Run (6)<a class="headerlink" href="#run-6" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>run.start</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Spawn the user app as a subprocess with ELYSIUM_INSPECTOR=1.</td>
+</tr>
+<tr>
+<td><code>run.stop</code></td>
+<td>SideEffect.DESTRUCTIVE</td>
+<td>n/a</td>
+<td>Stop the running app (SIGTERM).</td>
+</tr>
+<tr>
+<td><code>run.snapshot</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Capture a PNG of the running app's current canvas. Falls back to a Designer-rendered preview when no app is running so the agent can still verify visual state.</td>
+</tr>
+<tr>
+<td><code>run.simulate_input</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Post synthetic mouse / keyboard events into the running app via the Designer's existing input plumbing. Events: {ev: 'click'|'move'|'key', x, y, code?}.</td>
+</tr>
+<tr>
+<td><code>run.read_logs</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Drain stdout / stderr from the running app.</td>
+</tr>
+<tr>
+<td><code>run.frame_stats</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Pull the latest frame timing + hook traffic from the Inspector TCP endpoint of the running app.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="tester-3">Tester (3)<a class="headerlink" href="#tester-3" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Side effect</th>
+<th>Undoable</th>
+<th>One-line purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tester.probe</code></td>
+<td>SideEffect.READ</td>
+<td>No</td>
+<td>Run a bundle of autonomous test scenarios against the running app. Returns a list of findings the agent can act on. Scenarios: 'frame_budget', 'no_tracebacks', 'every_hook_fires', 'screenshot_baseline', 'memory_stable'.</td>
+</tr>
+<tr>
+<td><code>tester.set_baseline</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Lock in the current canvas snapshot as the visual baseline for <code>screenshot_baseline</code> probes.</td>
+</tr>
+<tr>
+<td><code>tester.replay</code></td>
+<td>n/a</td>
+<td>n/a</td>
+<td>Replay a recorded user-input session against the running app for regression / repro purposes.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/elysiumui/elysium" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://discord.gg/elysium-ui" target="_blank" rel="noopener" title="discord.gg" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tabs", "navigation.expand", "navigation.sections", "navigation.indexes", "navigation.top", "content.code.copy", "content.tabs.link", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
