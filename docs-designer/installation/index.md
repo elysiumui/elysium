@@ -36,7 +36,7 @@ Once the app launches successfully:
 | Designer GUI | Yes | The authoring app itself |
 | Python 3.12 interpreter | Yes | Runs the Designer's Python modules |
 | Elysium framework | Yes | Same package as `pip install elysium-ui`, version-pinned |
-| Aether agent | Yes | In-app AI agent with 123 tools |
+| Aether agent | Yes | Headless AI agent with ~123 tools, driven over the bridge on `127.0.0.1:8183` |
 | Native renderer (Skia + wgpu) | Yes | GPU-accelerated canvas |
 | Brush engine packs | Yes | 6 engines, 30 presets |
 | Example assets | Yes | `examples/butterfly/` and friends |

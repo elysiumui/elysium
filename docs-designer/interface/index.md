@@ -17,7 +17,7 @@ where each region lives saves time in every tutorial that follows.
 | [Tool Properties dock](tool-properties-dock.md) | Bottom, expandable | Options for the currently-active toolbox tool |
 | [Time Slider](time-slider.md) | Bottom edge | Frame, timeline, playback transport |
 | [Status line](status-line.md) | Very bottom | Cursor coords, current mode, transient toasts |
-| [Aether chat panel](aether-chat-panel.md) | Floating / docked | Chat with the in-app AI agent |
+| [Aether agent (headless)](aether-chat-panel.md) | No in-app panel | Headless AI agent, driven over the bridge on `127.0.0.1:8183` |
 
 ## The five menu sets
 

@@ -136,10 +136,6 @@ menu is sectioned so the workflow is clear at a glance:
 2. **Import from file…** opens the OS file picker. If you confirm a
    file it is copied into the texture library, written to the slot,
    and applied. If you cancel, the slot is unchanged.
-3. **Generate via Aether prompt…** opens the Aether chat with a
-   pre-filled prompt and remembers your slot. When the agent
-   registers a tile via `brush.add_to_palette`, it lands in your
-   slot.
 
 #### Saved tiles (secondary section)
 

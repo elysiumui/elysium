@@ -15,7 +15,6 @@ externally.
 | Extract Texture from Image… | `texture.extract` |
 | Apply Texture from Library… | `texture.apply` |
 | AI Enhance Selection (×4) | `texture.enhance` |
-| 🌌 Aether (chat with the agent)… | `ai.aether` |
 | ✨ Magic Polish (AI)… | `ai.panel` |
 | ✨ Magic Polish (one-shot) | `ai.magic_polish` |
 | Generate Skin from prompt… | `ai.generate_skin` |

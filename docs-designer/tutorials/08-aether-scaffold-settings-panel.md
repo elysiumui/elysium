@@ -9,18 +9,28 @@ settings should be.
 
 ## Prerequisites
 
-- An AI provider configured (`Preferences > AI`).
+- A running Designer with the AetherBridge enabled (the default;
+  disabled only when `ELYSIUM_AETHER_BRIDGE=0`).
+- An AI provider configured (`Preferences > AI`, or via
+  `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`).
 - An existing skin with a hook for opening settings (any of the
   earlier tutorials' outputs works).
 
-## Open Aether
+## Reach the agent
 
-`Cmd+/` (macOS) or `Ctrl+/` (others).
+Aether is headless — you drive it over the bridge on
+`127.0.0.1:8183`. Every instruction below is a `POST /chat`
+request. Confirm the bridge is up first:
+
+```sh
+curl -s http://127.0.0.1:8183/state | head
+```
 
 ## Describe the panel
 
 A good prompt names the toggles, sliders, and selects you want.
-Example:
+Send it as the `message` of a `POST /chat` request. For example,
+with this prompt:
 
 > "Add a settings panel to this skin. It should have:
 >
@@ -33,20 +43,28 @@ Example:
 > Lay it out as a Form. The window should be 380 x 320,
 > borderless rounded-rect, glass-dark material."
 
+post it to the bridge:
+
+```sh
+curl -s http://127.0.0.1:8183/chat \
+  -H 'content-type: application/json' \
+  -d '{"message": "Add a settings panel to this skin with a theme dropdown (Midnight Glass / Frost / OLED), a Reduce motion toggle (default off), a Window opacity slider (0.4 to 1.0, default 1.0), an Always on top toggle (default on), and a Close button at the bottom right. Lay it out as a Form. The window should be 380 x 320, borderless rounded-rect, glass-dark material."}'
+```
+
 Aether responds by:
 
 1. Adding a Settings sub-window placement (or a new `.esk`).
 2. Calling `arrange.align_*` to lay out the form.
 3. Calling `aether.bind_signal` per control to wire the reactive
    state.
-4. Reporting what it did in the chat.
+4. Reporting what it did in the response transcript.
 
 ## Review the result
 
 Run > Preview Skin (or open the settings hook on the existing
 skin). The panel appears.
 
-If something looks off:
+If something looks off, send another `POST /chat` message:
 
 > "Make the slider track narrower and add more vertical spacing
 > between controls."
@@ -70,7 +88,8 @@ def on_theme(event):
     set_theme(THEMES[event.value])
 ```
 
-The Aether session log shows the exact hook names it created.
+The Aether session log shows the exact hook names it created —
+read it over the bridge with `GET /logs`.
 
 ## Tips
 
@@ -79,12 +98,12 @@ The Aether session log shows the exact hook names it created.
   skin.
 - For consistency across panels, prefix every settings hook with
   `settings.` so they're easy to search and bind.
-- Use snapshots: `Session > Snapshot Before` so you can revert if
-  the agent goes off course.
+- Take a snapshot before you start so you can revert if the agent
+  goes off course.
 
 ## What you exercised
 
-- Aether chat panel.
+- The AetherBridge `POST /chat` endpoint.
 - Multi-step tool calls.
 - The arrange.* and aether.bind_signal tools.
 - Iterative refinement via follow-up prompts.
