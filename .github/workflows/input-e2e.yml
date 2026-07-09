@@ -55,7 +55,7 @@ jobs:
             libwayland-dev libxkbcommon-dev libxkbcommon-x11-0 libfontconfig1-dev \
             libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
             libvulkan-dev mesa-vulkan-drivers vulkan-tools \
-            xvfb xdotool libgl1-mesa-dri x11-utils dbus-x11
+            xvfb xdotool libgl1-mesa-dri x11-utils dbus-x11 openbox
 
       - name: Build & install the framework
         run: |
@@ -63,13 +63,15 @@ jobs:
           maturin build --release --out dist
           pip install --force-reinstall dist/*.whl
 
-      - name: OS input test (under Xvfb + dbus session)
-        # dbus-run-session gives the accesskit AT-SPI (zbus) bridge a session
-        # bus; without it the a11y adapter panics under Xvfb. xkbcommon-x11 +
-        # this were the two headless deps the launch-only smoke test never
-        # needed (it has no window).
+      - name: OS input test (under Xvfb + WM)
+        # Headless deps the launch-only smoke test never needed (it has no
+        # window): xkbcommon-x11 (winit keyboard), dbus-x11 (session bus), and
+        # openbox — a minimal window manager, without which `xdotool
+        # windowactivate` fails (bare Xvfb has no WM to focus windows).
+        # ELYSIUM_DISABLE_A11Y (job env) skips the accesskit/zbus bridge.
         run: |
-          dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
+            openbox & sleep 2
             echo "--- software GPU probe ---"; vulkaninfo --summary 2>&1 | head -20 || true
             pytest tests/test_os_input.py -v --no-header'
 
