@@ -37,6 +37,9 @@ jobs:
       WGPU_BACKEND: vulkan
       LIBGL_ALWAYS_SOFTWARE: "1"
       GALLIUM_DRIVER: llvmpipe
+      # No AT-SPI2 session bus under Xvfb → accesskit_unix panics in zbus.
+      # The input test doesn't need a11y, so disable the bridge for the probe.
+      ELYSIUM_DISABLE_A11Y: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
