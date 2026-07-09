@@ -30,7 +30,11 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       WINIT_UNIX_BACKEND: x11
-      WGPU_BACKEND: gl
+      # Prefer software Vulkan (lavapipe) — usually the most reliable headless
+      # wgpu path — with software GL (llvmpipe) as the fallback. The GL force
+      # ('gl') failed to bring the probe window up; the test now prints the
+      # probe's output so a wgpu-init failure is visible in the log.
+      WGPU_BACKEND: vulkan
       LIBGL_ALWAYS_SOFTWARE: "1"
       GALLIUM_DRIVER: llvmpipe
     steps:
@@ -47,7 +51,7 @@ jobs:
           sudo apt-get install -y \
             libwayland-dev libxkbcommon-dev libfontconfig1-dev \
             libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libvulkan-dev mesa-vulkan-drivers \
+            libvulkan-dev mesa-vulkan-drivers vulkan-tools \
             xvfb xdotool libgl1-mesa-dri x11-utils
 
       - name: Build & install the framework
@@ -58,8 +62,9 @@ jobs:
 
       - name: OS input test (under Xvfb)
         run: |
-          xvfb-run -a --server-args="-screen 0 1280x1024x24" \
-            pytest tests/test_os_input.py -v --no-header
+          xvfb-run -a --server-args="-screen 0 1280x1024x24" bash -c '
+            echo "--- software GPU probe ---"; vulkaninfo --summary 2>&1 | head -20 || true
+            pytest tests/test_os_input.py -v --no-header'
 
   # --- Windows: pywinauto (send_keys / click_input = real SendInput) --------
   windows:

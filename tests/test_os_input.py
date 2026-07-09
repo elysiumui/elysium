@@ -27,6 +27,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
@@ -143,11 +144,20 @@ def test_os_keyboard_and_mouse_roundtrip():
 
     port = _free_port()
     env = {**os.environ, "ELYSIUM_PROBE_PORT": str(port)}
+    # Capture probe output to a temp file (non-blocking) so we can surface the
+    # real crash if it never comes up — e.g. wgpu failing to init under Xvfb.
+    log = tempfile.NamedTemporaryFile("w+", suffix=".probe.log", delete=False)
     proc = subprocess.Popen([sys.executable, "-m", "examples.input-probe"],
                             cwd=os.path.dirname(os.path.dirname(__file__)),
-                            env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                            env=env, stdout=log, stderr=subprocess.STDOUT)
     try:
-        _wait_ready(port)
+        try:
+            _wait_ready(port)
+        except AssertionError:
+            log.flush()
+            with open(log.name) as f:
+                print("---- probe output ----\n" + f.read() + "----------------------")
+            raise
         _post(port, "/reset")
         inject()
 
@@ -178,3 +188,7 @@ def test_os_keyboard_and_mouse_roundtrip():
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+        try:
+            os.unlink(log.name)
+        except OSError:
+            pass
