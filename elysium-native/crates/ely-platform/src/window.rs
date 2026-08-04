@@ -1,7 +1,95 @@
 use ely_core::{geometry::Path as ElyPath, DisplayList, TripleBuffer};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Condvar, Mutex, RwLock};
 use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 use std::sync::Arc;
+
+/// A connected display, in **logical** pixels (physical ÷ scale factor), which
+/// is the unit all Elysium layout maths uses.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MonitorInfo {
+    pub name: String,
+    /// Top-left of the display in the virtual desktop, logical px.
+    pub x: i32,
+    pub y: i32,
+    /// Full display size, logical px.
+    pub width: u32,
+    pub height: u32,
+    /// Usable area (display minus the reserve for system chrome — see
+    /// [`CHROME_RESERVE`]), logical px.
+    pub work_x: i32,
+    pub work_y: i32,
+    pub work_width: u32,
+    pub work_height: u32,
+    pub scale_factor: f64,
+    pub is_primary: bool,
+}
+
+/// Fraction of a display considered usable for a new window.
+///
+/// winit 0.30 exposes no work-area API — `MonitorHandle` gives `size()`,
+/// `position()` and `scale_factor()`, but nothing that accounts for the macOS
+/// menu bar and Dock, the Windows taskbar, or Linux panels. Rather than pull
+/// in per-platform system calls, we reserve a conservative slice so a
+/// default-sized window is always fully visible and reachable.
+///
+/// Apps that need the exact work area can read [`MonitorInfo`] from Python and
+/// size themselves.
+pub const CHROME_RESERVE: f64 = 0.90;
+
+impl MonitorInfo {
+    /// Build from a raw display rect. `position`/`size` are physical pixels,
+    /// as winit reports them.
+    pub fn from_physical(
+        name: String,
+        position: (i32, i32),
+        size: (u32, u32),
+        scale_factor: f64,
+        is_primary: bool,
+    ) -> Self {
+        let scale = if scale_factor.is_finite() && scale_factor > 0.0 {
+            scale_factor
+        } else {
+            1.0
+        };
+        let x = (position.0 as f64 / scale).round() as i32;
+        let y = (position.1 as f64 / scale).round() as i32;
+        let width = ((size.0 as f64 / scale).round() as u32).max(1);
+        let height = ((size.1 as f64 / scale).round() as u32).max(1);
+        let work_width = ((width as f64 * CHROME_RESERVE).round() as u32).max(1);
+        let work_height = ((height as f64 * CHROME_RESERVE).round() as u32).max(1);
+        Self {
+            name,
+            x,
+            y,
+            width,
+            height,
+            // Centre the usable area within the display, so the reserve is
+            // split between top and bottom rather than assuming which edge
+            // the taskbar/dock is on.
+            work_x: x + ((width - work_width) / 2) as i32,
+            work_y: y + ((height - work_height) / 2) as i32,
+            work_width,
+            work_height,
+            scale_factor: scale,
+            is_primary,
+        }
+    }
+
+    /// Clamp a requested logical size to this display's usable area, and
+    /// return the top-left that centres it there.
+    ///
+    /// This is what stops a window opening bigger than the screen: a hardcoded
+    /// 1200x800 does not fit a 1366x768 laptop, nor a 1920x1080 panel at 150%
+    /// scaling (1280x720 logical), and an oversized window on a borderless
+    /// setup has no title bar to drag it back by.
+    pub fn fit(&self, requested: (u32, u32)) -> ((u32, u32), (i32, i32)) {
+        let w = requested.0.clamp(1, self.work_width);
+        let h = requested.1.clamp(1, self.work_height);
+        let x = self.work_x + ((self.work_width - w) / 2) as i32;
+        let y = self.work_y + ((self.work_height - h) / 2) as i32;
+        ((w, h), (x, y))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct WindowConfig {
@@ -14,7 +102,14 @@ pub struct WindowConfig {
     pub blur_behind: bool,
     pub always_on_top: bool,
     pub min_size: Option<(u32, u32)>,
+    /// Preferred size in logical pixels. Treated as a *request*: unless
+    /// `fit_to_display` is off it is clamped to what the target display can
+    /// actually show, so the window never opens larger than the screen.
     pub initial_size: (u32, u32),
+    /// Clamp `initial_size` to the display's usable area and centre the
+    /// window on it (default). Turn off only when you deliberately want a
+    /// window larger than the screen, e.g. for offscreen capture.
+    pub fit_to_display: bool,
     /// Process-unique id of the owner window, if this is an owned/child
     /// window. Drives modal + owned-window semantics in the Python
     /// `WindowManager`; the platform layer only records it.
@@ -38,6 +133,7 @@ impl Default for WindowConfig {
             always_on_top: false,
             min_size: None,
             initial_size: (1200, 800),
+            fit_to_display: true,
             owner_id: None,
             modal: false,
         }
@@ -129,11 +225,28 @@ struct WindowInner {
     /// to persist the window's location across launches.
     pub outer_x: AtomicI32,
     pub outer_y: AtomicI32,
+    /// Live display scale factor, ×1000 so it fits an atomic. Updated on
+    /// creation and on every `ScaleFactorChanged` — dragging the window to a
+    /// display with different scaling changes this. Python reads it via
+    /// `Window.scale_factor`.
+    pub scale_milli: std::sync::atomic::AtomicU32,
+    /// The display this window currently sits on, as of the last time the
+    /// event loop looked. Guarded rather than atomic because it's a struct.
+    pub monitor: RwLock<Option<MonitorInfo>>,
     /// Accumulated trackpad pinch-gesture delta since the last poll, as
     /// a fixed-point integer (×1000) to fit in an atomic. Python polls
     /// `poll_pinch_delta()` once per frame to read+reset the accumulator
     /// and apply the value to whatever zoom logic owns it.
     pub pinch_delta_milli: AtomicI32,
+    /// Monotonic count of input events delivered to this window. Python reads
+    /// it before running a frame and hands it back to `wait_for_input`, so an
+    /// event that lands *during* the frame can't be missed.
+    pub input_seq: AtomicU64,
+    /// Signalled whenever `input_seq` advances. Lets the frame loop block
+    /// until there is something to react to instead of polling on a timer —
+    /// see `wait_for_input`.
+    pub wake_lock: Mutex<()>,
+    pub wake_cv: Condvar,
     /// Process-unique window id, assigned at creation. Stable for the life
     /// of the handle; used by the Python `WindowManager` to express
     /// owner/child + modal relationships without depending on the OS
@@ -425,7 +538,12 @@ impl WindowHandle {
                 surface_h: std::sync::atomic::AtomicU32::new(init_h),
                 outer_x: AtomicI32::new(0),
                 outer_y: AtomicI32::new(0),
+                scale_milli: std::sync::atomic::AtomicU32::new(1000),
+                monitor: RwLock::new(None),
                 pinch_delta_milli: AtomicI32::new(0),
+                input_seq: AtomicU64::new(0),
+                wake_lock: Mutex::new(()),
+                wake_cv: Condvar::new(),
                 id: NEXT_WINDOW_ID.fetch_add(1, Ordering::AcqRel),
                 input_blocked: std::sync::atomic::AtomicBool::new(false),
                 lifecycle: Mutex::new(std::collections::VecDeque::new()),
@@ -520,6 +638,83 @@ impl WindowHandle {
         self.inner.surface_w.store(w, Ordering::Release);
         self.inner.surface_h.store(h, Ordering::Release);
     }
+    /// Monotonic input-event counter. Read it *before* running a frame and
+    /// pass the value to [`wait_for_input`](Self::wait_for_input).
+    pub fn input_seq(&self) -> u64 {
+        self.inner.input_seq.load(Ordering::Acquire)
+    }
+
+    /// Internal — called by the event loop for anything the app would want to
+    /// react to (pointer, keyboard, scroll, IME, focus, resize, file drop).
+    pub fn notify_input(&self) {
+        self.inner.input_seq.fetch_add(1, Ordering::AcqRel);
+        // Hold the lock across the notify so a waiter that has just checked
+        // the sequence but not yet parked cannot miss the wakeup.
+        let _g = self.inner.wake_lock.lock();
+        self.inner.wake_cv.notify_all();
+    }
+
+    /// Block until an input event arrives or `timeout` elapses. Returns true
+    /// if input arrived.
+    ///
+    /// `since` is the value [`input_seq`](Self::input_seq) had before the
+    /// caller's last frame. Comparing against it — rather than just parking —
+    /// closes the race where an event lands *while* the frame is running:
+    /// without it that event would be swallowed and the app would sit idle
+    /// holding stale input.
+    ///
+    /// This exists so the frame loop can idle cheaply without going deaf.
+    /// Polling on a timer forces a trade nobody wins: a slow idle tick means
+    /// a click waits up to a whole tick to be seen (and a press+release inside
+    /// one tick is never seen as a drag at all), while a fast one burns CPU
+    /// doing nothing.
+    pub fn wait_for_input(&self, timeout: std::time::Duration, since: u64) -> bool {
+        if self.inner.input_seq.load(Ordering::Acquire) != since {
+            return true; // already fired, during the caller's frame
+        }
+        let mut guard = self.inner.wake_lock.lock();
+        // Re-check under the lock: notify_input takes it too, so this closes
+        // the window between the check above and parking below.
+        if self.inner.input_seq.load(Ordering::Acquire) != since {
+            return true;
+        }
+        self.inner.wake_cv.wait_for(&mut guard, timeout);
+        // Spurious wakeups are allowed, so the sequence is the source of
+        // truth rather than the wait's return value.
+        self.inner.input_seq.load(Ordering::Acquire) != since
+    }
+
+    /// Live display scale factor (1.0 = 100%, 2.0 = Retina/200%).
+    ///
+    /// Tracks the display the window is actually on, so it changes when the
+    /// window is dragged between monitors of different scaling. Compare with
+    /// the value the renderer is using to detect a mismatch.
+    pub fn scale_factor(&self) -> f64 {
+        self.inner.scale_milli.load(Ordering::Acquire) as f64 / 1000.0
+    }
+    /// Internal — called by the event loop on creation and on
+    /// `ScaleFactorChanged`.
+    pub fn set_scale_factor(&self, scale: f64) {
+        let s = if scale.is_finite() && scale > 0.0 {
+            scale
+        } else {
+            1.0
+        };
+        self.inner
+            .scale_milli
+            .store((s * 1000.0).round() as u32, Ordering::Release);
+    }
+    /// The display this window is currently on, in logical pixels, or `None`
+    /// before the first frame (or when the platform reports no monitors —
+    /// a headless or remote session).
+    pub fn monitor(&self) -> Option<MonitorInfo> {
+        self.inner.monitor.read().clone()
+    }
+    /// Internal — called by the event loop when the window's display changes.
+    pub fn set_monitor(&self, info: Option<MonitorInfo>) {
+        *self.inner.monitor.write() = info;
+    }
+
     /// Latest outer (top-left) screen position in logical pixels.
     pub fn outer_position(&self) -> (i32, i32) {
         (
@@ -746,5 +941,101 @@ mod tier2_tests {
         assert_eq!(h.poll_lifecycle().as_deref(), Some("suspended"));
         assert_eq!(h.poll_lifecycle().as_deref(), Some("resumed"));
         assert_eq!(h.poll_lifecycle(), None);
+    }
+
+    // --- display fitting (QA report item 14) ------------------------------
+
+    /// Reference displays, as physical pixels + scale, the way winit reports
+    /// them. The 1200x800 default does not fit the last three.
+    fn displays() -> Vec<(&'static str, (u32, u32), f64)> {
+        vec![
+            ("1920x1080 @100%", (1920, 1080), 1.0),
+            ("2560x1440 @100%", (2560, 1440), 1.0),
+            ("MBP 14 Retina", (3024, 1964), 2.0), // 1512x982 logical
+            ("1366x768 laptop", (1366, 768), 1.0),
+            ("1080p @150%", (1920, 1080), 1.5), // 1280x720 logical
+            ("1080p @200%", (1920, 1080), 2.0), // 960x540 logical
+        ]
+    }
+
+    #[test]
+    fn window_never_opens_larger_than_the_display() {
+        for (name, size, scale) in displays() {
+            let m = MonitorInfo::from_physical(name.into(), (0, 0), size, scale, true);
+            let ((w, h), (x, y)) = m.fit((1200, 800));
+            assert!(w <= m.work_width && h <= m.work_height, "{name}: {w}x{h}");
+            // ...and fully on-screen, which is what makes it recoverable when
+            // there is no title bar to drag by.
+            assert!(x >= m.x && y >= m.y, "{name}: origin {x},{y}");
+            assert!(
+                x + w as i32 <= m.x + m.width as i32 && y + h as i32 <= m.y + m.height as i32,
+                "{name}: {w}x{h} at {x},{y} overflows {}x{}",
+                m.width,
+                m.height
+            );
+        }
+    }
+
+    #[test]
+    fn a_request_that_already_fits_is_untouched() {
+        // No behaviour change on the displays where 1200x800 was always fine.
+        let m = MonitorInfo::from_physical("1920x1080".into(), (0, 0), (1920, 1080), 1.0, true);
+        assert_eq!(m.fit((1200, 800)).0, (1200, 800));
+    }
+
+    #[test]
+    fn oversized_requests_are_clamped_on_small_displays() {
+        // 1366x768 -> work area 1229x691, so the height must come down.
+        let m = MonitorInfo::from_physical("1366x768".into(), (0, 0), (1366, 768), 1.0, true);
+        let ((w, h), _) = m.fit((1200, 800));
+        assert_eq!(w, 1200);
+        assert!(h < 800 && h == m.work_height, "got {h}");
+    }
+
+    #[test]
+    fn logical_size_accounts_for_scale_factor() {
+        // A 1080p panel at 150% is 1280x720 to layout, not 1920x1080 — this
+        // is the case a physical-pixel comparison silently gets wrong.
+        let m = MonitorInfo::from_physical("150%".into(), (0, 0), (1920, 1080), 1.5, true);
+        assert_eq!((m.width, m.height), (1280, 720));
+        assert!(m.fit((1200, 800)).0 .1 <= 720);
+    }
+
+    #[test]
+    fn window_is_centred_on_a_secondary_display() {
+        // Position is respected, so a window on the right-hand monitor of a
+        // dual setup lands there rather than at the virtual-desktop origin.
+        let m = MonitorInfo::from_physical("right".into(), (1920, 0), (1920, 1080), 1.0, false);
+        let ((w, _h), (x, _y)) = m.fit((800, 600));
+        assert_eq!(w, 800);
+        assert!(
+            x >= 1920,
+            "expected placement on the second display, got x={x}"
+        );
+    }
+
+    #[test]
+    fn degenerate_scale_factor_falls_back_to_one() {
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let m = MonitorInfo::from_physical("odd".into(), (0, 0), (1920, 1080), bad, true);
+            assert_eq!(m.scale_factor, 1.0);
+            assert_eq!((m.width, m.height), (1920, 1080));
+        }
+    }
+
+    #[test]
+    fn zero_sized_request_still_yields_a_usable_window() {
+        let m = MonitorInfo::from_physical("d".into(), (0, 0), (1920, 1080), 1.0, true);
+        assert_eq!(m.fit((0, 0)).0, (1, 1));
+    }
+
+    #[test]
+    fn scale_factor_round_trips_through_the_handle() {
+        let h = WindowHandle::stub(WindowConfig::default());
+        assert_eq!(h.scale_factor(), 1.0);
+        h.set_scale_factor(2.0);
+        assert_eq!(h.scale_factor(), 2.0);
+        h.set_scale_factor(f64::NAN); // never poison the divisor
+        assert_eq!(h.scale_factor(), 1.0);
     }
 }

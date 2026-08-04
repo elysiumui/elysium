@@ -194,3 +194,83 @@ def test_action_builds_menu_item_and_tool_button():
     assert tb.tooltip == "Run it"
     tb.on_click()
     assert fired == [1, 1]
+
+
+# --- macro safety + clean-state parity (QA report, item 12) ---------------
+
+def test_end_macro_invalidates_a_clean_marker_like_push_does():
+    """The related defect: end_macro() discarded the redo branch but skipped
+    the `_clean_index` fix-up push() performs, so `is_clean()` reported "no
+    unsaved changes" for a document that HAD diverged from what was saved.
+    A user trusting that indicator closes the app and loses the work.
+
+    Both routes must agree — the documents are identical.
+    """
+    results = {}
+    for label in ("push", "macro"):
+        data = []
+        st = UndoStack()
+        st.push(_Add(target=data, value=1))
+        st.push(_Add(target=data, value=2))
+        st.set_clean()                    # saved at index 2
+        st.undo()                         # step back
+        if label == "macro":              # a new edit discards the branch
+            st.begin_macro("m")           # that holds the clean point
+            st.push(_Add(target=data, value=3))
+            st.end_macro()
+        else:
+            st.push(_Add(target=data, value=3))
+        results[label] = (list(data), st.is_clean())
+    assert results["push"][0] == results["macro"][0]     # same document
+    assert results["macro"][1] is False                  # ...so same verdict
+    assert results["push"][1] is False
+
+
+def test_macro_context_manager_records_one_step():
+    data = []
+    st = UndoStack()
+    with st.macro("triple"):
+        st.push(_Add(target=data, value=1))
+        st.push(_Add(target=data, value=2))
+        st.push(_Add(target=data, value=3))
+    assert data == [1, 2, 3]
+    assert len(st.commands) == 1
+    st.undo()
+    assert data == []
+
+
+def test_macro_context_manager_closes_on_the_exception_path():
+    """Item 12's root cause: a missed end_macro() — an early return, a raise
+    between the calls, a branch that forgets it — left the stack believing a
+    macro was open forever. Every subsequent command then executed against
+    the document while being recorded nowhere: Ctrl-Z silently did nothing,
+    permanently, with no error and no visible state change.
+    """
+    data = []
+    st = UndoStack()
+    try:
+        with st.macro("boom"):
+            st.push(_Add(target=data, value=1))
+            raise RuntimeError("early exit")
+    except RuntimeError:
+        pass
+    assert st._macro == []                # the macro was closed
+    assert st.can_undo() and len(st.commands) == 1
+    st.undo()
+    assert data == []                     # ...and the edit that ran is undoable
+
+    # The stack is still usable afterwards — the old failure mode swallowed
+    # everything pushed from here on.
+    st.push(_Add(target=data, value=9))
+    assert data == [9] and st.can_undo()
+
+
+def test_push_inside_a_macro_notifies_observers():
+    """The document changes on push, so a 'modified' indicator or an autosave
+    trigger keyed off on_change must fire — previously push() returned before
+    _notify() on the macro path, so nothing fired until end_macro()."""
+    seen = []
+    st = UndoStack(on_change=lambda: seen.append(1))
+    st.begin_macro("m")
+    st.push(_Add(target=[], value=1))
+    assert seen                            # fired during the macro

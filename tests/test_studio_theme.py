@@ -92,3 +92,38 @@ def test_set_theme_applies_font_without_error():
     layer.clear(0, 0, 0, 0)
     layer.draw_text("Aa", 6, 22, 16, (232, 235, 240, 255))
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
+# --- motion: degenerate frame times (QA priority report, cross-cutting) -----
+
+def test_motion_step_handles_degenerate_dt():
+    """A NaN or negative frame time must not poison an animated value.
+
+    Pre-fix: `step(0, 1, nan)` returned NaN (pinning the value there for the
+    rest of the process), and a large negative dt raised
+    `OverflowError: math range error` out of `math.exp`.
+    """
+    import math
+    m = T.MotionPreset()
+    assert m.step(0.0, 1.0, float("nan")) == 0.0    # no movement, not NaN
+    assert m.step(0.0, 1.0, -1e9) == 0.0            # no OverflowError
+    assert m.step(0.0, 1.0, float("-inf")) == 0.0
+    # A huge positive dt just means "fully settled".
+    assert m.step(0.0, 1.0, 1e9) == 1.0
+    assert math.isfinite(m.step(0.3, 0.7, float("inf")))
+
+
+def test_motion_step_is_unchanged_for_real_frames():
+    """Compat pin: the dt guard must be a *byte-identical* no-op.
+
+    `MotionPreset.step` drives every component's hover/press/focus animation,
+    so any drift here would be a library-wide visual change.
+    """
+    import math
+    m = T.MotionPreset()
+    for rate_attr in ("hover_rate", "press_rate", "focus_rate", "value_rate"):
+        rate = getattr(m, rate_attr)
+        for dt in (1 / 60, 1 / 120, 1 / 30, 0.016, 0.25, 0.0, 1.0):
+            for cur, tgt in ((0.0, 1.0), (1.0, 0.0), (0.3, 0.7), (-2.0, 5.5)):
+                legacy = cur + (tgt - cur) * (1.0 - math.exp(-dt * rate))
+                assert m.step(cur, tgt, dt, rate_attr) == legacy

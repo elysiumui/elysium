@@ -19,6 +19,8 @@ import threading
 from dataclasses import dataclass, field, replace
 from typing import Tuple
 
+from elysium.core import clamp
+
 Color = Tuple[int, int, int, int]
 
 
@@ -123,9 +125,17 @@ class MotionPreset:
     value_rate: float = 16.0       # for slider value etc.
 
     def step(self, current: float, target: float, dt: float, rate_attr: str = "hover_rate") -> float:
-        """Critically-damped exponential approach. Frame-rate independent."""
-        import math
+        """Critically-damped exponential approach. Frame-rate independent.
+
+        `dt` is floored at 0 first: a NaN frame time would otherwise return
+        NaN (and pin the animated value there forever), and a large negative
+        one overflows `math.exp`. For any real frame this is a no-op —
+        `1 - exp(-dt*rate)` already lies in [0, 1) for dt >= 0.
+        """
         rate = getattr(self, rate_attr)
+        # No upper bound needed: a huge dt underflows exp() to 0.0, i.e. the
+        # value simply arrives at `target`, which is the right answer.
+        dt = clamp(dt, 0.0, math.inf)
         return current + (target - current) * (1.0 - math.exp(-dt * rate))
 
 

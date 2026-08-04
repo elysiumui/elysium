@@ -17,6 +17,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from elysium.core import clamp
 from elysium.theme import Color, current_theme, with_alpha
 from elysium.components import _rounded_rect
 
@@ -262,19 +263,30 @@ class Scene:
         return sorted(self.items, key=lambda it: it.z)
 
     def raise_to_top(self, item: Item) -> None:
-        if self.items:
+        # Guard on membership, not merely on the scene being non-empty:
+        # otherwise this silently rewrites the z of an item that isn't here.
+        if item in self.items:
             item.z = max(it.z for it in self.items) + 1
 
     def lower_to_bottom(self, item: Item) -> None:
-        if self.items:
+        if item in self.items:
             item.z = min(it.z for it in self.items) - 1
 
     # --- queries ----------------------------------------------------------
 
     def items_at(self, sx: float, sy: float) -> list[Item]:
-        """Visible items containing the scene point, topmost first."""
+        """Visible items containing the scene point, topmost first.
+
+        Reverses an ascending sort rather than sorting descending. Python's
+        `sorted` is stable, so `reverse=True` does *not* reverse equal
+        elements — it left ties in insertion order, the same order
+        :meth:`z_sorted` paints them in. The result was that for any two
+        items sharing a z (and `z` defaults to 0, so that is the normal case)
+        the topmost-painted item was returned *last*: users clicked the shape
+        they could see and selected the one hidden underneath it.
+        """
         hit = [it for it in self.items if it.visible and it.contains(sx, sy)]
-        return sorted(hit, key=lambda it: it.z, reverse=True)
+        return sorted(hit, key=lambda it: it.z)[::-1]
 
     def item_at(self, sx: float, sy: float) -> Item | None:
         hits = self.items_at(sx, sy)
@@ -364,6 +376,19 @@ class GraphicsView:
     _pan_last: tuple[float, float] = field(default=(0.0, 0.0), init=False,
                                            repr=False)
 
+    def __post_init__(self) -> None:
+        # set_zoom() has always clamped; the constructor did not, so
+        # GraphicsView(zoom=0) sailed through and then raised
+        # ZeroDivisionError from every coordinate conversion — including
+        # to_scene(), which every pointer event goes through.
+        if not math.isfinite(self.min_zoom) or self.min_zoom <= 0:
+            raise ValueError(
+                f"GraphicsView min_zoom must be > 0, got {self.min_zoom!r}")
+        if not math.isfinite(self.max_zoom) or self.max_zoom < self.min_zoom:
+            raise ValueError(
+                f"GraphicsView max_zoom must be >= min_zoom, got {self.max_zoom!r}")
+        self.set_zoom(self.zoom)
+
     # --- coordinate mapping ----------------------------------------------
 
     def to_view(self, sx: float, sy: float) -> tuple[float, float]:
@@ -385,11 +410,16 @@ class GraphicsView:
     # --- pan / zoom -------------------------------------------------------
 
     def set_zoom(self, zoom: float) -> None:
-        self.zoom = min(max(zoom, self.min_zoom), self.max_zoom)
+        # clamp() rather than min(max(...)): the latter returns NaN unchanged,
+        # and `zoom` is a divisor in to_scene() — the pointer hot path — so a
+        # NaN here poisons pan_x/pan_y permanently on the next zoom_at().
+        self.zoom = clamp(zoom, self.min_zoom, self.max_zoom)
 
     def zoom_at(self, vx: float, vy: float, factor: float) -> None:
         """Zoom by ``factor`` while keeping the scene point under ``(vx, vy)``
         fixed on screen (cursor-anchored zoom)."""
+        if not math.isfinite(factor):
+            return
         sx, sy = self.to_scene(vx, vy)
         self.set_zoom(self.zoom * factor)
         # Re-pan so (sx, sy) maps back to (vx, vy).
@@ -420,7 +450,18 @@ class GraphicsView:
         ``margin`` (screen px) border."""
         r = rect if rect is not None else self.scene.bounding_rect()
         rx, ry, rw, rh = r
-        if rw <= 0 or rh <= 0 or self.w <= 0 or self.h <= 0:
+        if self.w <= 0 or self.h <= 0:
+            return                       # no viewport to fit into
+        if rw <= 0 or rh <= 0:
+            if rect is not None:
+                return                   # caller asked for a degenerate rect
+            # An empty scene has an all-zero bounding rect, so "fit" / "reset
+            # view" used to be a silent no-op on a fresh canvas — leaving the
+            # user's stale zoom and pan in place, which is precisely what
+            # they pressed the button to undo. Reset to a neutral view.
+            self.set_zoom(1.0)
+            self.pan_x = rx - (self.w / 2.0) / self.zoom
+            self.pan_y = ry - (self.h / 2.0) / self.zoom
             return
         zx = (self.w - 2 * margin) / rw
         zy = (self.h - 2 * margin) / rh

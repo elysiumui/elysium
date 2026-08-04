@@ -167,6 +167,7 @@ nav:
   - API reference:
       - Overview: api/index.md
       - elysium: api/elysium.md
+      - elysium.core: api/core.md
       - elysium.components: api/components.md
       - elysium.components.completer: api/completer.md
       - elysium.components.daterange: api/daterange.md

@@ -7,6 +7,183 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+### Performance
+
+- **Wake-on-input: the frame loop can idle without going deaf.** Idling dropped
+  the loop to 4 Hz, and between ticks nothing looked at input — so a click could
+  wait up to 250 ms to be noticed, and a press-and-release inside a single tick
+  was never seen as a drag at all. The native layer now signals the frame loop
+  whenever input arrives; pass `wake_on=window` to
+  `run_animation_thread`. Adds `Window.input_seq` and
+  `Window.wait_for_input(timeout, since)` (blocks natively with the GIL
+  released). Input wakes the loop but does **not** drive the frame rate — a
+  wake pulls the next frame forward to the busy cadence rather than running one
+  frame per pointer event. `since` is sampled before the frame, so an event
+  landing mid-frame still counts. Opt-in: without `wake_on` the behaviour is
+  unchanged.
+- **The main event loop no longer busy-spins.** `new_events` re-asserted
+  `ControlFlow::Poll` on every iteration — solely so the quit flag and
+  Python-posted window requests were noticed promptly — which ran the loop
+  continuously. Measured on the Designer with an **empty canvas and no user
+  interaction: ~150% process CPU**, with the profile dominated by timer
+  arm/cancel churn. Nothing needed that: rendering runs on its own thread and
+  this loop only pumps OS events and drains a queue, which a bounded 8 ms tick
+  serves equally well. OS events still wake it immediately. **Idle CPU on that
+  same empty canvas is now ~11%.**
+- **The frame loop paces to a deadline instead of a fixed delay.** It slept
+  `period` *after* running the frame, so the achieved rate was
+  `1/(work + period)` — `target_hz` was an unreachable ceiling that sagged as
+  the scene grew (60 Hz with a 10 ms frame delivered 37 Hz). An overrun now
+  drops the missed frames rather than running a catch-up burst, which would
+  steal time from a frame already late.
+
+### Added
+
+- **Windows size themselves to the display.** `initial_size` is now a request:
+  it is clamped to the target display's usable area and the window is centred
+  there, so a window never opens larger than the screen it lands on. Pass
+  `fit_to_display=False` to opt out. Previously every window was created at a
+  hardcoded 1200x800 with no monitor query anywhere in the native layer — which
+  does not fit a 1366x768 laptop, nor a 1920x1080 panel at 150% scaling
+  (1280x720 logical), and a borderless window that opens taller than the screen
+  has no title bar to drag back into view.
+- **`Window.monitor`** — the display the window is on (name, position, size,
+  usable work area, scale factor, primary flag) in logical pixels, or `None`
+  when the platform reports no monitors. Lets an app do its own placement.
+- **`Window.scale_factor`** — the live display scaling. Python previously had no
+  way to observe DPI at all.
+
+### Fixed
+
+- **`WindowEvent::ScaleFactorChanged` was not handled.** Moving a window to a
+  display with different scaling, or changing the current display's scaling,
+  left the reported scale stale.
+- **`Window.outer_position` read (0, 0) until the window was first moved**,
+  because it was only recorded on `Moved`. An app persisting window geometry at
+  startup saved the wrong position.
+- **Docs described `ely.platform.screens()`**, which has never existed —
+  calling it raises `AttributeError`. The windowing guide now documents the
+  real API.
+
+## [1.2.0] - 2026-08-04
+
+A defect-fix release from an external QA pass. Every item below was reproduced
+against 1.1.7 and has a regression test. Three changes that touch shared render
+or animation paths are additionally pinned by tests asserting byte-identical
+output for well-formed input, and every affected chart and grid configuration
+was verified to render pixel-identically.
+
+### Added
+
+- **`UndoStack.macro(text)`** — a context manager that closes the macro even on
+  the exception path. `begin_macro`/`end_macro` remain the low-level API; the
+  `with` form removes the footgun described under *Fixed* below.
+- **`elysium.core.clamp(v, lo, hi)`** — NaN-safe clamp. The obvious idiom,
+  `min(max(v, lo), hi)`, returns NaN unchanged (every comparison against NaN is
+  false, so both calls fall through), which let a NaN escape a clamp and only
+  surface a frame later somewhere unrelated.
+- **`ItemModel.is_view_identity()`** — True when `view()` is the source list in
+  source order; callers translating a view index into a source mutation must
+  check it.
+- **`DataGrid.new_row`** — optional factory used when a paste grows a model whose
+  rows are not dicts.
+
+### Fixed
+
+- **Charts froze the UI thread on small-magnitude data.** The gridline loop
+  terminated on an absolute epsilon while stepping by a relative increment, so a
+  data range near 1e-15 put the bound ~1e9 steps away and the loop never
+  realistically finished — no traceback, just a hang. At 1e-9 it emitted 2,009
+  draw calls where clean data emits 9, stacking 2,000 gridlines into a 200px
+  plot. Affected `LineChart`, `AreaChart` and `BarChart`.
+- **Charts crashed or silently lied on non-finite data.** `inf` raised
+  `OverflowError` and an all-`NaN` series raised `ValueError`, while a partially
+  `NaN` series raised nothing at all and produced the same draw-call count as
+  clean data — in fact worse than "drawn wrong", since a `nan` token in path
+  data makes Skia's parser abort and drop the entire series. All five chart
+  types now treat a non-finite value as a **gap**: not plotted, excluded from
+  the axis scale, and not shifting anything stacked above it. See
+  [Missing data](docs/guides/charts-and-dashboards.md).
+- **Springs diverged after one slow frame.** `SpringValue` used explicit Euler
+  with no dt bound; with the default parameters any frame over ~0.13 s (a GC
+  pause, a breakpoint, a laptop resume) diverged geometrically to ~1e73, which
+  then went straight into a widget's position. `stiffness=999999` or `mass=1e-9`
+  reached NaN at a normal 60 Hz tick. Now sub-steps at a stable step size —
+  bit-identical for every frame below the stability limit.
+- **Every default-constructed `SpringValue` shared one `Spring`.** The default
+  argument was evaluated once at class-definition time, so retuning one spring
+  retuned them all.
+- **`DataGrid` construction accepted invalid values and crashed later.**
+  `model=None` (the declared default) died on the first repaint with an
+  `AttributeError` pointing at `paint()`; `row_h=0` was a `ZeroDivisionError` in
+  the scroll maths; a negative `row_h` raised nothing and silently rendered a
+  blank grid; a negative `frozen_cols` silently painted the last column twice.
+  These now raise at construction, naming the field.
+- **Hiding a frozen column crashed the next repaint** with `IndexError`. Both
+  freezing and hiding are ordinary supported operations. The hit-test path
+  already clamped the frozen count and paint did not — that asymmetry was the
+  bug.
+- **`DataGrid.paste` corrupted every Excel paste.** Splitting on `"\n"` alone
+  left an invisible carriage return on the last field of every CRLF row — it
+  looks correct on screen, then breaks equality, joins, lookups and exports much
+  later. A trailing `"\r\n"` also wrote a phantom empty row.
+- **`DataGrid.paste` silently discarded rows past the end of the model** — 500
+  rows into a 3-row grid lost 497 with no error and no visual difference from
+  success. The model now grows to fit; growth is declined (and the shortfall
+  made visible in the return value) under an active sort or filter, where a
+  grown row's position would be undefined.
+- **`DataGrid.paste`'s return value was untrustworthy** in both directions: it
+  counted rows in range rather than cells written, so it reported 3 having
+  written 1. `set_cell` now returns `bool`; `fill_down` is corrected too.
+- **Hit-testing selected the item underneath the visible one.** `sorted(...,
+  reverse=True)` is stable and does not reverse ties, so for any two items
+  sharing a z value `item_at()` returned the one painted *first*. Since `z`
+  defaults to 0 this affected every item created without an explicit z — in an
+  app with layers it presents as "selection picks the wrong layer".
+- **`Scene.raise_to_top`/`lower_to_bottom` mutated non-members** — they guarded
+  on the scene being non-empty rather than on membership.
+- **`GraphicsView.fit()` was a silent no-op on an empty scene**, leaving exactly
+  the stale zoom and pan that "reset view" was pressed to clear.
+- **`GraphicsView(zoom=0)` raised `ZeroDivisionError`** from every coordinate
+  conversion, including the pointer hot path; `set_zoom(nan)` stored NaN and
+  poisoned the pan. The constructor now clamps as `set_zoom` always did.
+- **A dock panel closing mid-drag crashed on mouse release** with `IndexError`
+  inside a pointer handler, where an unhandled exception takes the frame or the
+  event loop with it. `close()` now repairs the in-flight drag as it already did
+  for the active tab.
+- **`DockManager.add`/`move` accepted any area name**, but painting and
+  persistence enumerate the four known areas — so a typo'd area produced an
+  invisible panel that vanished on save/restore with no error at any stage.
+  They now reject unknown names.
+- **A splitter in a pane narrower than `2 * min_px` produced a ratio above 1.0**
+  (4.8 at `w=10`), drawing the handle outside the widget.
+- **`DockManager.restore` trusted a persisted active-tab index** that a stale
+  blob can put out of range.
+- **`UndoStack.end_macro()` reported a diverged document as saved.** It
+  discarded the redo branch without the `_clean_index` fix-up `push()` performs,
+  so `is_clean()` returned True for a document that had genuinely changed — the
+  app showed no modified marker and closed without prompting. The branch-discard
+  is now shared between the two so they cannot drift apart again.
+- **An unclosed `begin_macro()` made every later edit un-undoable.** Commands
+  still executed but were recorded nowhere, so undo silently stopped working for
+  the rest of the session. `push()` also now notifies observers during a macro,
+  so a modified indicator or autosave trigger still fires.
+- **`MotionPreset.step` returned NaN for a NaN frame time** (pinning the animated
+  value there permanently) and raised `OverflowError` for a large negative one.
+- **`Tween` accepted a non-finite duration**, poisoning every `elapsed/duration`;
+  an empty looping `Timeline` divided by zero.
+- **`AnimationClock.tick_realtime()` now caps a stalled frame** at 0.25 s.
+  `tick(dt)` is unchanged and still applies exactly the dt given — it is the
+  deterministic stepping API.
+
+### Notes
+
+- `theme.mix` was reported as a NaN-clamp failure. It is not: its argument order
+  makes it accidentally NaN-safe. Left as-is deliberately.
+- Springs below ~18 fps now take multiple sub-steps, so their trajectory differs
+  slightly from 1.1.7 in a regime that was already numerically degraded. At 30
+  and 60 fps the arithmetic is bit-identical.
+
 ## [1.1.7] - 2026-07-09
 
 ### Fixed

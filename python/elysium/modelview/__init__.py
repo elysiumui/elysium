@@ -147,6 +147,18 @@ class ItemModel:
     def filter(self, predicate: Optional[Callable[[Any], bool]]) -> None:
         self._filter = predicate; self._bump()
 
+    def is_view_identity(self) -> bool:
+        """True when :meth:`view` is the source list in source order — no sort
+        and no filter active.
+
+        Callers that translate a *view* index into a *source* mutation must
+        check this first. ``append``/``insert`` write ``_rows``, but view
+        indices address ``view()``; under a sort a new row lands wherever its
+        key sorts, and under a filter it may not appear at all, so "append,
+        then write at view index r" is not a well-defined operation.
+        """
+        return self._sort_key is None and self._filter is None
+
     # -- derived view -------------------------------------------------------
 
     def view(self) -> list[Any]:

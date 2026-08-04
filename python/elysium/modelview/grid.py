@@ -23,6 +23,7 @@ TSV strings (so they're testable and clipboard-agnostic);
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
@@ -55,6 +56,9 @@ class DataGrid(Component):
     filter_match: Optional[Callable[[Any, str], bool]] = None  # custom matcher
     validators: dict = field(default_factory=dict)   # col_key -> (value)->str|None
     formatter: Optional[Callable[[Any, Column], str]] = None
+    # Builds a blank row when a paste overflows the model. Dict-backed models
+    # grow without one; supply it for models whose rows are custom objects.
+    new_row: Optional[Callable[[], Any]] = None
     anchor: Optional[tuple] = field(default=None)     # (row, col) selection start
     active: Optional[tuple] = field(default=None)     # (row, col) selection end
     filter_focus: Optional[str] = field(default=None)  # focused filter column key
@@ -64,6 +68,28 @@ class DataGrid(Component):
     _dirty: set = field(default_factory=set)          # (id(row), key)
     _errors: dict = field(default_factory=dict)       # (id(row), key) -> message
     _resize_key: Optional[str] = field(default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # Fail where the mistake is, not one frame later inside paint(). All
+        # three of these used to construct fine and then crash on first use,
+        # at a line with nothing to do with the actual error:
+        #   model=None    -> AttributeError deep in visible_rows()/paint()
+        #   row_h=0       -> ZeroDivisionError in the scroll maths
+        #   row_h<0       -> no error at all; the grid just rendered blank
+        #   frozen_cols<0 -> no error; vis[-1] painted the last column twice
+        if self.model is None:
+            raise TypeError(
+                "DataGrid requires a model — pass model=ItemModel(...). "
+                "For an intentionally empty grid use ItemModel([], columns).")
+        if not isinstance(self.row_h, (int, float)) or not math.isfinite(self.row_h) \
+                or self.row_h <= 0:
+            raise ValueError(f"DataGrid row_h must be > 0, got {self.row_h!r}")
+        if not isinstance(self.frozen_cols, int) or self.frozen_cols < 0:
+            raise ValueError(
+                f"DataGrid frozen_cols must be >= 0, got {self.frozen_cols!r}")
+        # NOTE: frozen_cols > len(visible_cols()) is deliberately *not*
+        # rejected here — it is legal at construction and becomes true later
+        # whenever a user hides a column. It is clamped at each point of use.
 
     # --- columns ----------------------------------------------------------
 
@@ -363,14 +389,21 @@ class DataGrid(Component):
         self._dirty.clear()
         self._errors.clear()
 
-    def set_cell(self, view_row: int, col_index: int, value: Any) -> None:
+    def set_cell(self, view_row: int, col_index: int, value: Any) -> bool:
+        """Write one cell. Returns True if it was actually written.
+
+        The return value exists because ``paste``/``fill_down`` report a count
+        to their caller, and this method silently no-ops on an out-of-range
+        row or column — so counting call sites instead of successes made those
+        numbers untrustworthy.
+        """
         vis = self.visible_cols()
         if not (0 <= col_index < len(vis)):
-            return
+            return False
         col = vis[col_index]
         row = self._row_obj(view_row)
         if row is None:
-            return
+            return False
         self.model.set_value(view_row, col.key, value)
         self._dirty.add((id(row), col.key))
         validator = self.validators.get(col.key)
@@ -381,6 +414,7 @@ class DataGrid(Component):
                 self._errors[key] = err
             else:
                 self._errors.pop(key, None)
+        return True
 
     # --- copy / paste / fill ---------------------------------------------
 
@@ -400,20 +434,52 @@ class DataGrid(Component):
             lines.append("\t".join(cells))
         return "\n".join(lines)
 
+    def _grow_for_paste(self, extra: int) -> int:
+        """Append up to ``extra`` blank rows so an oversized paste fits.
+        Returns the number actually appended (0 if growth isn't possible).
+        """
+        if extra <= 0 or not self.model.is_view_identity():
+            # Under an active sort or filter, `append` writes the source list
+            # while paste addresses the view — the new row would not land at
+            # the pasted position. Better to clip than to scatter data.
+            return 0
+        factory = self.new_row
+        if factory is None:
+            src = self.model.rows()
+            if src and not isinstance(src[0], dict):
+                # An arbitrary row object can't be constructed blind; the app
+                # opts in by supplying `new_row`.
+                return 0
+            factory = dict
+        for _ in range(extra):
+            self.model.append(factory())
+        return extra
+
     def paste(self, text: str) -> int:
-        """Paste TSV starting at the active (or anchor) cell. Returns the number
-        of cells written. New values are marked dirty + validated."""
+        """Paste TSV starting at the active (or anchor) cell. Returns the
+        number of cells actually written; new values are marked dirty and
+        validated.
+
+        Accepts ``\\n``, ``\\r\\n`` and ``\\r`` line endings — an Excel or
+        Notepad clipboard is CRLF, and splitting on ``\\n`` alone used to
+        leave an invisible carriage return on the last field of every row.
+
+        If the paste is taller than the model, the model **grows** to fit, as
+        a spreadsheet would. Growth is skipped when a sort or filter is active
+        (the pasted row's position would be undefined) or when rows are custom
+        objects and no ``new_row`` factory was supplied; in those cases the
+        overflow is clipped and the shortfall is visible in the return value.
+        """
         start = self.active or self.anchor
         if start is None or not text:
             return 0
         r0, c0 = start
+        rows = text.splitlines()
+        self._grow_for_paste(r0 + len(rows) - self.model.row_count())
         written = 0
-        rows = text.split("\n")
         for dr, line in enumerate(rows):
             for dc, cell in enumerate(line.split("\t")):
-                r, c = r0 + dr, c0 + dc
-                if 0 <= r < self.model.row_count():
-                    self.set_cell(r, c, cell)
+                if self.set_cell(r0 + dr, c0 + dc, cell):
                     written += 1
         return written
 
@@ -429,8 +495,8 @@ class DataGrid(Component):
         for c in range(c0, min(c1 + 1, len(vis))):
             src = self.model.value(r0, vis[c].key)
             for r in range(r0 + 1, r1 + 1):
-                self.set_cell(r, c, src)
-                written += 1
+                if self.set_cell(r, c, src):
+                    written += 1
         return written
 
     def copy_to_clipboard(self) -> str:
@@ -524,9 +590,15 @@ class DataGrid(Component):
         # Background.
         dl.fill_path(_rect(self.x, self.y, self.w, self.h), t.surface)
         # Scrolled band (clipped), then frozen band on top.
-        paint_col_band(range(self.frozen_cols, len(vis)), clip=True)
-        if self.frozen_cols:
-            paint_col_band(range(0, self.frozen_cols), clip=False)
+        # Clamp to the *currently* visible columns: frozen_cols is fixed at
+        # construction but the visible set shrinks whenever a user hides a
+        # column, and indexing past it raised IndexError on the next repaint.
+        # The hit-test path (_col_at_x) has always clamped; paint did not, and
+        # that asymmetry was the bug.
+        n_frozen = min(self.frozen_cols, len(vis))
+        paint_col_band(range(n_frozen, len(vis)), clip=True)
+        if n_frozen:
+            paint_col_band(range(0, n_frozen), clip=False)
             dl.fill_path(_rect(frozen_right - 1, self.y, 2, self.h),
                          with_alpha(t.edge, 1.0))
         # Header bottom hairline (+ a second below the filter strip).
