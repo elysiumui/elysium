@@ -100,6 +100,14 @@ Springs are critically-damped by default; great for hover,
 press, and bounce feedback. The Pomodoro tutorial's tap-to-start
 uses this pattern.
 
+`SpringValue` is **stable at any frame rate**. It sub-steps internally when a
+frame is longer than its own stability limit, so a GC pause, a debugger
+breakpoint, a backgrounded window or a laptop waking from sleep converges to
+the target instead of diverging. Normal frames are unaffected — they take a
+single step, exactly as before. A spring tuned faster than a frame can resolve
+(a very high `stiffness`, or a near-zero `mass`) settles immediately rather
+than oscillating apart.
+
 ## AnimationClock
 
 The scheduler:
@@ -113,6 +121,11 @@ clock.add(timeline)
 
 Add every animation you want driven. `clock.tick(dt)` advances
 the clock by `dt` seconds and updates every active animation.
+`tick(dt)` applies exactly the `dt` you pass — it is the deterministic
+stepping API, which is what makes animations testable. `tick_realtime()`
+measures wall-clock time instead and caps the result, because a frame
+longer than a quarter-second is always a stall artifact rather than
+intent.
 
 For most apps wire the clock to its own thread:
 
@@ -124,6 +137,35 @@ anim.run_animation_thread(clock, fps=60)
 calls `clock.tick(1/60)` at 60 Hz. Animations run independently
 of signal effects and event handlers, never blocking the render
 thread or your Python event handlers.
+
+### Idling without going deaf
+
+The loop drops to `idle_hz` (4 Hz by default) after `idle_after` seconds of
+inactivity. On its own that trades responsiveness for power: between ticks the
+app isn't looking at input at all, so a click can wait up to 250 ms to be
+noticed — and a press-and-release that both happen inside one tick is never
+seen as a drag.
+
+Pass `wake_on=window` to make idling event-driven instead. Input wakes the loop
+immediately, and the next frame runs on the busy cadence:
+
+```python
+anim.run_animation_thread(
+    clock, on_frame,
+    target_hz=60.0, idle_hz=4.0, idle_after=0.6,
+    is_busy=lambda: ...,
+    wake_on=win,          # <- idle stays cheap, input stays instant
+)
+```
+
+Input does **not** drive the frame rate: pointer events arrive far faster than
+any frame budget, so a wake pulls the next frame forward to the busy cadence
+rather than running one per event.
+
+Under the hood this is `Window.wait_for_input(timeout, since)`, which blocks in
+the native layer with the GIL released. `since` is `Window.input_seq` sampled
+*before* the frame, so an event that arrives while the frame is running still
+counts instead of being swallowed.
 
 ## Easings
 

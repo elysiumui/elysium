@@ -91,6 +91,28 @@ grid.fill_down()            # copy the top row of the selection down
 
 `paste` parses a rectangular TSV block (as produced by Excel / Sheets) and writes
 it cell-by-cell from the active cell, running each column's validator as it goes.
+It accepts `\n`, `\r\n` and `\r` line endings, and returns the number of cells
+**actually** written — so a caller can detect a short write by comparing against
+the block size.
+
+If the pasted block is taller than the model, the grid **grows the model** to fit,
+as a spreadsheet would:
+
+```python
+grid.paste(five_hundred_rows)   # a 3-row model becomes a 500-row model
+```
+
+Growth is skipped in two cases, and the overflow is clipped instead (visible in
+the return value):
+
+- **A sort or filter is active.** New rows are appended to the *source* list while
+  `paste` addresses the *view*, so a grown row wouldn't land where it was pasted.
+- **Rows are custom objects** and no factory was supplied. Dict-backed models grow
+  automatically; for anything else, opt in:
+
+```python
+grid = DataGrid(model=model, new_row=lambda: Product(sku="", price=0))
+```
 
 ## Columns: resize, reorder, show/hide
 

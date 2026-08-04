@@ -87,6 +87,112 @@ def test_spring_value_converges_to_target():
     assert abs(sv.value() - 10.0) < 0.1
 
 
+# --- spring stability (QA priority report, item 7) --------------------------
+
+def test_spring_value_survives_a_slow_frame():
+    """Item 7: needs no invalid input — just defaults and one slow frame.
+
+    Symplectic Euler is only conditionally stable (roughly dt < 2/sqrt(k/m)).
+    With the defaults that ceiling is ~0.13 s, so a GC pause, a breakpoint or
+    a laptop resume used to drive the value to -4.7e73 — which then went
+    straight into a widget's position.
+    """
+    import math
+    from elysium.anim import SpringValue, AnimationClock
+    sv = SpringValue(0.0)                    # Spring() defaults: k=220,c=18,m=1
+    sv.target(100.0)
+    clock = AnimationClock()
+    sv.start(clock)
+    for _ in range(40):
+        clock.tick(0.5)                      # 0.5 s frames — a stall
+    assert math.isfinite(sv.value())
+    assert abs(sv.value() - 100.0) < 0.5
+
+
+def test_spring_value_extreme_params_do_not_explode():
+    """Both of these reached full NaN at a normal 1/60 s tick."""
+    import math
+    from elysium.anim import SpringValue, Spring, AnimationClock
+    for params in (Spring(stiffness=999999.0), Spring(mass=1e-9),
+                   Spring(mass=0.0), Spring(stiffness=float("nan"))):
+        sv = SpringValue(0.0, params)
+        sv.target(100.0)
+        clock = AnimationClock()
+        sv.start(clock)
+        for _ in range(200):
+            clock.tick(1 / 60)
+        assert math.isfinite(sv.value()), params
+        assert abs(sv.value() - 100.0) < 0.5, params
+
+
+def test_spring_substepping_is_identical_at_normal_frame_rates():
+    """Compat pin: sub-stepping must not change any well-behaved animation.
+
+    For every frame below the stability ceiling n == 1, so the integrator
+    arithmetic is bit-identical to the pre-fix explicit Euler.
+    """
+    from elysium.anim import SpringValue, Spring, AnimationClock
+    for params, dt in ((Spring(), 1 / 60), (Spring(), 1 / 30),
+                       (Spring(stiffness=400.0, damping=40.0), 0.01)):
+        sv = SpringValue(0.0, params)
+        sv.target(100.0)
+        clock = AnimationClock()
+        sv.start(clock)
+        v, vel = 0.0, 0.0
+        for _ in range(300):
+            clock.tick(dt)
+            f = -params.stiffness * (v - 100.0) - params.damping * vel
+            vel += (f / params.mass) * dt
+            v += vel * dt
+        assert sv.value() == v, (params, dt)
+
+
+def test_spring_params_are_not_shared_between_instances():
+    """`params: Spring = Spring()` was evaluated once at class-definition
+    time, so every default-constructed spring shared one object."""
+    from elysium.anim import SpringValue
+    a, b = SpringValue(0.0), SpringValue(0.0)
+    assert a._p is not b._p
+    a._p.stiffness = 1.0
+    assert b._p.stiffness == 220.0
+
+
+def test_tween_non_finite_duration_does_not_poison_value():
+    """`max(nan, 1e-9)` is nan, which poisoned every elapsed/duration."""
+    import math
+    from elysium.anim import Tween, AnimationClock
+    seen = []
+    t = Tween(0.0, 1.0, duration=float("nan"), on_update=seen.append)
+    assert math.isfinite(t._duration)
+    clock = AnimationClock()
+    t.start(clock)
+    clock.tick(0.1)
+    assert all(math.isfinite(v) for v in seen)
+
+
+def test_clock_tick_realtime_clamps_a_stall_but_tick_stays_exact():
+    import time
+    from elysium.anim import AnimationClock
+    clock = AnimationClock()
+    clock.tick_realtime()                      # prime _last_real_time
+    clock._last_real_time = time.perf_counter() - 5.0   # simulate a 5 s stall
+    assert clock.tick_realtime() <= 0.25
+    # tick() is the deterministic API and must NOT be clamped.
+    from elysium.anim import Tween
+    t = Tween(0.0, 1.0, duration=10.0).start(clock)
+    clock.tick(5.0)
+    assert t._elapsed == 5.0                   # the full dt, not 0.25
+
+
+def test_empty_timeline_loop_does_not_divide_by_zero():
+    from elysium.anim import Timeline, AnimationClock
+    tl = Timeline(loop="loop")
+    clock = AnimationClock()
+    tl.start(clock)
+    clock.tick(0.1)          # _total_duration is 0.0 here
+    assert True              # reaching this line is the assertion
+
+
 def test_animation_clock_tracks_active_count():
     from elysium.anim import Tween, AnimationClock
     clock = AnimationClock()
@@ -497,3 +603,195 @@ def test_display_list_image_transform_commands(tmp_path):
     # noticeably larger than a pure-black clear (~200 bytes), so
     # 500 still catches a real regression  losing both image draws.
     assert len(png) > 500
+
+
+def _fake_clock(monkeypatch):
+    """Drive the frame loop on a virtual clock.
+
+    These tests used to measure achieved Hz on a real thread, which asserts
+    that the *machine* can hit the target rate — false on a contended CI
+    runner, and nothing to do with the pacing logic under test. Faking
+    monotonic/sleep asserts the decision the loop makes instead, which is the
+    actual behaviour and is identical everywhere.
+    """
+    import elysium.anim as A
+    now, sleeps = [0.0], []
+
+    def fake_sleep(d):
+        sleeps.append(d)
+        now[0] += d
+
+    monkeypatch.setattr(A.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(A.time, "sleep", fake_sleep)
+    return now, sleeps
+
+
+def test_frame_loop_sleeps_the_remainder_of_the_budget(monkeypatch):
+    """Deadline pacing sleeps `period - work`; fixed-delay pacing slept the
+    whole `period` after the work, making the real rate 1/(work+period) — so
+    `target_hz` was an unreachable ceiling that sagged as the scene grew.
+    """
+    from elysium.anim import AnimationClock, run_animation_thread
+    WORK, HZ = 0.010, 50.0                      # 10 ms of work, 20 ms budget
+    now, sleeps = _fake_clock(monkeypatch)
+    frames, stop = [], [False]
+
+    def on_frame():
+        now[0] += WORK
+        frames.append(now[0])
+        if len(frames) >= 5:
+            stop[0] = True
+
+    run_animation_thread(AnimationClock(), on_frame, target_hz=HZ,
+                         is_busy=lambda: True,
+                         running=lambda: not stop[0]).join(timeout=10)
+
+    assert sleeps, "the loop never slept"
+    expected = 1.0 / HZ - WORK                  # 10 ms, not 20
+    assert all(abs(s - expected) < 1e-9 for s in sleeps[:3]), sleeps[:3]
+
+
+def test_frame_loop_does_not_burst_to_catch_up_after_an_overrun(monkeypatch):
+    """A frame slower than the whole budget must not be followed by a run of
+    zero-length sleeps — that only steals time from a frame already late."""
+    from elysium.anim import AnimationClock, run_animation_thread
+    HZ = 50.0
+    now, sleeps = _fake_clock(monkeypatch)
+    frames, stop = [], [False]
+
+    def on_frame():
+        if len(frames) == 2:
+            now[0] += 0.25                      # one massive overrun
+        frames.append(now[0])
+        if len(frames) >= 6:
+            stop[0] = True
+
+    run_animation_thread(AnimationClock(), on_frame, target_hz=HZ,
+                         is_busy=lambda: True,
+                         running=lambda: not stop[0]).join(timeout=10)
+
+    # The overrun frame simply doesn't sleep; every other frame sleeps a full
+    # period. Crucially there is no run of ~0 sleeps afterwards.
+    assert 0.0 not in sleeps, sleeps
+    assert abs(sleeps[-1] - 1.0 / HZ) < 1e-9, sleeps
+
+
+# --- wake-on-input (QA report items 15/18/19, latency at idle) -------------
+
+class _FakeWaker:
+    """Stands in for the native window: a monotonic input counter plus a
+    blocking wait that returns early when the counter moves."""
+
+    def __init__(self):
+        import threading as _t
+        self._seq = 0
+        self._cv = _t.Condition()
+
+    @property
+    def input_seq(self):
+        with self._cv:
+            return self._seq
+
+    def fire(self):
+        with self._cv:
+            self._seq += 1
+            self._cv.notify_all()
+
+    def wait_for_input(self, timeout, since):
+        with self._cv:
+            if self._seq != since:
+                return True
+            self._cv.wait(timeout)
+            return self._seq != since
+
+
+def test_input_wakes_an_idle_frame_loop_promptly():
+    """At idle_hz=4 the loop only looked at input every 250 ms, so a click
+    could sit unnoticed that long — and a press+release inside one tick was
+    never seen as a drag at all. With a waker, input pulls the next frame in
+    to the busy cadence instead.
+    """
+    import threading
+    import time
+    from elysium.anim import AnimationClock, run_animation_thread
+
+    frames = []
+    stop = threading.Event()
+    waker = _FakeWaker()
+
+    clock = AnimationClock()
+    run_animation_thread(clock, lambda: frames.append(time.monotonic()),
+                         target_hz=60.0, idle_hz=4.0, idle_after=0.0,
+                         is_busy=lambda: False,       # straight to idle
+                         running=lambda: not stop.is_set(),
+                         wake_on=waker)
+    time.sleep(0.4)                                   # settle into idle
+    n_before = len(frames)
+    t0 = time.monotonic()
+    waker.fire()                                      # "click"
+    deadline = t0 + 0.2
+    while len(frames) == n_before and time.monotonic() < deadline:
+        time.sleep(0.002)
+    latency = frames[-1] - t0 if len(frames) > n_before else None
+    stop.set()
+    waker.fire()
+    time.sleep(0.1)
+
+    assert latency is not None, "input never woke the loop"
+    # The point is that it did NOT wait for the 250 ms idle tick. Keep the
+    # bound well clear of scheduling noise on a shared CI runner.
+    assert latency < 0.125, f"woke {latency * 1000:.0f} ms after input"
+
+
+def test_input_does_not_drive_the_loop_above_the_target_rate():
+    """Pointer events arrive far faster than the frame rate. Waking on each
+    one must not run a frame per event — the deadline is pulled forward to
+    the busy cadence, not to now."""
+    import threading
+    import time
+    from elysium.anim import AnimationClock, run_animation_thread
+
+    frames = []
+    stop = threading.Event()
+    waker = _FakeWaker()
+    TARGET_HZ = 50.0
+
+    clock = AnimationClock()
+    run_animation_thread(clock, lambda: frames.append(time.monotonic()),
+                         target_hz=TARGET_HZ, idle_hz=4.0, idle_after=0.0,
+                         is_busy=lambda: False,
+                         running=lambda: not stop.is_set(),
+                         wake_on=waker)
+
+    # Hammer input far faster than the frame rate for a second.
+    end = time.monotonic() + 1.0
+    while time.monotonic() < end:
+        waker.fire()
+        time.sleep(0.001)              # ~1000 events/sec
+    stop.set()
+    waker.fire()
+    time.sleep(0.1)
+
+    assert len(frames) >= 5
+    span = frames[-1] - frames[0]
+    hz = (len(frames) - 1) / span
+    assert hz <= TARGET_HZ * 1.3, f"input drove the loop to {hz:.0f} Hz"
+
+
+def test_wake_on_is_optional_and_defaults_to_timer_pacing():
+    # No rate assertion: a loaded runner may deliver very few frames, and
+    # the point here is only that omitting wake_on still works.
+    import threading
+    import time
+    from elysium.anim import AnimationClock, run_animation_thread
+
+    frames = []
+    stop = threading.Event()
+    clock = AnimationClock()
+    run_animation_thread(clock, lambda: frames.append(1), target_hz=50.0,
+                         is_busy=lambda: True,
+                         running=lambda: not stop.is_set())
+    time.sleep(0.3)
+    stop.set()
+    time.sleep(0.1)
+    assert frames, "loop never ran a frame"

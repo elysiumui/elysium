@@ -426,3 +426,130 @@ def test_app_shell_demo_builds_and_paints():
     layer = n.SkiaLayer(1280, 800)
     layer.execute(dl)
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
+# --- dock/splitter robustness (QA report, item 8 + adjacent) ---------------
+
+def test_dock_close_during_drag_does_not_crash_on_release():
+    """Item 8: if a docked panel closes while the user is mid-drag — a
+    background task finishing, a timer, a script — releasing the mouse threw
+    IndexError. This happens inside a pointer handler, where an unhandled
+    exception typically kills the frame or the event loop.
+    """
+    dm = _dockmgr()
+    i, tx, tw = dm.tab_rects("left")[0]
+    ry = dm.area_rect("left")[1]
+    dm.on_press(tx + 4, ry + 4)
+    dm.on_drag(tx + 300, ry + 300)          # past the 6px arm threshold
+    n = len(dm.areas["left"])
+    for _ in range(n):
+        dm.close("left", 0)                 # panels close underneath
+    dm.on_release()                         # must not raise
+    _ = (i, tw)
+
+
+def test_dock_close_of_another_panel_reindexes_the_drag():
+    dm = _dockmgr()
+    tabs = dm.tab_rects("left")
+    if len(tabs) >= 2:
+        i, tx, tw = tabs[1]
+        ry = dm.area_rect("left")[1]
+        dm.on_press(tx + 4, ry + 4)
+        dm.on_drag(tx + 300, ry + 300)
+        dm.close("left", 0)                 # everything shifts down one
+        dm.on_release()                     # must not raise
+        _ = (i, tw)
+
+
+def test_dock_release_survives_external_mutation_of_areas():
+    """`areas` is a public field, so it can be emptied from outside."""
+    dm = _dockmgr()
+    i, tx, tw = dm.tab_rects("left")[0]
+    ry = dm.area_rect("left")[1]
+    dm.on_press(tx + 4, ry + 4)
+    dm.on_drag(tx + 300, ry + 300)
+    dm.areas["left"].clear()
+    dm.on_release()
+    _ = (i, tw)
+
+
+def test_dock_add_and_move_reject_unknown_areas():
+    """paint(), serialize() and restore() all enumerate DOCK_AREAS, so a
+    panel docked to any other name was invisible, absent from the saved file
+    and gone after restore — with no error at any stage."""
+    dm = DockManager(x=0, y=0, w=800, h=600)
+    w = DockWidget(id="ghost", title="Ghost")
+    for bad in ("floating", "lft", ""):
+        with pytest.raises(ValueError, match="unknown dock area"):
+            dm.add(w, bad)
+    dm.add(w, "left")
+    with pytest.raises(ValueError, match="unknown dock area"):
+        dm.move(w, "lft")
+
+
+def test_dock_restore_clamps_a_stale_active_index():
+    """A persisted blob can reference ids no longer in the registry, so the
+    restored list is often shorter than the one that was saved."""
+    dm = DockManager(x=0, y=0, w=800, h=600)
+    dm.restore({"areas": {"left": ["gone"]}, "active": {"left": 7},
+                "sizes": {"left": "not-a-number"}}, {})
+    assert dm.active["left"] == 0
+    assert dm.sizes.get("left") is None or isinstance(dm.sizes["left"], float)
+    assert _render(dm, 800, 600)[:4] == b"\x89PNG"      # and it repaints
+
+
+def test_splitter_in_a_narrow_pane_keeps_the_ratio_in_range():
+    """When the widget is narrower than 2*min_px neither pane can meet its
+    minimum: `lo` exceeded 1.0 and the clamp pushed the ratio *above* 1.0
+    (4.8 at w=10), drawing the handle outside the widget."""
+    for w in (96, 40, 20, 10):
+        s = Splitter(x=0, y=0, w=w, h=100, orientation="horizontal", min_px=48)
+        s.on_press(s.handle_rect()[0] + 1, 50)
+        s.on_drag(w * 10, 50)
+        assert 0.0 <= s.ratio <= 1.0, w
+        assert s.ratio == pytest.approx(0.5), w
+
+
+def test_splitter_wide_pane_behaviour_is_unchanged():
+    """Compat: the normal clamp path must be untouched, and continuous with
+    the narrow case at exactly 2*min_px."""
+    s = Splitter(x=0, y=0, w=200, h=100, orientation="horizontal", min_px=48)
+    s.on_press(s.handle_rect()[0] + 1, 50)
+    s.on_drag(2000, 50)
+    assert s.ratio == pytest.approx(1.0 - 48 / 200)
+
+
+# --- menu bar metrics (QA report item 17, partial) -------------------------
+
+def test_menubar_title_widths_match_the_painted_text():
+    """Hit rects were sized by `len(title) * font_size * 0.6` while paint()
+    draws real shaped glyphs. The estimate over-counted every title, and
+    because `cx` advances by it the error compounded left-to-right — about
+    80px of wasted width across a ten-menu bar, which is enough to push the
+    rightmost menus off the end of a narrow window.
+    """
+    from elysium._native import _native as n
+    titles = ["File", "Edit", "View", "Insert", "Layer", "Object", "Help"]
+    mb = MenuBar(menus=[(t, [MenuItem(label="x")]) for t in titles],
+                 x=0, y=0, w=900, h=28)
+    size = T.current_theme().font_size_body
+    for _i, title, _cx, tw in mb.title_rects():
+        expected = n.measure_text_run(title, size)[0] + 2 * mb.item_pad
+        assert tw == pytest.approx(expected)
+
+
+def test_menubar_hit_box_contains_its_own_label():
+    """The invariant that actually matters for clicking: wherever the label
+    is painted, that x must map back to the same menu."""
+    from elysium._native import _native as n
+    titles = ["File", "Edit", "View", "Window", "Help"]
+    mb = MenuBar(menus=[(t, [MenuItem(label="x")]) for t in titles],
+                 x=0, y=0, w=900, h=28)
+    size = T.current_theme().font_size_body
+    rects = mb.title_rects()
+    for i, title, cx, tw in rects:
+        adv = n.measure_text_run(title, size)[0]
+        for frac in (0.0, 0.5, 0.999):
+            px = cx + mb.item_pad + adv * frac
+            owner = [j for j, _t, c, w in rects if c <= px < c + w]
+            assert owner == [i], (title, px, owner)

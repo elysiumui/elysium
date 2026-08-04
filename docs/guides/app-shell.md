@@ -26,7 +26,10 @@ for a docking IDE that wires all of them together, and the
 ## Docking
 
 `DockManager` arranges `DockWidget`s into four areas — `left`, `right`,
-`bottom`, and `center`:
+`bottom`, and `center`. These are the only valid names (`elysium.shell.DOCK_AREAS`);
+`add()` and `move()` reject anything else, since painting and persistence both
+enumerate that set and a panel filed under any other name would be invisible and
+would not survive a save:
 
 ```python
 from elysium.shell import DockManager, DockWidget

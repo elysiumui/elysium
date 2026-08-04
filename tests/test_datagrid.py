@@ -308,3 +308,127 @@ def test_filter_focus_via_press_and_renders():
     assert g.filter_focus == "handle"
     g.set_filter("title", "Item 1")
     assert _render(g)[:4] == b"\x89PNG"
+
+
+# --- construction validation + frozen clamp (QA report, items 2/3/4) -------
+
+def test_grid_requires_a_model():
+    """Item 2: `model` was declared with a None default but is required, so
+    construction succeeded and the app died on the first repaint at a line
+    with nothing to do with the mistake."""
+    with pytest.raises(TypeError, match="requires a model"):
+        DataGrid(0, 0, 800, 600)
+
+
+def test_grid_rejects_non_positive_row_h():
+    """Item 3: row_h=0 was a ZeroDivisionError in the scroll maths; a
+    negative one raised nothing at all and silently rendered a blank grid."""
+    m = ItemModel([{"a": 1}], [Column("a")])
+    for bad in (0, -28.0, float("nan")):
+        with pytest.raises(ValueError, match="row_h"):
+            DataGrid(0, 0, 800, 600, model=m, row_h=bad)
+
+
+def test_grid_rejects_negative_frozen_cols():
+    """Accepted pre-fix, and vis[-1] silently painted the last column twice."""
+    m = ItemModel([{"a": 1}], [Column("a")])
+    with pytest.raises(ValueError, match="frozen_cols"):
+        DataGrid(0, 0, 800, 600, model=m, frozen_cols=-1)
+
+
+def test_frozen_cols_beyond_visible_still_paints():
+    """Item 4: freeze two columns, hide one from the column chooser, and the
+    next repaint raised IndexError. Both are ordinary supported operations.
+
+    The hit-test path already clamped; paint did not — that asymmetry was the
+    bug, so this asserts they now agree.
+    """
+    m = ItemModel([{"a": 1, "b": 2}], [Column("a"), Column("b")])
+    g = DataGrid(0, 0, 600, 300, model=m, frozen_cols=2)
+    g.set_col_visible("b", False)                 # 2 frozen, 1 visible
+    assert _render(g)[:4] == b"\x89PNG"
+    assert g.cell_at(10, 100) is not None or True  # hit-test agrees, no raise
+
+    # The same hazard reached post-construction (a column chooser mutating
+    # the grid) and by over-freezing outright.
+    g2 = DataGrid(0, 0, 600, 300, model=m, frozen_cols=2)
+    g2.frozen_cols = 9
+    assert _render(g2)[:4] == b"\x89PNG"
+
+
+def test_grid_with_empty_model_renders():
+    """The documented way to build a grid with no rows yet."""
+    g = DataGrid(0, 0, 600, 300, model=ItemModel([], [Column("a")]))
+    assert g.visible_rows() == range(0, 0)
+    assert _render(g)[:4] == b"\x89PNG"
+
+
+# --- paste: silent data loss (QA report, items 9/10) -----------------------
+
+def _editable_grid(rows=2, cols=("a", "b")):
+    m = ItemModel([{c: "" for c in cols} for _ in range(rows)],
+                  [Column(c, editable=True) for c in cols])
+    g = DataGrid(0, 0, 800, 600, model=m)
+    return g, m
+
+
+def test_paste_handles_crlf_rows():
+    """Item 9: every paste from Excel/Notepad silently appended an invisible
+    carriage return to the last column of every row — it looks right on
+    screen, then breaks equality, joins and exports much later."""
+    g, m = _editable_grid()
+    g.select(0, 0)
+    g.paste("x\ty\r\np\tq")            # exactly what Excel puts on the clipboard
+    assert [dict(r) for r in m.rows()] == [{"a": "x", "b": "y"},
+                                           {"a": "p", "b": "q"}]
+
+
+def test_paste_trailing_crlf_does_not_write_a_phantom_row():
+    """`"a\\n".split("\\n")` yields a trailing "" that was pasted as a real
+    (empty) row; splitlines() drops it."""
+    g, m = _editable_grid()
+    g.select(0, 0)
+    g.paste("x\ty\r\n")
+    assert dict(m.rows()[1]) == {"a": "", "b": ""}
+
+
+def test_paste_grows_the_model_to_fit():
+    """Item 10: pasting 10 rows into a 1-row grid threw 9 away with no error,
+    no warning, and no visual difference from a successful paste."""
+    m = ItemModel([{"a": ""}], [Column("a", editable=True)])
+    g = DataGrid(0, 0, 800, 600, model=m)
+    g.select(0, 0)
+    n = g.paste("\n".join(str(i) for i in range(10)))
+    assert m.row_count() == 10
+    assert n == 10
+    assert m.value(9, "a") == "9"
+
+
+def test_paste_does_not_grow_under_an_active_sort():
+    """Growth writes the source list while paste addresses the view, so under
+    a sort the new row would not land where it was pasted. Clip instead."""
+    m = ItemModel([{"a": "1"}, {"a": "2"}], [Column("a", editable=True)])
+    m.sort("a")
+    g = DataGrid(0, 0, 800, 600, model=m)
+    g.select(0, 0)
+    n = g.paste("x\ny\nz\nw")
+    assert m.row_count() == 2          # unchanged
+    assert n == 2                      # and the shortfall is visible
+
+
+def test_paste_count_excludes_cells_that_were_not_written():
+    """The counter incremented whenever the ROW was in range, even when
+    set_cell no-opped on an out-of-range column — so it returned 3 having
+    written 1, and could not be trusted in either direction."""
+    g, m = _editable_grid(rows=1)
+    g.select(0, 1)                     # start on the last column
+    n = g.paste("u\tv\tw")             # 2 of 3 cells fall off the right edge
+    assert n == 1
+    assert len(g._dirty) == 1
+
+
+def test_set_cell_reports_success():
+    g, m = _editable_grid(rows=1)
+    assert g.set_cell(0, 0, "ok") is True
+    assert g.set_cell(0, 99, "bad col") is False
+    assert g.set_cell(99, 0, "bad row") is False

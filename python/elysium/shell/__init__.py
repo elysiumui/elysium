@@ -46,6 +46,28 @@ __all__ = [
 DOCK_AREAS = ("left", "right", "bottom", "center")
 
 
+_TITLE_W: dict[tuple[str, float], float] = {}
+
+
+def _measure_title(text: str, size: float) -> float:
+    """Shaped advance width of a menu title, memoised.
+
+    Falls back to the old character-count estimate when the native text
+    shaper is unavailable (headless doc builds, partially-built trees), so
+    layout degrades rather than raising.
+    """
+    key = (text, size)
+    w = _TITLE_W.get(key)
+    if w is None:
+        try:
+            from elysium._native import _native as _n
+            w = float(_n.measure_text_run(text, size)[0])
+        except Exception:
+            w = len(text) * size * 0.6
+        _TITLE_W[key] = w
+    return w
+
+
 def _rect_path(x: float, y: float, w: float, h: float) -> str:
     """A plain (un-rounded) rectangle as an SVG path."""
     return f"M {x} {y} H {x + w} V {y + h} H {x} Z"
@@ -192,10 +214,19 @@ class Splitter(Component):
         length = self._length()
         if length <= 0:
             return
+        if 2 * self.min_px >= length:
+            # Both panes cannot meet their minimum, so there is no valid split
+            # to clamp to. Previously `lo` exceeded 1.0 here and the clamp
+            # pushed the ratio *above* 1.0 (measured 4.8 at w=10, min_px=48),
+            # drawing the handle outside the widget entirely. Split evenly —
+            # which is also what the normal clamp yields at exactly 2*min_px,
+            # so the behaviour is continuous.
+            self.ratio = 0.5
+            return
         pos = (mx - self.x) if self.orientation == "horizontal" else (my - self.y)
         lo = self.min_px / length
         hi = 1.0 - self.min_px / length
-        self.ratio = min(max(pos / length, lo), max(lo, hi))
+        self.ratio = min(max(pos / length, lo), hi)
 
     def on_release(self) -> None:
         self._dragging = False
@@ -244,12 +275,19 @@ class MenuBar(Component):
                         repr=False)
 
     def title_rects(self) -> list[tuple[int, str, float, float]]:
-        """``(index, title, x, width)`` for each title, left-to-right."""
+        """``(index, title, x, width)`` for each title, left-to-right.
+
+        Widths come from real text measurement. The previous
+        ``len(title) * font_size * 0.6`` estimate over-counted every title
+        (by 0.6–15 px each, and the error compounds because ``cx`` advances
+        by it) — about 80 px of wasted width across a ten-menu bar, which is
+        enough to push the rightmost menus off the end of a narrow window.
+        """
         t = current_theme()
         out: list[tuple[int, str, float, float]] = []
         cx = self.x + 6.0
         for i, (title, _items) in enumerate(self.menus):
-            tw = len(title) * t.font_size_body * 0.6 + 2 * self.item_pad
+            tw = _measure_title(title, t.font_size_body) + 2 * self.item_pad
             out.append((i, title, cx, tw))
             cx += tw
         return out
@@ -643,7 +681,17 @@ class DockManager(Component):
 
     # --- structure --------------------------------------------------------
 
+    @staticmethod
+    def _check_area(area: str) -> None:
+        # paint(), serialize() and restore() all enumerate DOCK_AREAS, so a
+        # panel docked to any other name was invisible, absent from the saved
+        # layout and gone after restore — with no error at any stage.
+        if area not in DOCK_AREAS:
+            raise ValueError(
+                f"unknown dock area {area!r}; expected one of {DOCK_AREAS}")
+
     def add(self, dw: DockWidget, area: str = "center") -> DockWidget:
+        self._check_area(area)
         self.areas.setdefault(area, []).append(dw)
         return dw
 
@@ -655,6 +703,7 @@ class DockManager(Component):
         return None
 
     def move(self, dw: DockWidget, area: str) -> None:
+        self._check_area(area)
         for lst in self.areas.values():
             if dw in lst:
                 lst.remove(dw)
@@ -667,6 +716,14 @@ class DockManager(Component):
             del lst[idx]
             if self.active.get(area, 0) >= len(lst):
                 self.active[area] = max(0, len(lst) - 1)
+            # Repair an in-flight drag: `_drag` holds a positional index
+            # captured at press time, and closing a panel underneath it (a
+            # background task, a timer, a script) invalidated it.
+            if self._drag is not None and self._drag.get("area") == area:
+                if self._drag["idx"] == idx:
+                    self._drag = None                 # the dragged panel went
+                elif self._drag["idx"] > idx:
+                    self._drag["idx"] -= 1            # it shifted down one
 
     # --- geometry ---------------------------------------------------------
 
@@ -777,8 +834,14 @@ class DockManager(Component):
 
     def on_release(self) -> None:
         if self._drag is not None and self._drag.get("armed") and self._hover_zone:
-            dw = self.areas[self._drag["area"]][self._drag["idx"]]
-            self.move(dw, self._hover_zone)
+            # Bounds-check as well as repairing in close(): `areas` is a public
+            # field, so it can be mutated from outside this class entirely.
+            # An unhandled exception here would land inside a pointer handler
+            # and take the frame (or the event loop) with it.
+            lst = self.areas.get(self._drag["area"], [])
+            idx = self._drag["idx"]
+            if 0 <= idx < len(lst):
+                self.move(lst[idx], self._hover_zone)
         self._drag = None
         self._resize = None
         self._hover_zone = None
@@ -832,9 +895,21 @@ class DockManager(Component):
         live ``DockWidget`` (unknown ids are skipped)."""
         self.areas = {a: [registry[i] for i in data.get("areas", {}).get(a, [])
                           if i in registry] for a in DOCK_AREAS}
-        self.active = {a: int(data.get("active", {}).get(a, 0))
-                       for a in DOCK_AREAS}
-        self.sizes.update({k: float(v) for k, v in data.get("sizes", {}).items()})
+        # A persisted blob can be stale or hand-edited: an id may no longer be
+        # in the registry, so the restored list is often shorter than the one
+        # that was saved. Clamp the active tab per area instead of trusting it.
+        self.active = {}
+        for a in DOCK_AREAS:
+            try:
+                idx = int(data.get("active", {}).get(a, 0))
+            except (TypeError, ValueError):
+                idx = 0
+            self.active[a] = max(0, min(idx, len(self.areas[a]) - 1)) if self.areas[a] else 0
+        for k, v in data.get("sizes", {}).items():
+            try:
+                self.sizes[k] = float(v)
+            except (TypeError, ValueError):
+                pass
 
     # --- paint ------------------------------------------------------------
 

@@ -1,4 +1,6 @@
-use crate::window::{CursorKind, ResizeDirection, WindowConfig, WindowHandle, WindowRequest};
+use crate::window::{
+    CursorKind, MonitorInfo, ResizeDirection, WindowConfig, WindowHandle, WindowRequest,
+};
 use crossbeam_channel::Sender;
 use ely_core::{Color, DisplayList, DrawCommand};
 use ely_render::{spawn_render_thread, RenderControl, SurfaceRenderer, SurfaceTarget};
@@ -13,6 +15,60 @@ use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window as WinitWindow, WindowId};
+
+/// How often the main event loop wakes when no OS events are arriving, to
+/// drain Python-posted window requests and notice `quit_flag`. Comfortably
+/// sub-frame at 60 Hz, so a request still applies within the same frame it
+/// was posted, while costing ~125 wakeups/sec instead of an unbounded spin.
+const IDLE_TICK: std::time::Duration = std::time::Duration::from_millis(8);
+
+fn monitor_info(h: &winit::monitor::MonitorHandle, is_primary: bool) -> MonitorInfo {
+    let pos = h.position();
+    let size = h.size();
+    MonitorInfo::from_physical(
+        h.name().unwrap_or_else(|| "display".to_string()),
+        (pos.x, pos.y),
+        (size.width, size.height),
+        h.scale_factor(),
+        is_primary,
+    )
+}
+
+/// Every connected display, primary first. Empty in a headless or remote
+/// session where the platform reports no monitors.
+pub fn available_monitors(event_loop: &ActiveEventLoop) -> Vec<MonitorInfo> {
+    let primary = event_loop.primary_monitor();
+    event_loop
+        .available_monitors()
+        .map(|h| {
+            let is_primary = primary.as_ref() == Some(&h);
+            monitor_info(&h, is_primary)
+        })
+        .collect()
+}
+
+/// The display a new window should be sized against — the primary, falling
+/// back to whichever display is enumerated first.
+fn primary_monitor_info(event_loop: &ActiveEventLoop) -> Option<MonitorInfo> {
+    event_loop
+        .primary_monitor()
+        .map(|h| monitor_info(&h, true))
+        .or_else(|| {
+            event_loop
+                .available_monitors()
+                .next()
+                .map(|h| monitor_info(&h, false))
+        })
+}
+
+/// The display a live window currently sits on.
+fn window_monitor_info(event_loop: &ActiveEventLoop, win: &WinitWindow) -> Option<MonitorInfo> {
+    let primary = event_loop.primary_monitor();
+    win.current_monitor().map(|h| {
+        let is_primary = primary.as_ref() == Some(&h);
+        monitor_info(&h, is_primary)
+    })
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct Config {
@@ -186,22 +242,58 @@ impl AppHandler {
         cfg: &WindowConfig,
         handle: WindowHandle,
     ) -> Result<LiveWindow, AppError> {
+        // Size against the display rather than opening at a fixed size the
+        // screen may not be able to show. A hardcoded 1200x800 does not fit a
+        // 1366x768 laptop, nor a 1920x1080 panel at 150% scaling (1280x720
+        // logical) — and with `title_bar: false` (the default) an oversized
+        // window has no title bar to drag back into view.
+        let monitor = primary_monitor_info(event_loop);
+        let (size, position) = match (&monitor, cfg.fit_to_display) {
+            (Some(m), true) => {
+                let (s, p) = m.fit(cfg.initial_size);
+                (s, Some(p))
+            }
+            // No monitor reported (headless / remote session) or the caller
+            // opted out — honour the request verbatim and let the OS place it.
+            _ => (cfg.initial_size, None),
+        };
+
         let mut attrs = WinitWindow::default_attributes()
             .with_title(&self.title)
             .with_transparent(cfg.transparent)
             .with_decorations(cfg.title_bar)
             .with_resizable(cfg.resizable)
-            .with_inner_size(winit::dpi::LogicalSize::new(
-                cfg.initial_size.0 as f64,
-                cfg.initial_size.1 as f64,
-            ));
+            .with_inner_size(winit::dpi::LogicalSize::new(size.0 as f64, size.1 as f64));
+        if let Some((px, py)) = position {
+            attrs = attrs.with_position(winit::dpi::LogicalPosition::new(px as f64, py as f64));
+        }
         if let Some((w, h)) = cfg.min_size {
-            attrs = attrs.with_min_inner_size(winit::dpi::LogicalSize::new(w as f64, h as f64));
+            // A min size larger than the display would re-introduce exactly
+            // the problem we just solved.
+            let (mw, mh) = match &monitor {
+                Some(m) if cfg.fit_to_display => (w.min(m.work_width), h.min(m.work_height)),
+                _ => (w, h),
+            };
+            attrs = attrs.with_min_inner_size(winit::dpi::LogicalSize::new(mw as f64, mh as f64));
         }
 
         let win = event_loop
             .create_window(attrs)
             .map_err(|e| AppError::Window(e.to_string()))?;
+        // Seed the display state so Python can read scale + geometry on the
+        // very first frame, rather than after the first resize.
+        handle.set_scale_factor(win.scale_factor());
+        handle.set_monitor(window_monitor_info(event_loop, &win).or(monitor));
+        // Seed the position too: `Moved` doesn't necessarily fire for the
+        // initial placement, so an app that persisted `outer_position` at
+        // startup used to save (0, 0) rather than where the window actually is.
+        if let Ok(p) = win.outer_position() {
+            let s = win.scale_factor();
+            handle.record_outer_position(
+                (p.x as f64 / s).round() as i32,
+                (p.y as f64 / s).round() as i32,
+            );
+        }
         // Allow OS input-method composition by default so CJK / dead-key input
         // works as soon as a text widget is focused. On macOS/Linux this is
         // free: the window keeps delivering `KeyboardInput` with `text` even
@@ -512,6 +604,36 @@ impl ApplicationHandler for AppHandler {
             return;
         };
 
+        // Wake the frame loop for anything the app would want to react to.
+        // Done once here rather than per-arm so a newly handled event can't
+        // silently forget to wake — the failure mode would be an app that
+        // looks fine until some input type quietly stops responding.
+        //
+        // Deliberately excludes RedrawRequested (the render thread owns
+        // painting) and CloseRequested (handled below by tearing down).
+        if matches!(
+            event,
+            WindowEvent::CursorMoved { .. }
+                | WindowEvent::CursorEntered { .. }
+                | WindowEvent::CursorLeft { .. }
+                | WindowEvent::MouseInput { .. }
+                | WindowEvent::MouseWheel { .. }
+                | WindowEvent::PinchGesture { .. }
+                | WindowEvent::KeyboardInput { .. }
+                | WindowEvent::ModifiersChanged(_)
+                | WindowEvent::Ime(_)
+                | WindowEvent::Focused(_)
+                | WindowEvent::Touch(_)
+                | WindowEvent::DroppedFile(_)
+                | WindowEvent::HoveredFile(_)
+                | WindowEvent::HoveredFileCancelled
+                | WindowEvent::Resized(_)
+                | WindowEvent::Moved(_)
+                | WindowEvent::ScaleFactorChanged { .. }
+        ) {
+            self.live[idx].handle.notify_input();
+        }
+
         match event {
             WindowEvent::CloseRequested => {
                 let mut lw = self.live.swap_remove(idx);
@@ -533,10 +655,29 @@ impl ApplicationHandler for AppHandler {
                 let lw_w = (size.width as f64 / scale).round() as u32;
                 let lw_h = (size.height as f64 / scale).round() as u32;
                 lw.handle.set_surface_size(lw_w, lw_h);
+                lw.handle.set_scale_factor(scale);
+                lw.handle
+                    .set_monitor(window_monitor_info(event_loop, &lw.winit_window));
                 let _ = lw.render_tx.send(RenderControl::Resize {
                     width: size.width,
                     height: size.height,
                 });
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                // Previously unhandled. Fires when the window moves to a
+                // display with different scaling, or the user changes the
+                // scaling of the current one. Without this, Python kept
+                // reporting the old scale and layout stayed sized for the
+                // previous display.
+                //
+                // winit follows this with a Resized carrying the new physical
+                // size, so the surface itself is reconfigured there; what has
+                // to happen *here* is publishing the new scale, because the
+                // logical conversion in that Resized already depends on it.
+                let lw = &self.live[idx];
+                lw.handle.set_scale_factor(scale_factor);
+                lw.handle
+                    .set_monitor(window_monitor_info(event_loop, &lw.winit_window));
             }
             WindowEvent::PinchGesture { delta, .. } => {
                 // Trackpad pinch — macOS reports a per-event ratio change.
@@ -833,9 +974,21 @@ impl ApplicationHandler for AppHandler {
     }
 
     fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
-        // Re-assert Poll every iteration. winit 0.30 on macOS occasionally
-        // reverts control flow internally; explicit reassertion keeps the
-        // loop ticking so quit_flag gets observed within a frame.
-        event_loop.set_control_flow(ControlFlow::Poll);
+        // Re-assert the control flow every iteration: winit 0.30 on macOS
+        // occasionally reverts it internally, and this keeps the loop ticking
+        // so `quit_flag` and Python-posted window requests are observed
+        // promptly.
+        //
+        // `WaitUntil`, not `Poll`. Poll runs the loop continuously, so the
+        // main thread span-spun forever even with an empty window: measured
+        // ~150% process CPU on an idle, empty canvas, with the profile
+        // dominated by timer arm/cancel churn. Nothing here needs that —
+        // rendering runs on its own thread and this loop only pumps OS events
+        // and drains a request queue, both of which a bounded tick serves
+        // exactly as well. OS events still wake the loop immediately; this
+        // only bounds how often it wakes when *nothing* is happening.
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            std::time::Instant::now() + IDLE_TICK,
+        ));
     }
 }

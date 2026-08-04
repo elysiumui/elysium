@@ -50,6 +50,9 @@ pub fn config_from_kwargs(
         if let Some(v) = kw.get_item("initial_size")? {
             cfg.initial_size = v.extract()?;
         }
+        if let Some(v) = kw.get_item("fit_to_display")? {
+            cfg.fit_to_display = v.extract()?;
+        }
         if let Some(v) = kw.get_item("owner_id")? {
             cfg.owner_id = Some(v.extract()?);
         }
@@ -169,6 +172,85 @@ impl PyWindow {
     #[getter]
     fn outer_position(&self) -> (i32, i32) {
         self.handle.outer_position()
+    }
+
+    /// Monotonic count of input events this window has received.
+    ///
+    /// Read it *before* running a frame and pass the value to
+    /// `wait_for_input`, so an event that lands while the frame is running
+    /// still counts.
+    #[getter]
+    fn input_seq(&self) -> u64 {
+        self.handle.input_seq()
+    }
+
+    /// Block up to `timeout` seconds waiting for input. Returns True if input
+    /// arrived (including during the caller's last frame, per `since`).
+    ///
+    /// This is what lets a frame loop idle cheaply without going deaf. Polling
+    /// on a timer forces a trade with no good answer: a slow idle tick means a
+    /// click waits up to a whole tick to be noticed — and a press+release
+    /// inside one tick is never seen as a drag at all — while a fast tick
+    /// burns CPU doing nothing.
+    ///
+    /// Releases the GIL while blocked, so the rest of the interpreter keeps
+    /// running. `elysium.anim.run_animation_thread(..., wake_on=window)` wires
+    /// this up for you.
+    #[pyo3(signature = (timeout, since))]
+    fn wait_for_input(&self, py: Python<'_>, timeout: f64, since: u64) -> bool {
+        let d = if timeout.is_finite() && timeout > 0.0 {
+            std::time::Duration::from_secs_f64(timeout)
+        } else {
+            std::time::Duration::ZERO
+        };
+        let h = self.handle.clone();
+        py.allow_threads(move || h.wait_for_input(d, since))
+    }
+
+    /// Display scale factor for the screen this window is on — 1.0 at 100%,
+    /// 2.0 on a Retina display, 1.5 at Windows 150%.
+    ///
+    /// Tracks the *live* value: drag the window to a monitor with different
+    /// scaling and this follows. All other geometry on this object is in
+    /// logical pixels, so you only need this to size a bitmap or to reason
+    /// about physical device pixels.
+    #[getter]
+    fn scale_factor(&self) -> f64 {
+        self.handle.scale_factor()
+    }
+
+    /// The display this window is on, as
+    /// `{"name", "x", "y", "width", "height", "work_x", "work_y",
+    /// "work_width", "work_height", "scale_factor", "is_primary"}` in logical
+    /// pixels — or `None` in a headless session with no monitors.
+    ///
+    /// `work_*` is the area a window should keep itself inside; it reserves
+    /// room for the menu bar / taskbar / dock. Use it to size or place a
+    /// window yourself:
+    ///
+    ///     m = win.monitor
+    ///     if m:
+    ///         win.set_outer_position(m["work_x"], m["work_y"])
+    #[getter]
+    fn monitor<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        match self.handle.monitor() {
+            None => Ok(None),
+            Some(m) => {
+                let d = PyDict::new(py);
+                d.set_item("name", m.name)?;
+                d.set_item("x", m.x)?;
+                d.set_item("y", m.y)?;
+                d.set_item("width", m.width)?;
+                d.set_item("height", m.height)?;
+                d.set_item("work_x", m.work_x)?;
+                d.set_item("work_y", m.work_y)?;
+                d.set_item("work_width", m.work_width)?;
+                d.set_item("work_height", m.work_height)?;
+                d.set_item("scale_factor", m.scale_factor)?;
+                d.set_item("is_primary", m.is_primary)?;
+                Ok(Some(d))
+            }
+        }
     }
 
     fn poll_file_drop(&self) -> Option<(String, f64, f64)> {

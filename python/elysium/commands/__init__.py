@@ -14,6 +14,7 @@ all share, so they never drift out of sync.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -108,12 +109,12 @@ class UndoStack:
         command.redo()
         if self._macro:
             self._macro[-1].children.append(command)
+            # Still notify: the document HAS changed, so a "modified"
+            # indicator or an autosave trigger keyed off this must fire even
+            # though the macro isn't committed to the stack yet.
+            self._notify()
             return
-        # Drop any redo branch.
-        if self.index < len(self.commands):
-            del self.commands[self.index:]
-            if self._clean_index > self.index:
-                self._clean_index = -1  # clean state was on a discarded branch
+        self._drop_redo_branch()
         # Try to merge into the top command.
         if (self.commands and command.merge_id >= 0
                 and self.commands[-1].merge_id == command.merge_id
@@ -153,8 +154,48 @@ class UndoStack:
 
     # --- macros -----------------------------------------------------------
 
+    def _drop_redo_branch(self) -> None:
+        """Discard commands ahead of ``index`` and invalidate a clean marker
+        that pointed into them.
+
+        Extracted so ``push`` and ``end_macro`` cannot drift apart again:
+        ``end_macro`` used to discard the branch *without* the ``_clean_index``
+        fix-up, so a document that had genuinely diverged from the saved file
+        reported ``is_clean() == True``. The app then showed no modified
+        marker and closed without prompting — the user lost the work with no
+        error at any point.
+        """
+        if self.index < len(self.commands):
+            del self.commands[self.index:]
+            if self._clean_index > self.index:
+                self._clean_index = -1  # clean state was on a discarded branch
+
     def begin_macro(self, text: str = "") -> None:
         self._macro.append(MacroCommand(text=text))
+
+    @contextmanager
+    def macro(self, text: str = ""):
+        """Group everything pushed inside the block into one undo step::
+
+            with stack.macro("Bulk price change"):
+                for row in rows:
+                    stack.push(SetPrice(row, new_price))
+
+        Prefer this over ``begin_macro``/``end_macro``: the macro is closed on
+        the exception path too. A missed ``end_macro()`` — an early ``return``,
+        a raise between the two calls, a branch that forgets it — leaves the
+        stack believing a macro is open forever, and every subsequent command
+        then executes against the document while being recorded nowhere. Undo
+        silently stops working, with no error and no visible state change.
+
+        On an exception the macro still commits the children that already ran:
+        they took effect, so they must remain undoable.
+        """
+        self.begin_macro(text)
+        try:
+            yield self
+        finally:
+            self.end_macro()
 
     def end_macro(self) -> None:
         if not self._macro:
@@ -167,8 +208,7 @@ class UndoStack:
         if self._macro:
             self._macro[-1].children.append(macro)
             return
-        if self.index < len(self.commands):
-            del self.commands[self.index:]
+        self._drop_redo_branch()
         self.commands.append(macro)
         self.index = len(self.commands)
         self._enforce_limit()

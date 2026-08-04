@@ -165,6 +165,33 @@ start, end = picker.current_range(datetime.date.today())
 Switching to **Custom** carries the prior range until you clear `start` / `end`
 and set your own (e.g. from a `CalendarWidget` popover).
 
+## Missing data
+
+Real datasets carry gaps — `numpy`/`scipy` return `nan` for a missing
+aggregate and `inf` for a divide-by-zero, and a CSV column can simply be
+empty. Every chart type treats a non-finite value (`nan`, `±inf`, `None`, or
+anything non-numeric) as a **gap**:
+
+- it is **not plotted**,
+- it does **not** influence the axis scale, and
+- it does **not** shift anything stacked on top of it.
+
+```python
+LineChart(series=[Series(values=[1.0, 2.0, float("nan"), 4.0])], ...)
+# renders two line segments with a hole in the middle — not a straight
+# line bridging the gap, and not a point at an invented coordinate
+```
+
+How a gap looks depends on the mark: line, area and sparkline **break** into
+separate subpaths (the area fill is closed per segment); a bar is **absent**;
+a donut or pie **slice is dropped** and consumes no angle — so the wedges no
+longer close the circle, which is the honest signal that a value is missing.
+
+Charts never invent a coordinate for a value that does not exist, and never
+silently substitute zero. If a whole series is missing you get an empty plot
+area with its axis intact, rather than an exception or a plausible-looking
+chart somebody might make a decision from.
+
 ## Tabular numerals
 
 Monetary and metric columns only line up if every digit is the same width.

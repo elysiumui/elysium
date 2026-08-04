@@ -19,6 +19,7 @@ import pytest
 # Every module that is part of the committed public API.
 PUBLIC_MODULES = [
     "elysium",
+    "elysium.core",
     "elysium.components",
     "elysium.components.dataentry",
     "elysium.components.scroll",
