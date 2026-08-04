@@ -161,6 +161,9 @@
     "set_default_dispatcher",
     "ui_thread"
   ],
+  "elysium.core": [
+    "clamp"
+  ],
   "elysium.dialogs": [
     "BaseDialog",
     "ColorDialog",

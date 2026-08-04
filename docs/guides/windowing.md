@@ -84,25 +84,57 @@ window.cursor_position                  # (x, y) relative to window
 For persistence between launches see
 [Recipes: persist window geometry](../recipes/21-persist-window-geometry.md).
 
-## Multi-monitor
+## Multi-monitor and display fitting
+
+A window is sized against the display it opens on. `initial_size` is a
+**request**: it is clamped to what the screen can actually show and the window
+is centred there, so a window never opens larger than the display it lands on.
+This matters most for borderless windows — one that opens taller than the
+screen has no title bar to drag back into view.
 
 ```python
-screens = ely.platform.screens()
-primary = screens.primary
-screens.all      # list of (id, x, y, w, h, dpi, name)
+# On a 1920x1080 display this is honoured exactly. At 150% scaling
+# (1280x720 logical) it is reduced to fit, rather than overflowing.
+win = app.window(initial_size=(1200, 800))
 ```
 
-To center a window on a specific monitor:
+Pass `fit_to_display=False` to opt out — only useful when you deliberately
+want a window bigger than the screen, e.g. for offscreen capture.
+
+Read the display back from the window:
 
 ```python
-target = screens.all[1]
-x = target.x + (target.width - window.width) // 2
-y = target.y + (target.height - window.height) // 2
-window.set_outer_position(x, y)
+win.scale_factor          # 1.0 at 100%, 2.0 Retina, 1.5 at Windows 150%
+win.monitor               # dict, or None in a headless session
 ```
 
-Cross-DPI moves are automatic; the framework rescales the skin
-surface on the fly.
+`monitor` reports **logical** pixels — the same units as `surface_size` and
+`outer_position`, and the units layout code uses:
+
+| key | meaning |
+| --- | --- |
+| `name` | OS display name |
+| `x`, `y`, `width`, `height` | the full display, in the virtual desktop |
+| `work_x`, `work_y`, `work_width`, `work_height` | the area a window should stay inside — reserves room for the menu bar / taskbar / dock |
+| `scale_factor` | that display's scaling |
+| `is_primary` | whether it is the primary display |
+
+To place a window yourself — e.g. top-left of its display's usable area:
+
+```python
+m = win.monitor
+if m:
+    win.set_outer_position(m["work_x"], m["work_y"])
+```
+
+Both values track the display the window is *currently* on, so dragging it to
+a monitor with different scaling updates them.
+
+!!! note "Work area is an approximation"
+    winit exposes no work-area API, so `work_*` reserves a fixed fraction of
+    the display rather than querying the real menu-bar/taskbar rectangle. It is
+    deliberately conservative: a window placed inside it is always fully
+    visible, but it may leave a little more room than strictly necessary.
 
 ## Popovers and dropdowns
 

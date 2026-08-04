@@ -123,3 +123,171 @@ def test_legend_renders_entries_with_values():
                           ("Ad spend", None, "$3,640")],
                  x=0, y=0, w=200)
     assert _render(leg, 220, 80)[:4] == b"\x89PNG"
+
+
+# --- degenerate + missing data (QA priority report, items 1/5/6) -----------
+
+class _CountDL:
+    """Records draw calls so tests can assert on counts and path strings.
+    The real native DisplayList renders but can't be introspected."""
+
+    def __init__(self) -> None:
+        self.paths: list[str] = []
+        self.texts: list[str] = []
+        self.calls: dict[str, int] = {}
+
+    def draw_text(self, s, *a, **k) -> None:
+        self.texts.append(str(s))
+        self.calls["draw_text"] = self.calls.get("draw_text", 0) + 1
+
+    def stroke_path(self, d, *a, **k) -> None:
+        self.paths.append(d)
+        self.calls["stroke_path"] = self.calls.get("stroke_path", 0) + 1
+
+    def fill_path(self, d, *a, **k) -> None:
+        self.paths.append(d)
+        self.calls["fill_path"] = self.calls.get("fill_path", 0) + 1
+
+    def fill_path_linear_gradient(self, d, *a, **k) -> None:
+        self.paths.append(d)
+        self.calls["fill_grad"] = self.calls.get("fill_grad", 0) + 1
+
+    def __getattr__(self, name):
+        def _rec(*a, **k):
+            self.calls[name] = self.calls.get(name, 0) + 1
+        return _rec
+
+    @property
+    def total(self) -> int:
+        return sum(self.calls.values())
+
+
+NAN = float("nan")
+INF = float("inf")
+
+
+def test_poly_output_unchanged_for_finite_points():
+    """Compat pin: gap support must not alter path data for clean input."""
+    from elysium.charts import _poly
+    assert _poly([(0, 0), (1, 1)]) == "M 0.00 0.00 L 1.00 1.00"
+    assert _poly([]) == ""
+    assert _poly([(0, 0)]) == "M 0.00 0.00"
+
+
+def test_poly_breaks_into_subpaths_on_gap():
+    from elysium.charts import _poly
+    d = _poly([(0, 0), (1, 1), None, (3, 3), (4, 4)])
+    assert d == "M 0.00 0.00 L 1.00 1.00 M 3.00 3.00 L 4.00 4.00"
+    assert "nan" not in d and "inf" not in d
+
+
+def test_gridline_loop_terminates_on_tiny_range():
+    """Item 1: an absolute epsilon with a relative step ran ~1e9 times.
+
+    Pre-fix this emitted 2009 draw calls for 1e-9 data (2,000 gridlines
+    stacked into a 200px plot) and hung forever at 1e-15.
+    """
+    for vals in ([1e-9, 2e-9, 3e-9], [1e-15, 2e-15, 3e-15]):
+        dl = _CountDL()
+        LineChart(series=[Series(values=vals)], x=0, y=0, w=300, h=200).paint(dl)
+        assert dl.calls.get("stroke_path", 0) <= 16, vals
+        assert dl.total == 9, vals          # identical to clean data
+
+
+def test_bar_gridline_loop_terminates_on_tiny_range():
+    """The same defect had a second, duplicated home in BarChart.paint."""
+    dl = _CountDL()
+    BarChart(series=[Series(values=[1e-12, 2e-12])],
+             categories=["a", "b"], x=0, y=0, w=300, h=200).paint(dl)
+    assert dl.calls.get("stroke_path", 0) <= 16
+
+
+def test_nice_ticks_survives_non_finite():
+    """Item 5/6 both originate here: math.floor/ceil raise on inf/NaN."""
+    for lo, hi in ((0.0, INF), (NAN, 1.0), (-INF, INF), (NAN, NAN)):
+        nlo, nhi, step = nice_ticks(lo, hi)
+        assert math.isfinite(nlo) and math.isfinite(nhi) and math.isfinite(step)
+        assert step > 0
+
+
+def test_infinity_in_series_does_not_raise():
+    """Item 5: pre-fix this was OverflowError during paint."""
+    for cls in (LineChart, AreaChart, BarChart):
+        dl = _CountDL()
+        cls(series=[Series(values=[1.0, INF, 3.0])],
+            x=0, y=0, w=300, h=200).paint(dl)
+        assert not any("inf" in p for p in dl.paths)
+
+
+def test_all_nan_series_renders_empty_plot_not_an_exception():
+    """Item 6: pre-fix ValueError in Line/Area/Bar but silently painted by
+    Sparkline — three behaviours from one input class."""
+    for cls in (LineChart, AreaChart, BarChart):
+        dl = _CountDL()
+        cls(series=[Series(values=[NAN] * 3)], x=0, y=0, w=300, h=200).paint(dl)
+        assert dl.calls.get("stroke_path", 0) >= 0      # axis only, no series
+        assert not any("nan" in p for p in dl.paths)
+    dl = _CountDL()
+    Sparkline(values=[NAN] * 3, x=0, y=0, w=300, h=60).paint(dl)
+    assert dl.total == 0                                # nothing to draw
+
+
+def test_partial_nan_breaks_the_line_and_emits_no_nan_token():
+    """The dangerous half of item 6: it did NOT crash, it silently drew a
+    plausible-looking chart. Skia aborts on a 'nan' token, so the series
+    actually vanished entirely."""
+    dl = _CountDL()
+    LineChart(series=[Series(values=[1.0, 2.0, NAN, 4.0, 5.0])],
+              x=0, y=0, w=300, h=200).paint(dl)
+    # Gridlines are stroked first, the series last.
+    series = dl.paths[-1]
+    assert series.count("M") == 2, series      # the gap is a subpath break
+    assert not any("nan" in p for p in dl.paths)
+
+
+def test_sparkline_non_finite_breaks_the_line():
+    dl = _CountDL()
+    Sparkline(values=[1.0, 2.0, NAN, 4.0, 5.0], x=0, y=0, w=300, h=60).paint(dl)
+    assert not any("nan" in p for p in dl.paths)
+    assert dl.calls.get("fill_grad", 0) == 2      # one closed fill per run
+
+
+def test_stacked_gap_does_not_poison_upper_layers():
+    c = LineChart(series=[Series(values=[1.0, NAN, 3.0]),
+                          Series(values=[1.0, 1.0, 1.0])], stacked=True,
+                  x=0, y=0, w=300, h=200)
+    layers = c._stacked_values()
+    assert math.isnan(layers[0][1])                   # gap in its own layer
+    assert all(math.isfinite(v) for v in layers[1])   # ...but not above it
+    assert layers[1] == [2.0, 1.0, 4.0]
+
+
+def test_barchart_skips_non_finite_bars():
+    c = BarChart(series=[Series(values=[5.0, INF, 8.0])],
+                 categories=["a", "b", "c"], x=0, y=0, w=300, h=200)
+    assert math.isfinite(c._max()) and c._max() >= 8.0
+    dl = _CountDL()
+    c.paint(dl)
+    assert dl.calls.get("fill_path", 0) == 2          # the inf bar is absent
+
+
+def test_donut_drops_non_finite_segments():
+    c = DonutChart(segments=[("a", 1.0), ("b", NAN), ("c", 3.0)],
+                   x=0, y=0, w=300, h=200)
+    assert c.total() == 4.0                           # NaN excluded from scale
+    dl = _CountDL()
+    c.paint(dl)
+    assert dl.calls.get("fill_path", 0) == 2          # 2 wedges, not 3
+    dl2 = _CountDL()
+    DonutChart(segments=[("a", INF)], x=0, y=0, w=300, h=200).paint(dl2)
+    assert dl2.total == 0                             # nothing, and no raise
+
+
+def test_degenerate_charts_still_render_through_native_pipeline():
+    """The real Skia path: a 'nan' token makes the parser drop the draw call
+    silently, so this guards the end-to-end behaviour, not just the strings."""
+    assert _render(LineChart(series=[Series(values=[1.0, NAN, 3.0])],
+                             x=0, y=0, w=380, h=240))[:4] == b"\x89PNG"
+    assert _render(BarChart(series=[Series(values=[1e-15, 2e-15])],
+                            categories=["a", "b"],
+                            x=0, y=0, w=380, h=240))[:4] == b"\x89PNG"

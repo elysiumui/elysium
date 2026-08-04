@@ -94,7 +94,16 @@ jobs:
       - name: Build wheel & install
         run: |
           maturin build --release --out dist
-          pip install --find-links dist --force-reinstall elysium
+          # Install the wheel by path, not by name. The distribution is
+          # `elysium-ui` (only the *import* name is `elysium`), and asking pip
+          # for `elysium` resolves to an unrelated abandoned package that
+          # squats that name on PyPI — which is what this job did, silently,
+          # from the rename until 2026-08: it never installed our wheel and
+          # died in dependency resolution, so pytest had not actually run on
+          # any platform. A path install cannot reach the index at all.
+          python -c "import glob,subprocess,sys; w=glob.glob('dist/*.whl'); \
+            sys.exit('no wheel built') if not w else \
+            subprocess.check_call([sys.executable,'-m','pip','install','--force-reinstall',w[0]])"
 
       - name: Run pytest (unit) with coverage
         run: pytest -q --ignore=tests/snapshots --cov=elysium --cov-report=term-missing --cov-report=xml

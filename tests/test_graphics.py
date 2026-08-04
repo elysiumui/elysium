@@ -349,3 +349,70 @@ def test_graphics_demo_builds_and_paints():
     layer = n.SkiaLayer(900, 600)
     layer.execute(dl)
     assert bytes(layer.encode_png())[:4] == b"\x89PNG"
+
+
+# --- z-tie hit-testing + view robustness (QA report, item 11) --------------
+
+def test_items_at_ties_are_the_exact_inverse_of_paint_order():
+    """Item 11: `sorted(..., reverse=True)` is stable, so it does NOT reverse
+    equal elements — ties stayed in insertion order, the same order they are
+    painted in. Since `z` defaults to 0, every item created without an
+    explicit z was affected, and users clicked the shape they could see and
+    selected the one hidden underneath.
+    """
+    s = Scene()
+    bottom = s.add(RectItem(x=0, y=0, w=100, h=100))
+    top = s.add(RectItem(x=0, y=0, w=100, h=100))     # same default z=0
+    assert s.z_sorted() == [bottom, top]              # `top` paints last
+    assert s.items_at(50, 50) == [top, bottom]
+    assert s.item_at(50, 50) is top
+    # The invariant worth keeping: hit order is paint order reversed.
+    assert s.items_at(50, 50) == list(reversed(s.z_sorted()))
+
+
+def test_items_at_still_orders_by_explicit_z():
+    s = Scene()
+    lo = s.add(RectItem(x=0, y=0, w=100, h=100, z=0))
+    hi = s.add(RectItem(x=0, y=0, w=100, h=100, z=5))
+    assert s.items_at(50, 50) == [hi, lo]
+    _ = lo
+
+
+def test_raise_to_top_ignores_items_not_in_the_scene():
+    s = Scene()
+    s.add(RectItem(x=0, y=0, w=10, h=10, z=3))
+    orphan = RectItem(x=0, y=0, w=10, h=10)
+    s.raise_to_top(orphan)
+    s.lower_to_bottom(orphan)
+    assert orphan.z == 0            # untouched, not silently mutated
+
+
+def test_fit_on_an_empty_scene_resets_the_view():
+    """`bounding_rect()` is all-zero for an empty scene, so fit() early-
+    returned and "reset view" on a fresh canvas silently did nothing —
+    leaving the stale zoom/pan the user pressed the button to undo."""
+    v = GraphicsView(scene=Scene(), x=0, y=0, w=800, h=600,
+                     zoom=3.0, pan_x=99.0, pan_y=99.0)
+    v.fit()
+    assert v.zoom == 1.0
+    assert v.pan_x != 99.0 and v.pan_y != 99.0
+
+
+def test_view_rejects_or_clamps_degenerate_zoom():
+    """set_zoom() always clamped; the constructor did not, so zoom=0 raised
+    ZeroDivisionError from to_scene() — the pointer hot path."""
+    v = GraphicsView(scene=Scene(), x=0, y=0, w=800, h=600, zoom=0)
+    assert v.zoom == v.min_zoom
+    assert v.to_scene(10, 10) is not None        # no ZeroDivisionError
+    with pytest.raises(ValueError):
+        GraphicsView(scene=Scene(), x=0, y=0, w=800, h=600, min_zoom=0)
+
+
+def test_set_zoom_and_zoom_at_ignore_non_finite_input():
+    """min(max(nan, lo), hi) returns nan, and zoom is a divisor."""
+    import math
+    v = GraphicsView(scene=Scene(), x=0, y=0, w=800, h=600)
+    v.set_zoom(float("nan"))
+    assert math.isfinite(v.zoom)
+    v.zoom_at(10, 10, float("nan"))
+    assert math.isfinite(v.pan_x) and math.isfinite(v.pan_y)

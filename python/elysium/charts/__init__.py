@@ -67,9 +67,91 @@ def chart_palette(t: Any = None) -> list[Color]:
     ]
 
 
+# --- missing-data policy ---------------------------------------------------
+# Charts treat a non-finite value (NaN/±inf) as a *gap*: the point is not
+# plotted, does not influence the axis scale, and does not shift anything
+# stacked on top of it. This matches the convention of most charting
+# libraries, and it is the only honest option — the alternative is inventing
+# a coordinate for a value that does not exist.
+#
+# Before this policy existed, one bad value did one of three things depending
+# on chart type and position: raised OverflowError/ValueError out of
+# nice_ticks, silently vanished the *whole series* (Skia's path parser aborts
+# on a "nan" token), or silently plotted at an undefined position.
+
+_TICK_CAP = 64          # hard backstop on gridlines per axis
+
+
+def _isfinite(v: Any) -> bool:
+    """``math.isfinite`` that answers False for non-numbers rather than
+    raising — real datasets carry ``None`` and ``"n/a"``, and those are
+    missing values too."""
+    try:
+        return math.isfinite(v)
+    except (TypeError, ValueError):
+        return False
+
+
+def _finite(values: Any) -> list[float]:
+    """Drop non-finite entries. Used wherever a scale is derived from data,
+    so a single bad point cannot decide the axis."""
+    return [float(v) for v in values if _isfinite(v)]
+
+
+def _runs(points: list) -> list[tuple[int, list[tuple[float, float]]]]:
+    """Split a point sequence into contiguous drawable runs.
+
+    ``None`` entries — and any non-finite coordinate — act as breaks. Each run
+    is returned with its start index so callers that must align a run against
+    the original data (a stacked area baseline) can slice correctly.
+    """
+    runs: list[tuple[int, list[tuple[float, float]]]] = []
+    cur: list[tuple[float, float]] = []
+    start = 0
+    for i, p in enumerate(points):
+        if p is None or not (_isfinite(p[0]) and _isfinite(p[1])):
+            if cur:
+                runs.append((start, cur))
+                cur = []
+            continue
+        if not cur:
+            start = i
+        cur.append(p)
+    if cur:
+        runs.append((start, cur))
+    return runs
+
+
+def _tick_values(lo: float, hi: float, step: float) -> list[float]:
+    """Tick positions across ``[lo, hi]`` inclusive.
+
+    Indexes rather than accumulates. The previous form,
+    ``v = lo; while v <= hi + 1e-6: v += step``, mixed an *absolute* epsilon
+    with a *relative* step: for a data range near 1e-15 the bound sat ~1e9
+    steps away and the loop never realistically terminated (the UI froze with
+    no traceback), while at 1e-9 it stacked 2,000 gridlines into a 200px plot.
+    """
+    if not (_isfinite(lo) and _isfinite(hi) and _isfinite(step)) or step <= 0:
+        return [lo] if _isfinite(lo) else []
+    n = int(math.floor((hi - lo) / step + 1e-9))
+    if n < 0:
+        return []
+    return [lo + i * step for i in range(min(n, _TICK_CAP) + 1)]
+
+
 def nice_ticks(lo: float, hi: float, target: int = 5) -> tuple[float, float, float]:
     """Return ``(nice_lo, nice_hi, step)`` covering ``[lo, hi]`` with ~``target``
-    round ticks (1/2/5 × 10ⁿ)."""
+    round ticks (1/2/5 × 10ⁿ).
+
+    Non-finite bounds are substituted rather than propagated: this is the one
+    function every scale-computing path funnels through, so guarding it here
+    keeps `math.floor`/`math.ceil` (which raise on inf/NaN) from surfacing as
+    an OverflowError or ValueError inside an unrelated paint call.
+    """
+    if not _isfinite(lo):
+        lo = 0.0
+    if not _isfinite(hi):
+        hi = lo + 1.0
     if hi <= lo:
         hi = lo + 1.0
     raw = (hi - lo) / max(1, target)
@@ -104,13 +186,22 @@ def format_compact(v: float) -> str:
     return f"{v:.0f}"
 
 
-def _poly(points: list[tuple[float, float]]) -> str:
-    if not points:
-        return ""
-    d = f"M {points[0][0]:.2f} {points[0][1]:.2f}"
-    for x, y in points[1:]:
-        d += f" L {x:.2f} {y:.2f}"
-    return d
+def _poly(points: list) -> str:
+    """Polyline path data. A ``None`` entry (or a non-finite coordinate)
+    starts a new subpath, which is how a missing value renders as a gap
+    rather than a straight line bridging the hole.
+
+    Output is byte-identical to the pre-gap implementation for any fully
+    finite input — see ``test_poly_output_unchanged_for_finite_points``.
+    The non-finite check is defensive: a literal ``"nan"`` token in path data
+    makes Skia's parser abort and drop the entire draw call, silently
+    erasing the whole series.
+    """
+    return " ".join(
+        f"M {run[0][0]:.2f} {run[0][1]:.2f}"
+        + "".join(f" L {x:.2f} {y:.2f}" for x, y in run[1:])
+        for _i, run in _runs(points)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -129,34 +220,44 @@ class Sparkline:
     stroke_width: float = 1.5
     dot: bool = True
 
-    def _points(self) -> list[tuple[float, float]]:
+    def _points(self) -> list:
+        """Screen points, with ``None`` marking a missing value."""
         vals = self.values
         if not vals:
             return []
-        lo, hi = min(vals), max(vals)
+        finite = _finite(vals)
+        if not finite:
+            return []
+        lo, hi = min(finite), max(finite)
         span = (hi - lo) or 1.0
         n = len(vals)
         step = self.w / max(1, n - 1)
         pad = self.h * 0.12
         return [(self.x + i * step,
-                 self.y + self.h - pad - ((v - lo) / span) * (self.h - 2 * pad))
+                 self.y + self.h - pad
+                 - ((float(v) - lo) / span) * (self.h - 2 * pad))
+                if _isfinite(v) else None
                 for i, v in enumerate(vals)]
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
         pts = self._points()
-        if len(pts) < 2:
+        runs = [r for r in _runs(pts) if len(r[1]) >= 2]
+        if not runs:
             return
         color = self.color or t.primary
         if self.fill:
             base = self.y + self.h
-            area = pts + [(pts[-1][0], base), (pts[0][0], base)]
-            dl.fill_path_linear_gradient(
-                _poly(area) + " Z", (0, self.y), (0, base),
-                with_alpha(color, 0.22), with_alpha(color, 0.0))
+            # One fill per run, so a gap doesn't smear the area across it.
+            for _i, run in runs:
+                area = run + [(run[-1][0], base), (run[0][0], base)]
+                dl.fill_path_linear_gradient(
+                    _poly(area) + " Z", (0, self.y), (0, base),
+                    with_alpha(color, 0.22), with_alpha(color, 0.0))
         dl.stroke_path(_poly(pts), color, self.stroke_width)
         if self.dot:
-            dl.filled_circle(pts[-1][0], pts[-1][1], self.stroke_width + 1.2, color)
+            last = runs[-1][1][-1]      # last *finite* point, not pts[-1]
+            dl.filled_circle(last[0], last[1], self.stroke_width + 1.2, color)
 
 
 # ---------------------------------------------------------------------------
@@ -199,14 +300,19 @@ class LineChart:
         for s in self.series:
             cum = []
             for i, v in enumerate(s.values):
-                running[i] += v
-                cum.append(running[i])
+                if _isfinite(v):
+                    running[i] += float(v)
+                    cum.append(running[i])
+                else:
+                    # A missing value is a gap in *this* layer only — it must
+                    # not shift the layers stacked above it.
+                    cum.append(math.nan)
             out.append(cum)
         return out
 
     def _value_range(self) -> tuple[float, float]:
         layers = self._stacked_values()
-        flat = [v for layer in layers for v in layer]
+        flat = _finite([v for layer in layers for v in layer])
         if not flat:
             return (0.0, 1.0)
         lo = min(0.0, min(flat))
@@ -233,31 +339,37 @@ class LineChart:
         if self.show_axis:
             _nlo, _nhi, step = nice_ticks(lo, hi)
             yfmt = self.y_format or format_compact
-            v = lo
-            while v <= hi + 1e-6:
+            for v in _tick_values(lo, hi, step):
                 gy = ry + rh - ((v - lo) / ((hi - lo) or 1.0)) * rh
                 if self.show_grid:
                     dl.stroke_path(f"M {rx} {gy:.2f} L {rx + rw} {gy:.2f}",
                                    with_alpha(t.edge, 0.5), 1.0)
                 dl.draw_text(yfmt(v), self.x + 4, gy + 4, 10, t.on_surface_muted)
-                v += step
         layers = self._stacked_values()
         n = max((len(s.values) for s in self.series), default=0)
         prev_pts: list[tuple[float, float]] | None = None
         for idx, s in enumerate(self.series):
             vals = layers[idx]
             color = s.color or pal[idx % len(pal)]
-            pts = [self._map(i, v, n, lo, hi, rect) for i, v in enumerate(vals)]
-            if len(pts) < 2:
+            pts = [self._map(i, v, n, lo, hi, rect) if _isfinite(v) else None
+                   for i, v in enumerate(vals)]
+            runs = [r for r in _runs(pts) if len(r[1]) >= 2]
+            if not runs:
                 continue
             if self.area:
-                if self.stacked and prev_pts is not None:
-                    base = list(reversed(prev_pts))
-                else:
-                    base = [(pts[-1][0], ry + rh), (pts[0][0], ry + rh)]
-                dl.fill_path_linear_gradient(
-                    _poly(pts + base) + " Z", (0, ry), (0, ry + rh),
-                    with_alpha(color, 0.28), with_alpha(color, 0.04))
+                # One closed fill per run — a single polygon spanning a gap
+                # would smear the fill straight across the missing data.
+                for i0, run in runs:
+                    base = None
+                    if self.stacked and prev_pts is not None:
+                        seg = prev_pts[i0:i0 + len(run)]
+                        if len(seg) == len(run) and all(p is not None for p in seg):
+                            base = list(reversed(seg))
+                    if base is None:
+                        base = [(run[-1][0], ry + rh), (run[0][0], ry + rh)]
+                    dl.fill_path_linear_gradient(
+                        _poly(run + base) + " Z", (0, ry), (0, ry + rh),
+                        with_alpha(color, 0.28), with_alpha(color, 0.04))
             dl.stroke_path(_poly(pts), color, self.stroke_width)
             prev_pts = pts
         # X labels.
@@ -308,11 +420,13 @@ class BarChart:
     def _max(self) -> float:
         if self.stacked:
             n = max((len(s.values) for s in self.series), default=0)
-            totals = [sum(s.values[i] if i < len(s.values) else 0
-                          for s in self.series) for i in range(n)]
+            totals = [sum(float(s.values[i]) for s in self.series
+                          if i < len(s.values) and _isfinite(s.values[i]))
+                      for i in range(n)]
             hi = max(totals, default=1.0)
         else:
-            hi = max((v for s in self.series for v in s.values), default=1.0)
+            hi = max(_finite([v for s in self.series for v in s.values]),
+                     default=1.0)
         return nice_ticks(0.0, hi)[1]
 
     def paint(self, dl: Any) -> None:
@@ -327,13 +441,11 @@ class BarChart:
         if self.show_axis:
             _a, _b, step = nice_ticks(0.0, hi)
             yfmt = self.y_format or format_compact
-            v = 0.0
-            while v <= hi + 1e-6:
+            for v in _tick_values(0.0, hi, step):
                 gy = ry + rh - (v / hi) * rh
                 dl.stroke_path(f"M {rx} {gy:.2f} L {rx + rw} {gy:.2f}",
                                with_alpha(t.edge, 0.5), 1.0)
                 dl.draw_text(yfmt(v), self.x + 4, gy + 4, 10, t.on_surface_muted)
-                v += step
         group_w = rw / n
         ns = len(self.series)
         for ci in range(n):
@@ -344,6 +456,9 @@ class BarChart:
                 bx = gx + (group_w - bw) / 2
                 for si, s in enumerate(self.series):
                     val = s.values[ci] if ci < len(s.values) else 0.0
+                    if not _isfinite(val):
+                        continue        # gap: no bar, and no shift upward
+                    val = float(val)
                     bh = (val / hi) * rh
                     by = ry + rh - (acc / hi) * rh - bh
                     dl.fill_path(_rounded_rect(bx, by, bw, bh, self.radius),
@@ -353,7 +468,9 @@ class BarChart:
                 bw = (group_w * 0.7) / max(1, ns)
                 for si, s in enumerate(self.series):
                     val = s.values[ci] if ci < len(s.values) else 0.0
-                    bh = (val / hi) * rh
+                    if not _isfinite(val):
+                        continue        # gap: the bar is simply absent
+                    bh = (float(val) / hi) * rh
                     bx = gx + group_w * 0.15 + si * bw
                     dl.fill_path(_rounded_rect(bx, ry + rh - bh, bw - 2, bh,
                                                self.radius),
@@ -401,7 +518,8 @@ class DonutChart:
                 f"A {r0:.2f} {r0:.2f} 0 {large} 0 {x0i:.2f} {y0i:.2f} Z")
 
     def total(self) -> float:
-        return sum(max(0.0, float(v)) for _l, v, *_ in self.segments) or 1.0
+        return sum(max(0.0, float(v)) for _l, v, *_ in self.segments
+                   if _isfinite(v)) or 1.0
 
     def paint(self, dl: Any) -> None:
         t = current_theme()
@@ -412,6 +530,11 @@ class DonutChart:
         gap = math.radians(self.gap_deg)
         a = -math.pi / 2  # start at top
         for i, seg in enumerate(self.segments):
+            if not _isfinite(seg[1]):
+                # Drop the slice without advancing the angle. The wedges then
+                # legitimately don't close the circle — that visible
+                # incompleteness is the honest signal that data is missing.
+                continue
             label, value = seg[0], float(seg[1])
             color = seg[2] if len(seg) > 2 and seg[2] else pal[i % len(pal)]
             frac = max(0.0, value) / total

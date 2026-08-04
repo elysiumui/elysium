@@ -103,3 +103,36 @@ def test_hotkeys_register_and_dispatch(monkeypatch):
 def test_hotkey_poll_safe_when_empty():
     keys = native.HotKeys()
     assert keys.poll() is None
+
+
+# --- display / monitor query (QA report item 14) ---------------------------
+
+def test_window_exposes_display_geometry():
+    """Item 14: the window opened at a hardcoded 1200x800 with no monitor
+    query anywhere in the native layer, so it could not adapt to the display —
+    and Python had no way to observe scale or screen size to do it itself.
+
+    The sizing behaviour itself is covered by the Rust unit tests in
+    `ely-platform` (`window::tier2_tests::window_never_opens_larger_than_the_display`
+    and friends); a real window needs a display, so here we assert the API
+    that unblocks an app doing its own placement.
+    """
+    from elysium._native import _native as n
+    for attr in ("monitor", "scale_factor", "surface_size", "outer_position"):
+        assert hasattr(n.Window, attr), attr
+
+
+def test_window_accepts_the_fit_to_display_flag():
+    """`fit_to_display=False` is the documented opt-out for the rare case of
+    a deliberately oversized window (offscreen capture).
+
+    A window is only created by the OS once the event loop runs, so this
+    exercises the kwarg plumbing without needing a display.
+    """
+    import pytest
+    from elysium import App
+    app = App(title="fit-kwarg", identifier="dev.elysium.fitkwarg")
+    assert app.window(fit_to_display=False, initial_size=(4000, 3000)) is not None
+    assert app.window(fit_to_display=True) is not None
+    with pytest.raises(TypeError):
+        app.window(fit_to_display="yes")

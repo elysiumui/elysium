@@ -28,6 +28,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generic, TypeVar
 
+# Spring integration safety valves — see SpringValue._advance.
+_MAX_SUBSTEPS = 64
+# Wall-clock dt ceiling for tick_realtime(). A frame longer than this is a
+# stall (window drag, breakpoint, GC pause, laptop resume), never intent.
+_MAX_REALTIME_DT = 0.25
+
 T = TypeVar("T")
 
 # ---------------------------------------------------------------------------
@@ -187,7 +193,10 @@ class Tween(Animation, Generic[T]):
         super().__init__()
         self._from = fr
         self._to = to
-        self._duration = max(_scale_duration(duration), 1e-9)
+        # `max(nan, 1e-9)` is nan — max keeps its first argument when the
+        # comparison is False — which would poison every `elapsed/duration`.
+        _d = _scale_duration(duration)
+        self._duration = _d if (math.isfinite(_d) and _d > 1e-9) else 1e-9
         self._ease = globals()["easing"](easing) if isinstance(easing, str) else easing
         self._on_update = on_update
         self._on_complete = on_complete
@@ -197,6 +206,8 @@ class Tween(Animation, Generic[T]):
         self._reverse = False
 
     def _advance(self, dt: float) -> None:
+        if not math.isfinite(dt):
+            return
         if self._delay > 0:
             self._delay -= dt
             if self._delay > 0: return
@@ -271,7 +282,13 @@ class Timeline(Animation):
         return self
 
     def _advance(self, dt: float) -> None:
+        if not math.isfinite(dt):
+            return
         self._elapsed += dt
+        if self._total_duration <= 0.0:
+            # An empty timeline has nothing to drive, and the loop branches
+            # below would divide by zero.
+            return
         if self._loop == "loop" and self._elapsed > self._total_duration:
             self._elapsed = self._elapsed % self._total_duration
         elif self._loop == "ping_pong" and self._elapsed > self._total_duration:
@@ -337,31 +354,68 @@ class Spring:
 class SpringValue(Animation):
     """Time-uncoupled spring — give it a moving target each frame, it
     chases naturally. Used for cursor-following, etc."""
-    def __init__(self, initial: float, params: Spring = Spring()) -> None:
+    def __init__(self, initial: float, params: Spring | None = None) -> None:
         super().__init__()
         self._value = initial
         self._velocity = 0.0
         self._target = initial
-        self._p = params
+        # NB: a `params: Spring = Spring()` default would be evaluated once at
+        # class-definition time, so every default-constructed SpringValue in
+        # the process would share — and be able to retune — one Spring.
+        self._p = params if params is not None else Spring()
 
     def target(self, t: float) -> None: self._target = t
     def value(self) -> float: return self._value
+
+    def _snap(self) -> None:
+        self._value = self._target
+        self._velocity = 0.0
 
     def _advance(self, dt: float) -> None:
         # Reduce-motion: snap to target instead of simulating.
         try:
             from elysium.accessibility import current as _a11y_current
             if _a11y_current().reduce_motion:
-                self._value = self._target
-                self._velocity = 0.0
+                self._snap()
                 return
         except Exception:
             pass
-        # Symplectic Euler.
-        f = -self._p.stiffness * (self._value - self._target) - self._p.damping * self._velocity
-        a = f / self._p.mass
-        self._velocity += a * dt
-        self._value += self._velocity * dt
+        if not math.isfinite(dt) or dt <= 0.0:
+            return
+        k, c, m = self._p.stiffness, self._p.damping, self._p.mass
+        if not (math.isfinite(k) and math.isfinite(c) and math.isfinite(m)) or m <= 0.0:
+            self._snap()
+            return
+
+        # Symplectic Euler is only *conditionally* stable: it needs roughly
+        # dt < 2/sqrt(k/m) from the spring term and dt < 2m/c from the
+        # damping term. With the defaults (k=220, c=18, m=1) that ceiling is
+        # ~0.13 s, so a single slow frame — a GC pause, a breakpoint, a laptop
+        # waking from sleep — used to diverge geometrically: 40 frames of
+        # 0.5 s drove the value to -4.7e73, which then landed straight in a
+        # widget's position.
+        #
+        # Sub-stepping keeps the integrator itself untouched and simply runs
+        # it at a stable step size. For every normal frame n == 1, so the
+        # arithmetic is bit-identical to before.
+        dt_max = math.inf           # unconstrained until a term says otherwise
+        if k > 0.0:
+            dt_max = min(dt_max, 1.0 / math.sqrt(k / m))
+        if c > 0.0:
+            dt_max = min(dt_max, m / c)
+        n = 1 if dt <= dt_max else int(math.ceil(dt / dt_max))
+        if n > _MAX_SUBSTEPS:
+            # Faster than the frame can resolve (e.g. mass=1e-9 would need
+            # ~3e8 steps). A spring this stiff settles within the frame
+            # anyway, so snapping is both correct and cheap.
+            self._snap()
+            return
+        h = dt / n
+        for _ in range(n):
+            f = -k * (self._value - self._target) - c * self._velocity
+            a = f / m
+            self._velocity += a * h
+            self._value += self._velocity * h
 
 
 # ---------------------------------------------------------------------------
@@ -400,13 +454,25 @@ class AnimationClock:
             self._anims = [a for a in self._anims if a.alive]
 
     def tick_realtime(self) -> float:
-        """Advance using wall-clock dt since the last call. Returns dt."""
+        """Advance using wall-clock dt since the last call. Returns the dt
+        actually applied.
+
+        The measured interval is capped at `_MAX_REALTIME_DT`: a frame longer
+        than that is a stall artifact — a dragged window, a breakpoint, a GC
+        pause, a laptop waking from sleep — and feeding it in verbatim makes
+        animations jump (and previously made springs diverge outright).
+        `tick(dt)` is deliberately *not* clamped: it is the deterministic
+        stepping API that tests and fixed-timestep callers rely on.
+        """
         now = time.perf_counter()
         if self._last_real_time is None:
             self._last_real_time = now
             return 0.0
         dt = now - self._last_real_time
         self._last_real_time = now
+        if not math.isfinite(dt) or dt < 0.0:
+            return 0.0
+        dt = min(dt, _MAX_REALTIME_DT)
         self.tick(dt)
         return dt
 
@@ -424,11 +490,23 @@ def run_animation_thread(
     idle_after: float = 0.6,
     is_busy: Callable[[], bool] | None = None,
     running: Callable[[], bool] | None = None,
+    wake_on: Any = None,
 ) -> threading.Thread:
     """Spawn a daemon thread that ticks `on_frame()` at `target_hz` while
     the UI is animating / hovered / pressed, and drops to `idle_hz` after
     `idle_after` seconds with no activity. Pass `is_busy=lambda: True` to
-    disable idle decay entirely (legacy behaviour)."""
+    disable idle decay entirely (legacy behaviour).
+
+    Pass ``wake_on=window`` to make idling *event-driven*. Without it the loop
+    only looks at input when its timer next fires, so at ``idle_hz=4`` a click
+    can wait 250 ms to be noticed and a press+release inside one tick is never
+    seen as a drag at all. With it, input wakes the loop immediately and the
+    next frame runs on the busy cadence — so idle stays cheap without the UI
+    going deaf between ticks.
+
+    ``wake_on`` is anything exposing ``input_seq`` and
+    ``wait_for_input(timeout, since)`` — in practice the native window.
+    """
     stop_flag = [False]
     if running is None:
         running = lambda: not stop_flag[0]
@@ -437,7 +515,13 @@ def run_animation_thread(
         busy_period = 1.0 / target_hz
         idle_period = 1.0 / max(idle_hz, 0.1)
         last_busy = time.monotonic()
+        next_at = time.monotonic()
         while running():
+            frame_start = time.monotonic()
+            # Sample the input counter *before* the frame: anything arriving
+            # while on_frame runs must still count as "there is work to do",
+            # or it would be swallowed and the UI would sit on stale input.
+            seq = wake_on.input_seq if wake_on is not None else 0
             clock.tick_realtime()
             try:
                 on_frame()
@@ -448,11 +532,37 @@ def run_animation_thread(
             now = time.monotonic()
             if is_busy is None or is_busy():
                 last_busy = now
-                time.sleep(busy_period)
+                period = busy_period
             elif now - last_busy < idle_after:
-                time.sleep(busy_period)
+                period = busy_period
             else:
-                time.sleep(idle_period)
+                period = idle_period
+            # Sleep to a deadline, not for a fixed duration. Sleeping
+            # `period` *after* the work means the real rate is
+            # 1/(work + period) — so `target_hz` was an unreachable ceiling
+            # that sagged as the scene grew: at 60 Hz with a 10 ms frame the
+            # loop actually ran at 37 Hz.
+            next_at += period
+            delay = next_at - time.monotonic()
+            if delay <= 0:
+                # Overran the budget. Drop the missed frames rather than
+                # running a burst to catch up — a burst just steals time from
+                # the frame that is already late.
+                next_at = time.monotonic()
+            elif wake_on is None:
+                time.sleep(delay)
+            elif wake_on.wait_for_input(delay, seq):
+                # Input landed. Re-aim at the busy cadence — but do NOT run a
+                # frame straight away: pointer events arrive far faster than
+                # the frame rate, and honouring each one would drive the loop
+                # at event rate. Pulling the deadline forward makes the app
+                # responsive without letting input dictate the frame rate.
+                next_at = min(next_at, frame_start + busy_period)
+                rest = next_at - time.monotonic()
+                if rest > 0:
+                    # No point waiting on further input here — we are already
+                    # committed to running at the responsive cadence.
+                    time.sleep(rest)
 
     t = threading.Thread(target=loop, daemon=True, name="elysium-anim")
     t.start()

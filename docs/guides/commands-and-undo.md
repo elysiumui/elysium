@@ -49,11 +49,18 @@ class RenameCommand(Command):
 Group several commands so they undo together:
 
 ```python
-stack.begin_macro("Bulk price change")
-for row in selection:
-    stack.push(SetPrice(row, row["price"] * 1.1))
-stack.end_macro()
+with stack.macro("Bulk price change"):
+    for row in selection:
+        stack.push(SetPrice(row, row["price"] * 1.1))
 ```
+
+Prefer the context manager. `begin_macro`/`end_macro` remain available as the
+low-level API, but if `end_macro()` is ever missed — an early `return`, an
+exception between the two calls, a branch that forgets it — the stack believes a
+macro is still open. Commands pushed after that still *execute*, but are
+recorded nowhere: undo silently stops working for the rest of the session, with
+no error and no visible state change. The `with` form closes the macro on the
+exception path too, keeping whatever already ran undoable.
 
 ## Clean state
 
