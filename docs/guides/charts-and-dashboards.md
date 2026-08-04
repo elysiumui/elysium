@@ -177,9 +177,10 @@ anything non-numeric) as a **gap**:
 - it does **not** shift anything stacked on top of it.
 
 ```python
-LineChart(series=[Series(values=[1.0, 2.0, float("nan"), 4.0])], ...)
-# renders two line segments with a hole in the middle — not a straight
-# line bridging the gap, and not a point at an invented coordinate
+# Renders two line segments with a hole in the middle — not a straight line
+# bridging the gap, and not a point at an invented coordinate.
+LineChart(series=[Series(values=[1.0, 2.0, float("nan"), 4.0])],
+          x=0, y=0, w=400, h=240)
 ```
 
 How a gap looks depends on the mark: line, area and sparkline **break** into
