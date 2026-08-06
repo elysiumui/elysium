@@ -7,6 +7,45 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-05
+
+### Fixed
+
+- **The 1.2.0 Linux wheel could not be imported.** `manylinux_2_28` is built on
+  AlmaLinux 8, which ships FreeType 2.9.1, while Skia 0.78 calls
+  `FT_Palette_Data_Get`, `FT_Palette_Select` and `FT_Get_Color_Glyph_Layer` —
+  all added in FreeType 2.10.0. A shared object may keep undefined symbols, so
+  the link succeeded and the failure only appeared when something dlopened the
+  module (`ImportError: undefined symbol: FT_Palette_Data_Get`). `auditwheel`
+  then vendored the container's 2.9.1, so the wheel shipped a module and a
+  dependency that disagreed. CI now builds FreeType 2.13.3 in the manylinux
+  container and asserts the three symbols before the build proceeds.
+- **A `wake_on` object that does not honour the protocol killed the frame
+  thread.** `run_animation_thread` sampled `wake_on.input_seq` and called
+  `wake_on.wait_for_input(...)` outside the `try` guarding `on_frame`, so an
+  exception from either terminated the daemon thread — the window stayed up and
+  silently stopped repainting, with nothing in the log connecting the freeze to
+  `wake_on`. Reachable from ordinary use: a window proxy from a build predating
+  wake-on-input returns a junk object for `input_seq` instead of raising. Both
+  calls are now guarded and fall back to timed polling with a diagnostic.
+
+### Changed
+
+- **Built wheels are now load-tested before they can be published**, on all four
+  platforms, and again after publishing. Asserting `__version__` alone was not
+  enough: `elysium/__init__.py` catches the native extension's `ImportError` and
+  continues with `_NATIVE_AVAILABLE = False`, so a wheel whose `.so` cannot load
+  still imports *and still reports the correct version*. That is exactly how
+  1.2.0's broken Linux wheel passed the post-publish gate.
+
+## [1.2.0] - 2026-08-04
+
+A defect-fix release from an external QA pass. Every item below was reproduced
+against 1.1.7 and has a regression test. Three changes that touch shared render
+or animation paths are additionally pinned by tests asserting byte-identical
+output for well-formed input, and every affected chart and grid configuration
+was verified to render pixel-identically.
+
 ### Performance
 
 - **Wake-on-input: the frame loop can idle without going deaf.** Idling dropped
@@ -52,29 +91,6 @@ project adheres to [Semantic Versioning](https://semver.org) — see
   when the platform reports no monitors. Lets an app do its own placement.
 - **`Window.scale_factor`** — the live display scaling. Python previously had no
   way to observe DPI at all.
-
-### Fixed
-
-- **`WindowEvent::ScaleFactorChanged` was not handled.** Moving a window to a
-  display with different scaling, or changing the current display's scaling,
-  left the reported scale stale.
-- **`Window.outer_position` read (0, 0) until the window was first moved**,
-  because it was only recorded on `Moved`. An app persisting window geometry at
-  startup saved the wrong position.
-- **Docs described `ely.platform.screens()`**, which has never existed —
-  calling it raises `AttributeError`. The windowing guide now documents the
-  real API.
-
-## [1.2.0] - 2026-08-04
-
-A defect-fix release from an external QA pass. Every item below was reproduced
-against 1.1.7 and has a regression test. Three changes that touch shared render
-or animation paths are additionally pinned by tests asserting byte-identical
-output for well-formed input, and every affected chart and grid configuration
-was verified to render pixel-identically.
-
-### Added
-
 - **`UndoStack.macro(text)`** — a context manager that closes the macro even on
   the exception path. `begin_macro`/`end_macro` remain the low-level API; the
   `with` form removes the footgun described under *Fixed* below.
@@ -90,6 +106,15 @@ was verified to render pixel-identically.
 
 ### Fixed
 
+- **`WindowEvent::ScaleFactorChanged` was not handled.** Moving a window to a
+  display with different scaling, or changing the current display's scaling,
+  left the reported scale stale.
+- **`Window.outer_position` read (0, 0) until the window was first moved**,
+  because it was only recorded on `Moved`. An app persisting window geometry at
+  startup saved the wrong position.
+- **Docs described `ely.platform.screens()`**, which has never existed —
+  calling it raises `AttributeError`. The windowing guide now documents the
+  real API.
 - **Charts froze the UI thread on small-magnitude data.** The gridline loop
   terminated on an absolute epsilon while stepping by a relative increment, so a
   data range near 1e-15 put the bound ~1e9 steps away and the loop never

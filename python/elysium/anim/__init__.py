@@ -511,17 +511,37 @@ def run_animation_thread(
     if running is None:
         running = lambda: not stop_flag[0]
 
+    def _waker_failed(waker: Any, what: str) -> None:
+        import traceback
+        print(f"[elysium] wake_on.{what} raised; falling back to timed "
+              f"polling for the rest of this run. Pass a window from a build "
+              f"that supports wake-on-input, or omit wake_on. Got: {waker!r}",
+              flush=True)
+        traceback.print_exc()
+
     def loop() -> None:
         busy_period = 1.0 / target_hz
         idle_period = 1.0 / max(idle_hz, 0.1)
         last_busy = time.monotonic()
         next_at = time.monotonic()
+        # Local, so a `wake_on` that doesn't honour the protocol can be
+        # disabled mid-run. These two calls sit outside the try that guards
+        # on_frame, so an unguarded raise here killed the daemon thread and
+        # left the window alive but frozen — no repaint, and nothing in the
+        # log connecting the freeze to wake_on.
+        waker = wake_on
         while running():
             frame_start = time.monotonic()
             # Sample the input counter *before* the frame: anything arriving
             # while on_frame runs must still count as "there is work to do",
             # or it would be swallowed and the UI would sit on stale input.
-            seq = wake_on.input_seq if wake_on is not None else 0
+            seq = 0
+            if waker is not None:
+                try:
+                    seq = waker.input_seq
+                except Exception:
+                    _waker_failed(waker, "input_seq")
+                    waker = None
             clock.tick_realtime()
             try:
                 on_frame()
@@ -549,20 +569,31 @@ def run_animation_thread(
                 # running a burst to catch up — a burst just steals time from
                 # the frame that is already late.
                 next_at = time.monotonic()
-            elif wake_on is None:
+            elif waker is None:
                 time.sleep(delay)
-            elif wake_on.wait_for_input(delay, seq):
-                # Input landed. Re-aim at the busy cadence — but do NOT run a
-                # frame straight away: pointer events arrive far faster than
-                # the frame rate, and honouring each one would drive the loop
-                # at event rate. Pulling the deadline forward makes the app
-                # responsive without letting input dictate the frame rate.
-                next_at = min(next_at, frame_start + busy_period)
-                rest = next_at - time.monotonic()
-                if rest > 0:
-                    # No point waiting on further input here — we are already
-                    # committed to running at the responsive cadence.
-                    time.sleep(rest)
+            else:
+                try:
+                    woke = waker.wait_for_input(delay, seq)
+                except Exception:
+                    _waker_failed(waker, "wait_for_input")
+                    waker = None
+                    woke = False
+                    # Still owe the caller this frame's delay, or the loop
+                    # would spin at full tilt for the rest of the run.
+                    time.sleep(max(0.0, next_at - time.monotonic()))
+                if woke:
+                    # Input landed. Re-aim at the busy cadence — but do NOT run
+                    # a frame straight away: pointer events arrive far faster
+                    # than the frame rate, and honouring each one would drive
+                    # the loop at event rate. Pulling the deadline forward makes
+                    # the app responsive without letting input dictate the
+                    # frame rate.
+                    next_at = min(next_at, frame_start + busy_period)
+                    rest = next_at - time.monotonic()
+                    if rest > 0:
+                        # No point waiting on further input here — we are
+                        # already committed to the responsive cadence.
+                        time.sleep(rest)
 
     t = threading.Thread(target=loop, daemon=True, name="elysium-anim")
     t.start()
