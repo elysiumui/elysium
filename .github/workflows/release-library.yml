@@ -71,9 +71,75 @@ jobs:
           manylinux: ${{ runner.os == 'Linux' && '2_28' || 'auto' }}
           # The manylinux_2_28 container is minimal — Skia links against
           # fontconfig/freetype, so install their dev packages first.
+          #
+          # AlmaLinux 8 (what manylinux_2_28 is built on) ships FreeType 2.9.1,
+          # and Skia 0.78 calls FT_Palette_Data_Get, FT_Palette_Select and
+          # FT_Get_Color_Glyph_Layer — all added in FreeType 2.10.0. A shared
+          # object may keep undefined symbols, so the link SUCCEEDS and the
+          # failure only appears when something dlopens the module:
+          #
+          #   ImportError: .../_native.abi3.so: undefined symbol: FT_Palette_Data_Get
+          #
+          # auditwheel then vendors the container's 2.9.1 into elysium_ui.libs/,
+          # so the wheel ships a module and a dependency that disagree. That is
+          # what broke the 1.2.0 Linux wheel.
+          #
+          # Building a newer FreeType over the system copy fixes both halves:
+          # the link resolves against it, and auditwheel vendors it.
+          # Deliberately NOT fixed by bumping to manylinux_2_34 (AlmaLinux 9,
+          # FreeType 2.10.4) — that raises the glibc floor from 2.28 to 2.34 and
+          # would silently drop Ubuntu 20.04 and Debian 11. Nor by skia-safe's
+          # `embed-freetype`, which leaves the cached Skia prebuilts and forces
+          # the from-source build called out in elysium-native/Cargo.toml.
           before-script-linux: |
-            dnf install -y fontconfig-devel freetype-devel || \
-              yum install -y fontconfig-devel freetype-devel
+            set -euo pipefail
+            dnf install -y fontconfig-devel freetype-devel libpng-devel bzip2-devel || \
+              yum install -y fontconfig-devel freetype-devel libpng-devel bzip2-devel
+
+            FT_VER=2.13.3
+            curl -fsSL --retry 3 -o "freetype-${FT_VER}.tar.gz" \
+              "https://download.savannah.gnu.org/releases/freetype/freetype-${FT_VER}.tar.gz"
+            tar xzf "freetype-${FT_VER}.tar.gz"
+            cd "freetype-${FT_VER}"
+            # harfbuzz (autohint) and brotli (WOFF2) are optional helpers we do
+            # not need; skipping them avoids pulling more deps into the image.
+            ./configure --prefix=/usr --libdir=/usr/lib64 \
+                        --enable-shared --disable-static \
+                        --with-harfbuzz=no --with-brotli=no
+            make -j"$(nproc)"
+            make install
+            ldconfig
+            cd ..
+
+            # Fail inside the container rather than shipping another wheel with
+            # this defect.
+            for sym in FT_Palette_Data_Get FT_Palette_Select FT_Get_Color_Glyph_Layer; do
+              nm -D --defined-only /usr/lib64/libfreetype.so.6 | grep -q "$sym" || {
+                echo "::error::rebuilt FreeType still lacks $sym"; exit 1; }
+            done
+            echo "FreeType $(pkg-config --modversion freetype2) provides the COLR APIs Skia needs"
+
+      # The wheel was never loaded before being published. `import elysium` is
+      # not sufficient on its own: python/elysium/__init__.py catches the
+      # ImportError from the native extension and continues with
+      # _NATIVE_AVAILABLE = False, which is why 1.2.0's broken Linux wheel
+      # sailed through the post-publish version check.
+      - name: Verify the built wheel actually loads its native extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          whl=$(ls dist-wheels/*.whl | head -1)
+          echo "installing $whl"
+          python -m pip install --force-reinstall "$whl"
+          python - <<'PY'
+          import elysium
+          if not elysium._NATIVE_AVAILABLE:
+              raise SystemExit(
+                  "::error::native extension failed to import: "
+                  f"{getattr(elysium, '_import_error', 'unknown')}")
+          from elysium._native import _native as n
+          print("native extension loaded OK, version", n.__version__)
+          PY
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v7
@@ -184,4 +250,18 @@ jobs:
             echo "::error::published __version__ ($got) != release tag ($VERSION)"
             exit 1
           fi
-          echo "OK: published wheel reports the correct version"
+          # Version alone is not proof the wheel works. __init__ swallows the
+          # native extension's ImportError and falls back to
+          # _NATIVE_AVAILABLE = False, so a wheel whose .so cannot load still
+          # reports the right version — exactly how 1.2.0's Linux wheel passed
+          # this gate while being unusable.
+          python - <<'PY'
+          import elysium
+          if not elysium._NATIVE_AVAILABLE:
+              raise SystemExit(
+                  "::error::published wheel imports but its native extension does not: "
+                  f"{getattr(elysium, '_import_error', 'unknown')}")
+          from elysium._native import _native as n
+          print("native extension loaded OK, version", n.__version__)
+          PY
+          echo "OK: published wheel reports the correct version and loads natively"
