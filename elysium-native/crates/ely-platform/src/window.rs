@@ -750,6 +750,10 @@ impl WindowHandle {
     pub fn set_hit_test_path(&self, svg_d: Option<&str>) {
         let mut g = self.inner.hit_test_path.write();
         *g = svg_d.map(ElyPath::from_svg);
+        if svg_d.is_none() {
+            self.cursor_inside_path().store(true, Ordering::Release);
+            self.request_set_ignores_mouse(false);
+        }
     }
 
     pub fn cursor_inside_path(&self) -> &std::sync::atomic::AtomicBool {

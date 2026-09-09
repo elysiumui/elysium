@@ -25,13 +25,22 @@ const IDLE_TICK: std::time::Duration = std::time::Duration::from_millis(8);
 fn monitor_info(h: &winit::monitor::MonitorHandle, is_primary: bool) -> MonitorInfo {
     let pos = h.position();
     let size = h.size();
-    MonitorInfo::from_physical(
+    let info = MonitorInfo::from_physical(
         h.name().unwrap_or_else(|| "display".to_string()),
         (pos.x, pos.y),
         (size.width, size.height),
         h.scale_factor(),
         is_primary,
-    )
+    );
+    #[cfg(target_os = "macos")]
+    let info = {
+        let mut exact = info;
+        unsafe {
+            crate::platform::macos::refine_monitor_work_area(&mut exact);
+        }
+        exact
+    };
+    info
 }
 
 /// Every connected display, primary first. Empty in a headless or remote
@@ -134,15 +143,72 @@ struct LiveWindow {
     a11y_bridge: Option<crate::a11y_bridge::A11yBridge>,
 }
 
+/// Application simulation time. Rendering and input continue while paused.
+#[derive(Debug)]
+struct Playback {
+    anchor: std::time::Instant,
+    elapsed: std::time::Duration,
+    paused: bool,
+    space_enabled: bool,
+}
+
+impl Playback {
+    fn new() -> Self {
+        Self {
+            anchor: std::time::Instant::now(),
+            elapsed: std::time::Duration::ZERO,
+            paused: false,
+            space_enabled: true,
+        }
+    }
+    fn time_at(&self, now: std::time::Instant) -> std::time::Duration {
+        self.elapsed
+            + if self.paused {
+                std::time::Duration::ZERO
+            } else {
+                now.saturating_duration_since(self.anchor)
+            }
+    }
+    fn set_paused_at(&mut self, paused: bool, now: std::time::Instant) {
+        self.elapsed = self.time_at(now);
+        self.anchor = now;
+        self.paused = paused;
+    }
+    fn key(&mut self, code: &str, pressed: bool, repeat: bool, mods: u32) {
+        if self.space_enabled && code == "Space" && pressed && !repeat && mods == 0 {
+            self.set_paused_at(!self.paused, std::time::Instant::now());
+        }
+    }
+}
+
 /// Sendable, lock-free state shared between the event-loop thread and any
 /// thread that may call `quit()` (worker pools, IPC server, signal handlers).
 #[derive(Clone)]
 pub struct AppHandle {
     pending: Arc<Mutex<Vec<PendingWindow>>>,
     quit_flag: Arc<std::sync::atomic::AtomicBool>,
+    playback: Arc<Mutex<Playback>>,
 }
 
 impl AppHandle {
+    pub fn playback_time(&self) -> f64 {
+        self.playback
+            .lock()
+            .time_at(std::time::Instant::now())
+            .as_secs_f64()
+    }
+    pub fn paused(&self) -> bool {
+        self.playback.lock().paused
+    }
+    pub fn set_paused(&self, paused: bool) {
+        self.playback
+            .lock()
+            .set_paused_at(paused, std::time::Instant::now());
+    }
+    pub fn set_space_enabled(&self, enabled: bool) {
+        self.playback.lock().space_enabled = enabled;
+    }
+
     pub fn quit(&self) {
         self.quit_flag
             .store(true, std::sync::atomic::Ordering::Release);
@@ -161,6 +227,7 @@ impl AppLoop {
             handle: AppHandle {
                 pending: Arc::new(Mutex::new(Vec::new())),
                 quit_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                playback: Arc::new(Mutex::new(Playback::new())),
             },
         })
     }
@@ -174,6 +241,13 @@ impl AppLoop {
 
     pub fn create_window(&mut self, cfg: WindowConfig) -> Result<WindowHandle, AppError> {
         let handle = WindowHandle::stub(cfg.clone());
+        let playback = self.handle.playback.clone();
+        handle.anim().set_clock(Arc::new(move || {
+            playback
+                .lock()
+                .time_at(std::time::Instant::now())
+                .as_secs_f64()
+        }));
         self.handle.pending.lock().push(PendingWindow {
             cfg,
             handle: handle.clone(),
@@ -190,6 +264,7 @@ impl AppLoop {
             pending: self.handle.pending.clone(),
             live: Vec::new(),
             quit_flag: self.handle.quit_flag.clone(),
+            playback: self.handle.playback.clone(),
             init_error: None,
             a11y_disabled: matches!(
                 std::env::var("ELYSIUM_DISABLE_A11Y").as_deref(),
@@ -216,6 +291,7 @@ struct AppHandler {
     pending: Arc<Mutex<Vec<PendingWindow>>>,
     live: Vec<LiveWindow>,
     quit_flag: Arc<std::sync::atomic::AtomicBool>,
+    playback: Arc<Mutex<Playback>>,
     init_error: Option<AppError>,
     /// When true, skip attaching the platform accessibility (accesskit)
     /// adapter. Set from `ELYSIUM_DISABLE_A11Y` (any value other than "0").
@@ -846,6 +922,9 @@ impl ApplicationHandler for AppHandler {
                 let pressed = event.state == winit::event::ElementState::Pressed;
                 let text = event.text.as_deref().unwrap_or("").to_string();
                 let mods = lw.handle.keyboard().modifiers.load(Ordering::Acquire);
+                self.playback
+                    .lock()
+                    .key(&code, pressed, event.repeat, mods as u32);
                 {
                     let mut held = lw.handle.keyboard().held.lock();
                     if pressed {
@@ -907,6 +986,36 @@ impl ApplicationHandler for AppHandler {
         if let Some(lw) = self.live.get(idx) {
             for req in lw.handle.drain_window_requests() {
                 apply_window_request(&lw.winit_window, req);
+            }
+            // A moving shaped window must re-evaluate even without CursorMoved;
+            // ignored windows may not receive a re-entry event at all.
+            #[cfg(target_os = "macos")]
+            if let Some(view) = ns_view_ptr(&lw.winit_window) {
+                let path_arc = lw.handle.hit_test_path();
+                let guard = path_arc.read();
+                if let Some(path) = guard.as_ref() {
+                    if let Some((x, y)) = unsafe { crate::platform::macos::cursor_in_view(view) } {
+                        let size = lw
+                            .winit_window
+                            .inner_size()
+                            .to_logical::<f64>(lw.winit_window.scale_factor());
+                        let in_window = x >= 0.0 && y >= 0.0 && x < size.width && y < size.height;
+                        lw.handle.mouse().x.store(x as i32, Ordering::Release);
+                        lw.handle.mouse().y.store(y as i32, Ordering::Release);
+                        lw.handle.mouse().inside.store(in_window, Ordering::Release);
+                        let inside = in_window
+                            && path.contains(ely_core::geometry::Point::new(x as f32, y as f32));
+                        let was = lw
+                            .handle
+                            .cursor_inside_path()
+                            .swap(inside, Ordering::AcqRel);
+                        if inside != was {
+                            unsafe {
+                                crate::platform::macos::set_window_ignores_mouse(view, !inside);
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -990,5 +1099,43 @@ impl ApplicationHandler for AppHandler {
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             std::time::Instant::now() + IDLE_TICK,
         ));
+    }
+}
+
+#[cfg(test)]
+mod playback_tests {
+    use super::*;
+    use std::time::Duration;
+    #[test]
+    fn pause_freezes_time_and_resume_excludes_wait() {
+        let mut p = Playback::new();
+        let t = p.anchor;
+        p.set_paused_at(true, t + Duration::from_secs(2));
+        assert_eq!(
+            p.time_at(t + Duration::from_secs(100)),
+            Duration::from_secs(2)
+        );
+        p.set_paused_at(false, t + Duration::from_secs(100));
+        assert_eq!(
+            p.time_at(t + Duration::from_secs(101)),
+            Duration::from_secs(3)
+        );
+    }
+    #[test]
+    fn space_toggles_once_per_press() {
+        let mut p = Playback::new();
+        p.key("Space", true, false, 0);
+        assert!(p.paused);
+        p.key("Space", true, true, 0);
+        assert!(p.paused);
+        p.key("Space", false, false, 0);
+        assert!(p.paused);
+        p.key("Space", true, false, 8);
+        assert!(p.paused);
+        p.key("Space", true, false, 0);
+        assert!(!p.paused);
+        p.space_enabled = false;
+        p.key("Space", true, false, 0);
+        assert!(!p.paused);
     }
 }

@@ -93,6 +93,25 @@ impl PyApp {
     }
 
     #[getter]
+    fn playback_time(&self) -> f64 {
+        self.handle.playback_time()
+    }
+
+    #[getter]
+    fn paused(&self) -> bool {
+        self.handle.paused()
+    }
+
+    #[setter]
+    fn set_paused(&self, paused: bool) {
+        self.handle.set_paused(paused);
+    }
+
+    fn set_space_pause_enabled(&self, enabled: bool) {
+        self.handle.set_space_enabled(enabled);
+    }
+
+    #[getter]
     fn identifier(&self) -> &str {
         &self.identifier
     }

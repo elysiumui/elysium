@@ -34,6 +34,9 @@ _MAX_SUBSTEPS = 64
 # stall (window drag, breakpoint, GC pause, laptop resume), never intent.
 _MAX_REALTIME_DT = 0.25
 
+# Set by App; explicit tick(dt) remains deterministic for offline evaluation.
+_app_time: Callable[[], float] | None = None
+
 T = TypeVar("T")
 
 # ---------------------------------------------------------------------------
@@ -464,7 +467,7 @@ class AnimationClock:
         `tick(dt)` is deliberately *not* clamped: it is the deterministic
         stepping API that tests and fixed-timestep callers rely on.
         """
-        now = time.perf_counter()
+        now = _app_time() if _app_time is not None else time.perf_counter()
         if self._last_real_time is None:
             self._last_real_time = now
             return 0.0

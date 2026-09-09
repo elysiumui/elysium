@@ -51,6 +51,8 @@ def placement_add(session, kind: str, x: float, y: float,
 def placement_remove(session, id: str) -> dict:
     p = session.lookup(id)
     designer = session.designer
+    from ...render import scene
+    scene.detach_children(designer.placements, [p])
     designer.placements.remove(p)
     return {"removed": id}
 

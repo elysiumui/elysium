@@ -899,7 +899,8 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                 wireframe: bool = False, wireframe_width: float = 1.0,
                 transparent_bg: bool = False,
                 cam_target: Tuple[float, float, float] = (0., 0., 0.),
-                hit_output: dict | None = None) -> bytes:
+                hit_output: dict | None = None,
+                ortho_scale: float | None = None) -> bytes:
     """Render a MeshObject with Cook-Torrance PBR + IBL. Returns RGBA bytes.
 
     When ``transparent_bg`` is True, pixels that don't hit the mesh
@@ -915,6 +916,8 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     look = -cam_pos / max(np.linalg.norm(cam_pos), 1e-8)
     cam_pos += np.asarray(cam_target, dtype=np.float32)
     up_w = np.array([0, 1, 0], dtype=np.float32)
+    if abs(look[1]) > 0.9999:
+        up_w = np.array([0, 0, -1], dtype=np.float32)
     right = np.cross(look, up_w); right /= max(np.linalg.norm(right), 1e-8)
     up = np.cross(right, look)
 
@@ -931,6 +934,12 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     rd = rd / np.maximum(np.linalg.norm(rd, axis=-1, keepdims=True), 1e-8)
     rd_flat = rd.reshape(-1, 3)
     ro_flat = np.broadcast_to(cam_pos, rd_flat.shape).copy()
+    if ortho_scale is not None:
+        if not math.isfinite(ortho_scale) or ortho_scale <= 0:
+            raise ValueError("Orthographic scale must be positive and finite")
+        offset = (u[..., None] * aspect * right + v[..., None] * up) * ortho_scale / 2
+        ro_flat += offset.reshape(-1, 3)
+        rd_flat = np.broadcast_to(look, rd_flat.shape).copy()
 
     # Mesh world geom + intersect.
     verts_w, face_normals, face_centers = _world_transform(obj)

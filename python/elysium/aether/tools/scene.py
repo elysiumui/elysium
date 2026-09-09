@@ -41,4 +41,167 @@ def transform_set(session, id, transform):
 )
 def transform_get(session, id):
     p = session.lookup(id)
-    return {"placement_id": id, "transform": scene.transform(p), "matrix": scene.matrix(p).tolist()}
+    index = next(i for i, candidate in enumerate(session.designer.placements) if candidate is p)
+    return {
+        "placement_id": session.id_for(p),
+        "transform": scene.transform(p),
+        "matrix": scene.matrix(p).tolist(),
+        "world_matrix": scene.world_matrices(session.designer.placements)[index].tolist(),
+        "parent_id": scene.parent_data(p)[0],
+    }
+
+
+@register_tool(
+    name="scene.parent_set",
+    description="Parent a mesh/group to a stable scene entity, or detach it. Keep-world preserves visible geometry including shear. Cycles are rejected.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "parent_id": {"type": ["string", "null"]},
+            "keep_world": {"type": "boolean"},
+        },
+        "required": ["id", "parent_id"],
+    },
+)
+def parent_set(session, id, parent_id, keep_world=True):
+    child = session.lookup(id)
+    parent = None if parent_id is None else session.lookup(parent_id)
+    return {
+        "placement_id": session.id_for(child),
+        "parent": scene.set_parent(
+            session.designer.placements, child, parent, keep_world=keep_world
+        ),
+    }
+
+
+@register_tool(
+    name="scene.transform_apply",
+    description="Apply local mesh transforms to editable geometry while preserving UVs, normals, pivots and child world positions.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"id": {"type": "string"}},
+        "required": ["id"],
+    },
+)
+def transform_apply(session, id):
+    p = session.lookup(id)
+    scene.apply_transform(session.designer.placements, p)
+    return {
+        "placement_id": session.id_for(p),
+        "mesh_key": p.mesh_kind,
+        "transform": scene.transform(p),
+    }
+
+
+@register_tool(
+    name="scene.group_create",
+    description="Create an empty transform group. Children are attached with scene.parent_set.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    },
+)
+def group_create(session, name):
+    d = session.designer
+    p = session.designer_models.Placement(
+        kind="SceneGroup", name=name, x=0, y=0, w=0, h=0, props={}
+    )
+    d.placements.append(p)
+    d._select_placement(len(d.placements) - 1)
+    return {"placement_id": session.id_for(p), "name": p.name}
+
+
+@register_tool(
+    name="scene.camera_set",
+    description="Set the persistent shared scene camera. Angles are radians; orthographic scale is vertical meters. Enables 3D Scene view.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "camera": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "target": _VECTOR,
+                    "projection": {"enum": ["perspective", "orthographic"]},
+                    **{k: {"type": "number"} for k in ("yaw", "pitch", "distance", "ortho_scale")},
+                },
+            }
+        },
+        "required": ["camera"],
+    },
+)
+def camera_set(session, camera):
+    w = session.designer.window_doc
+    w.scene_camera = scene.camera({**w.scene_camera, **camera})
+    w.scene_view = True
+    return {"camera": w.scene_camera}
+
+
+@register_tool(
+    name="mesh.taper_set",
+    description="Set a retained native taper. Start/end XYZ factors apply at minimum/maximum local axis; the axis coordinate is unchanged. Source geometry stays editable.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "taper": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"axis": {"enum": ["x", "y", "z"]}, "start": _VECTOR, "end": _VECTOR},
+            },
+        },
+        "required": ["id", "taper"],
+    },
+)
+def taper_set(session, id, taper):
+    from ...render import mesh_edit
+
+    p = session.lookup(id)
+    return {"placement_id": session.id_for(p), "taper": mesh_edit.taper_set(p, taper)}
+
+
+@register_tool(
+    name="scene.key_set",
+    description="Set or replace a persistent local-transform key at an integer frame (60 fps). Explicit transform values are optional; otherwise capture current pose.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "frame": {"type": "integer", "minimum": 0, "maximum": 360000},
+            "transform": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {k: _VECTOR for k in scene.DEFAULT},
+            },
+        },
+        "required": ["id", "frame"],
+    },
+)
+def key_set(session, id, frame, transform=None):
+    from ...render import scene_animation
+
+    return scene_animation.set_key(session.lookup(id), frame, transform)
+
+
+@register_tool(
+    name="scene.frame_set",
+    description="Seek the shared 3D scene to a frame at 60 fps. Evaluates keys and parented objects.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"frame": {"type": "integer", "minimum": 0, "maximum": 360000}},
+        "required": ["frame"],
+    },
+)
+def frame_set(session, frame):
+    from ...render import scene_animation
+
+    return {"frame": scene_animation.seek(session.designer, frame)}
