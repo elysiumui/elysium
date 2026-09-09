@@ -749,3 +749,47 @@ def test_merge_pinched_polygon_rejects_atomically():
 def test_merge_rejects_insufficient_or_stale_selection(identities):
     with pytest.raises(ValueError, match='at least two existing'):
         topology.merge_center(cube(), identities)
+
+
+@pytest.mark.parametrize('operation,values,expected', [
+    ('rotate', [0, 90, 0], [[-1, 1, -1], [-1, 1, 1], [1, 1, -1], [1, 1, 1]]),
+    ('scale', [.5, 1, 2], [[-.5, 1, -2], [-.5, 1, 2], [.5, 1, -2], [.5, 1, 2]]),
+])
+def test_component_transform_uses_selected_center_and_preserves_other_vertices(operation, values, expected):
+    mesh = cube()
+    chosen = [v['id'] for v in mesh.topology['vertices'] if v['position'][1] == 1]
+    original = mesh_document.to_json(mesh)
+    result = topology.transform_vertices(mesh, chosen, operation, values)
+    selected = sorted(v['position'] for v in result.topology['vertices'] if v['id'] in chosen)
+    # Round only for ordering of +/-90 degree trigonometric near-equalities.
+    np.testing.assert_allclose(sorted(np.round(selected, 10).tolist()), expected, atol=1e-12)
+    before = {v['id']:v for v in mesh.topology['vertices']}
+    assert all(v == before[v['id']] for v in result.topology['vertices'] if v['id'] not in chosen)
+    assert result.topology['edges'] == mesh.topology['edges']
+    assert mesh_document.to_json(mesh) == original
+
+
+def test_proportional_rotation_weights_angles_and_preserves_radial_distance():
+    mesh = cube()
+    mesh = topology.delete_components(mesh, 'faces', [f['id'] for f in mesh.topology['faces']])
+    chosen = []
+    for position in ([-1,0,0], [1,0,0], [0,1,0]):
+        mesh, identity = topology.add_vertex(mesh, position)
+        chosen.append(identity)
+    result = topology.transform_vertices(mesh, chosen[:2], 'rotate', [0,0,90], radius=3)
+    probe = result.topology['vertices'][2]['position']
+    t = 1 - np.sqrt(2) / 3
+    theta = np.pi/2 * t*t*(3-2*t)
+    np.testing.assert_allclose(probe, [-np.sin(theta), np.cos(theta), 0], atol=1e-12)
+    assert np.linalg.norm(probe) == pytest.approx(1)
+
+
+def test_zero_scale_collapse_rejects_before_mesh_binding():
+    p = SimpleNamespace(kind='Mesh3D', name='Cube', props={}, mesh_kind='')
+    mesh = cube()
+    mesh_document.bind(p, mesh, label='Cube')
+    topology.select(p, 'faces', [f['id'] for f in mesh.topology['faces']])
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match='zero area|degenerate'):
+        topology.edit_selected(p, 'scale', scale=[0,0,0])
+    assert vars(p) == before

@@ -855,12 +855,9 @@ def merge_center(mesh, vertex_ids):
     return compile(doc)[0], target
 
 
-def move_vertices(mesh, vertex_ids, offset, *, radius=0.0):
-    """Move points with optional smooth Euclidean falloff from selected vertices."""
-    delta = _coordinates(offset)
+def _influence(doc, vertex_ids, radius):
     if type(radius) not in (int, float) or not 0 <= radius <= MAX_FLOAT32 or not isfinite(radius):
         raise ValueError("Proportional radius must be finite and nonnegative")
-    doc = document(mesh)
     if not vertex_ids or set(vertex_ids) - {v["id"] for v in doc["vertices"]}:
         raise ValueError("Select existing vertices")
     positions = np.array([v["position"] for v in doc["vertices"]], dtype=float)
@@ -874,10 +871,14 @@ def move_vertices(mesh, vertex_ids, offset, *, radius=0.0):
         weights[mask] = 1
     else:
         weights = mask.astype(float)
+    return positions, mask, weights
+
+
+def _publish_positions(doc, positions, weights):
     moved = set()
     for vertex, position, weight in zip(doc["vertices"], positions, weights):
         if weight > 0:
-            vertex["position"] = (position + delta * weight).tolist()
+            vertex["position"] = position.tolist()
             moved.add(vertex["id"])
     # Recalculate affected normals, preserving corner UVs and material slots.
     for face in doc["faces"]:
@@ -885,6 +886,41 @@ def move_vertices(mesh, vertex_ids, offset, *, radius=0.0):
             for c in face["corners"]:
                 c["normal"] = None
     return compile(doc)[0]
+
+
+def move_vertices(mesh, vertex_ids, offset, *, radius=0.0):
+    """Move points with optional smooth Euclidean falloff from selected vertices."""
+    delta = _coordinates(offset)
+    doc = document(mesh)
+    positions, _, weights = _influence(doc, vertex_ids, radius)
+    return _publish_positions(doc, positions + weights[:, None] * delta, weights)
+
+
+def transform_vertices(mesh, vertex_ids, operation, values, *, radius=0.0):
+    """Rotate (XYZ local degrees) or scale about the selected vertex mean.
+
+    Proportional rotation weights angles, not endpoint displacements. Scaling
+    weights each factor's difference from one. Both use the original distances.
+    """
+    values = _coordinates(values)
+    doc = document(mesh)
+    positions, mask, weights = _influence(doc, vertex_ids, radius)
+    center = positions[mask].mean(axis=0)
+    transformed = positions - center
+    if operation == "rotate":
+        for axis, degrees in enumerate(values):
+            a, b = (axis + 1) % 3, (axis + 2) % 3
+            radians = np.radians(degrees * weights)
+            cosine, sine = np.cos(radians), np.sin(radians)
+            first = transformed[:, a].copy()
+            second = transformed[:, b].copy()
+            transformed[:, a] = cosine * first - sine * second
+            transformed[:, b] = sine * first + cosine * second
+    elif operation == "scale":
+        transformed *= 1 + weights[:, None] * (values - 1)
+    else:
+        raise ValueError("Choose component rotate or scale")
+    return _publish_positions(doc, transformed + center, weights)
 
 
 def select(placement, mode, identities, *, additive=False):
@@ -978,6 +1014,8 @@ def edit_selected(
     offset=(0.0, 0.0, 0.0),
     position=(0.0, 0.0, 0.0),
     radius=0.0,
+    rotation=(0.0, 0.0, 0.0),
+    scale=(1.0, 1.0, 1.0),
 ):
     from . import mesh_document
 
@@ -1023,7 +1061,7 @@ def edit_selected(
     elif operation == "fill":
         result, face_id = fill_loop(mesh, selected.get("mode"), selected.get("ids", []))
         selected = {"mode": "faces", "ids": [face_id]}
-    elif operation == "move":
+    elif operation in ("move", "rotate", "scale"):
         doc = document(mesh)
         chosen = selected.get("ids", [])
         mode = selected.get("mode")
@@ -1037,7 +1075,12 @@ def edit_selected(
             ids = {c["vertex"] for f in doc["faces"] if f["id"] in chosen for c in f["corners"]}
         else:
             raise ValueError("Select components to move")
-        result = move_vertices(mesh, ids, offset, radius=radius)
+        if operation == "move":
+            result = move_vertices(mesh, ids, offset, radius=radius)
+        else:
+            result = transform_vertices(
+                mesh, ids, operation, rotation if operation == "rotate" else scale, radius=radius
+            )
     else:
         raise ValueError("Unknown topology operation")
     key = mesh_document.bind(placement, result, label=placement.name)
