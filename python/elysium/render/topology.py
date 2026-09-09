@@ -6,8 +6,11 @@ copies so callers can publish one undoable mesh revision atomically.
 """
 
 from copy import deepcopy
+from math import isfinite
 
 import numpy as np
+
+MAX_FLOAT32 = float(np.finfo(np.float32).max)
 
 
 def _id(doc, prefix):
@@ -158,57 +161,117 @@ def triangles(points):
 
 
 def validate(doc):
-    if not isinstance(doc, dict) or doc.get("schema_version") not in (1, 2):
-        raise ValueError("Unsupported editable topology version")
+    """Validate the complete retained source before compilation or publication."""
+    fields = {
+        "schema_version",
+        "next_id",
+        "vertices",
+        "edges",
+        "faces",
+        "part_names",
+        "part_pivots",
+    }
+    if (
+        not isinstance(doc, dict)
+        or set(doc) - fields
+        or type(doc.get("schema_version")) is not int
+        or doc["schema_version"] not in (1, 2)
+    ):
+        raise ValueError("Unsupported editable topology version or fields")
     if type(doc.get("next_id")) is not int or doc["next_id"] < 1:
         raise ValueError("Invalid topology identity counter")
+    for kind in ("vertices", "edges", "faces"):
+        if not isinstance(doc.get(kind), list):
+            raise ValueError(f"Topology {kind} must be an array")  # noqa: TRY004 — document validation boundary
     seen = set()
 
-    def identity(item):
+    def record(item, allowed, required):
+        if not isinstance(item, dict) or set(item) - allowed or not required <= item.keys():
+            raise ValueError("Invalid topology component fields")
+
+    def identity(item, prefix):
         ident = item.get("id")
         if (
             not isinstance(ident, str)
             or len(ident) < 2
+            or ident[0] != prefix
+            or not ident[1:].isascii()
             or not ident[1:].isdigit()
-            or ident in seen
+            or ident[1] == "0"
+            or int(ident[1:]) in seen
             or int(ident[1:]) >= doc["next_id"]
         ):
             raise ValueError("Invalid or duplicate topology identity")
-        seen.add(ident)
+        seen.add(int(ident[1:]))
 
+    def vector(value, size, label):
+        if (
+            not isinstance(value, list)
+            or len(value) != size
+            or any(
+                type(v) not in (int, float) or abs(v) > MAX_FLOAT32 or not isfinite(v)
+                for v in value
+            )
+        ):
+            raise ValueError(f"Invalid {label}: requires {size} finite numeric values")
+
+    names = doc.get("part_names")
+    if names is not None and (
+        not isinstance(names, list)
+        or any(not isinstance(n, str) for n in names)
+        or len(set(names)) != len(names)
+    ):
+        raise ValueError("Part names must be an array of unique strings")
+    pivots = doc.get("part_pivots")
+    if pivots is not None:
+        if not isinstance(pivots, list) or len(pivots) != len(names or []):
+            raise ValueError("One pivot is required per named part")
+        for pivot in pivots:
+            vector(pivot, 3, "part pivot")
     verts = {}
     for vertex in doc["vertices"]:
-        identity(vertex)
-        values = vertex["position"]
-        if len(values) != 3 or any(
-            type(v) not in (int, float) or not np.isfinite(v) for v in values
-        ):
-            raise ValueError("Vertex position must have three finite coordinates")
-        verts[vertex["id"]] = values
+        record(vertex, {"id", "position", "part"}, {"id", "position"})
+        identity(vertex, "v")
+        vector(vertex["position"], 3, "vertex position")
+        part = vertex.get("part")
+        if part is not None and (type(part) is not int or not 0 <= part < len(names or [])):
+            raise ValueError("Vertex part index outside named parts")
+        verts[vertex["id"]] = vertex["position"]
     needed = set()
     for face in doc["faces"]:
-        identity(face)
-        if type(face["material"]) is not int or face["material"] < 0:
+        record(face, {"id", "corners", "material"}, {"id", "corners", "material"})
+        identity(face, "f")
+        if type(face["material"]) is not int or not 0 <= face["material"] < 2**31:
             raise ValueError("Invalid polygon material slot")
+        if not isinstance(face["corners"], list):
+            raise ValueError("Polygon corners must be an array")  # noqa: TRY004 — document validation boundary
         ids = []
         for corner in face["corners"]:
-            identity(corner)
-            if corner["vertex"] not in verts:
+            record(corner, {"id", "vertex", "uv", "normal"}, {"id", "vertex"})
+            identity(corner, "c")
+            if not isinstance(corner["vertex"], str) or corner["vertex"] not in verts:
                 raise ValueError("Corner references a missing vertex")
             ids.append(corner["vertex"])
             for field, size in (("uv", 2), ("normal", 3)):
                 value = corner.get(field)
-                if value is not None and (len(value) != size or not np.isfinite(value).all()):
-                    raise ValueError(f"Invalid corner {field}")
+                if value is not None:
+                    vector(value, size, f"corner {field}")
         if len(ids) < 3 or len(ids) != len(set(ids)):
             raise ValueError("Polygon requires at least three distinct vertices")
         triangles([verts[i] for i in ids])
         needed.update(tuple(sorted((a, b))) for a, b in zip(ids, ids[1:] + ids[:1]))
     actual = set()
     for edge in doc["edges"]:
-        identity(edge)
-        if len(edge["vertices"]) != 2:
-            raise ValueError("Edge requires two vertices")
+        record(edge, {"id", "vertices", "seam", "sharp"}, {"id", "vertices", "seam", "sharp"})
+        identity(edge, "e")
+        if (
+            not isinstance(edge["vertices"], list)
+            or len(edge["vertices"]) != 2
+            or any(not isinstance(v, str) for v in edge["vertices"])
+        ):
+            raise ValueError("Edge requires two vertex identities")
+        if type(edge["seam"]) is not bool or type(edge["sharp"]) is not bool:
+            raise ValueError("Edge seam and sharp attributes must be booleans")
         pair = tuple(sorted(edge["vertices"]))
         if (
             pair in actual

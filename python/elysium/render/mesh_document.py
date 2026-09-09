@@ -66,6 +66,8 @@ def validate(mesh: pbr.Mesh) -> None:
     if mesh.topology is not None:
         from . import topology
         compiled, _, _ = topology.compile(mesh.topology)
+        if mesh.part_names != compiled.part_names:
+            raise ValueError("Editable topology and compiled mesh.part_names disagree")
         for key in ARRAY_FIELDS:
             a, b = getattr(mesh, key), getattr(compiled, key)
             if a is None and b is None:

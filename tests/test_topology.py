@@ -518,3 +518,66 @@ def test_edge_extrusion_rejects_interior_or_degenerate_sweeps_atomically():
     with pytest.raises(ValueError):
         topology.extrude_edges(plane, [edge["id"]], parallel)
     assert mesh_document.to_json(plane) == original
+
+
+@pytest.mark.parametrize(
+    "path,value",
+    [
+        (("schema_version",), True),
+        (("vertices",), None),
+        (("edges",), {}),
+        (("faces",), "invalid"),
+        (("next_id",), False),
+        (("vertices", 0), []),
+        (("vertices", 0, "id"), "x1"),
+        (("vertices", 0, "id"), "v01"),
+        (("vertices", 0, "id"), "v٠١"),
+        (("vertices", 0, "position"), None),
+        (("vertices", 0, "position"), [True, 0, 0]),
+        (("vertices", 0, "position"), [10**500, 0, 0]),
+        (("vertices", 0, "part"), 0),
+        (("part_names",), "Wing"),
+        (("part_names",), [["Wing"]]),
+        (("part_names",), ["Wing", "Wing"]),
+        (("part_pivots",), [[0, 0, 0]]),
+        (("faces", 0, "corners"), None),
+        (("faces", 0, "material"), 2**31),
+        (("faces", 0, "corners", 0, "uv"), ["0", "1"]),
+        (("faces", 0, "corners", 0, "normal"), [0, float("nan"), 0]),
+        (("faces", 0, "corners", 0, "vertex"), []),
+        (("edges", 0, "vertices"), [1, 2]),
+        (("edges", 0, "seam"), "false"),
+        (("edges", 0, "sharp"), 1),
+        (("edges", 0, "id"), "e1"),
+    ],
+)
+def test_malformed_topology_is_rejected_as_validation_error(path, value):
+    source = deepcopy(cube().topology)
+    target = source
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
+    before = deepcopy(source)
+    with pytest.raises(ValueError):
+        topology.compile(source)
+    # Validation never repairs or mutates the supplied source.
+    assert repr(source) == repr(before)
+
+
+def test_unknown_topology_fields_and_part_name_disagreement_reject_before_restore():
+    mesh = cube()
+    source = deepcopy(mesh.topology)
+    source["faces"][0]["unsupported_attribute"] = "retain or reject, never silently discard"
+    with pytest.raises(ValueError, match="component fields"):
+        topology.compile(source)
+    source = deepcopy(mesh.topology)
+    source["part_names"] = ["Body"]
+    source["part_pivots"] = [[0, 0, 0]]
+    for vertex in source["vertices"]:
+        vertex["part"] = 0
+    asset = mesh_document.to_json(topology.compile(source)[0])
+    asset["part_names"] = ["Other"]
+    before = set(primitives.pbr.MESH_LIBRARY)
+    with pytest.raises(ValueError, match="part_names disagree"):
+        mesh_document.restore({"schema_version": 2, "assets": {"invalid-parts": asset}})
+    assert set(primitives.pbr.MESH_LIBRARY) == before
