@@ -844,3 +844,64 @@ def test_dissolve_invalid_regions_reject_atomically(case):
     with pytest.raises(ValueError):
         topology.edit_selected(p, 'dissolve_edges')
     assert vars(p) == before
+
+
+def test_center_loop_cut_cube_preserves_volume_and_watertight_winding():
+    mesh = cube()
+    doc = mesh.topology
+    points = {v['id']:v['position'] for v in doc['vertices']}
+    seed = next(e['id'] for e in doc['edges'] if all(points[v][0] == -1 and points[v][2] == -1 for v in e['vertices']))
+    original = mesh_document.to_json(mesh)
+    result, selected = topology.loop_cut(mesh, [seed])
+    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [12,20,10]
+    assert len(selected) == 4
+    points = {v['id']:v['position'] for v in result.topology['vertices']}
+    assert all(points[v][1] == 0 for e in result.topology['edges'] if e['id'] in selected for v in e['vertices'])
+    assert all(len(f['corners']) == 4 for f in result.topology['faces'])
+    assert signed_volume(result) == pytest.approx(8)
+    assert all(len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values())
+    assert mesh_document.to_json(mesh) == original
+    assert mesh_document.from_json(mesh_document.to_json(result)).topology == result.topology
+
+
+def test_loop_cut_interpolates_uvs_and_inherits_edge_flags():
+    mesh = primitives.build('Plane', {'width':2,'depth':2,'segments':1})[0]
+    doc = deepcopy(mesh.topology)
+    doc['edges'][0]['seam'] = doc['edges'][0]['sharp'] = True
+    doc['faces'][0]['material'] = 3
+    for corner, uv in zip(doc['faces'][0]['corners'], [[0,0],[1,0],[1,1],[0,1]]):
+        corner['uv'] = uv
+        corner['normal'] = [0,1,0]
+    mesh = topology.compile(doc)[0]
+    result, selected = topology.loop_cut(mesh, [doc['edges'][0]['id']])
+    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [6,7,2]
+    assert len(selected) == 1
+    assert sum(e['seam'] and e['sharp'] for e in result.topology['edges']) == 2
+    assert all(f['material'] == 3 for f in result.topology['faces'])
+    old = {c['id']:c for c in doc['faces'][0]['corners']}
+    corners = [c for f in result.topology['faces'] for c in f['corners']]
+    assert all(c == old[c['id']] for c in corners if c['id'] in old)
+    assert len([c for c in corners if c['id'] not in old]) == 4
+    assert all(.5 in c['uv'] for c in corners if c['id'] not in old)
+
+
+def test_loop_cut_crosses_bounded_quad_strip_without_t_junctions():
+    mesh = primitives.build('Plane', {'width':2,'depth':2,'segments':2})[0]
+    points = {v['id']:v['position'] for v in mesh.topology['vertices']}
+    seed = next(e['id'] for e in mesh.topology['edges'] if all(points[v] in [[0,0,-1],[0,0,0]] for v in e['vertices']))
+    result, selected = topology.loop_cut(mesh, [seed])
+    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [12,17,6]
+    assert len(selected) == 2
+    assert all(len(f['corners']) == 4 for f in result.topology['faces'])
+    assert len(topology.loose_edges(result.topology)) == 0
+
+
+def test_loop_cut_rejects_triangle_strip_without_mutation():
+    mesh = primitives.build('Cone', {'radius':1,'height':2,'segments':8})[0]
+    p = SimpleNamespace(kind='Mesh3D', name='Cone', props={}, mesh_kind='')
+    mesh_document.bind(p, mesh, label='Cone')
+    topology.select(p, 'edges', [mesh.topology['edges'][0]['id']])
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match='quad'):
+        topology.edit_selected(p, 'loop_cut')
+    assert vars(p) == before

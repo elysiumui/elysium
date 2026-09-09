@@ -578,6 +578,90 @@ def delete_components(mesh, mode, identities):
     return compile(doc)[0]
 
 
+def loop_cut(mesh, identities):
+    """Insert one centered cut through the quad strip reached from a seed edge."""
+    doc = document(mesh)
+    edges = {e["id"]: e for e in doc["edges"]}
+    if len(identities) != 1 or identities[0] not in edges:
+        raise ValueError("Select one existing edge to start a centered loop cut")
+    adjacent = {}
+    face_pairs = {}
+    for face in doc["faces"]:
+        pairs = list(edge_usage({"faces": [face]}))
+        face_pairs[face["id"]] = pairs
+        for pair in pairs:
+            adjacent.setdefault(pair, []).append(face)
+    pending = [tuple(sorted(edges[identities[0]]["vertices"]))]
+    cut, touched = set(), {}
+    while pending:
+        pair = pending.pop()
+        if pair in cut:
+            continue
+        neighbors = adjacent.get(pair, [])
+        if not 1 <= len(neighbors) <= 2:
+            raise ValueError("Loop cut requires manifold quad edges, not loose wires")
+        cut.add(pair)
+        for face in neighbors:
+            pairs = face_pairs[face["id"]]
+            if len(pairs) != 4:
+                raise ValueError("Loop cut requires a connected strip of quad faces")
+            opposite = pairs[(pairs.index(pair) + 2) % 4]
+            pending.append(opposite)
+            touched[face["id"]] = face
+    vertices = {v["id"]: v for v in doc["vertices"]}
+    midpoints = {}
+    split_edges = []
+    for edge in doc["edges"]:
+        pair = tuple(sorted(edge["vertices"]))
+        if pair not in cut:
+            split_edges.append(edge)
+            continue
+        a, b = [vertices[v] for v in edge["vertices"]]
+        if a["part"] != b["part"]:
+            raise ValueError("Loop cut cannot interpolate across named parts")
+        vertex = {"id": _id(doc, "v"), "position": ((np.array(a["position"]) + b["position"]) / 2).tolist(), "part": a["part"]}
+        doc["vertices"].append(vertex)
+        midpoints[pair] = vertex["id"]
+        for i, endpoint in enumerate(edge["vertices"]):
+            half = deepcopy(edge)
+            half["id"] = edge["id"] if i == 0 else _id(doc, "e")
+            half["vertices"] = sorted((endpoint, vertex["id"]))
+            split_edges.append(half)
+    faces, centers = [], []
+
+    def midpoint_corner(a, b, identity):
+        uv = None if a["uv"] is None or b["uv"] is None else ((np.array(a["uv"]) + b["uv"]) / 2).tolist()
+        n = None
+        if a["normal"] is not None and b["normal"] is not None:
+            average = np.array(a["normal"]) + b["normal"]
+            length = np.linalg.norm(average)
+            if length > 1e-12:
+                n = (average / length).tolist()
+        return _corner(doc, identity, uv, n)
+
+    for face in doc["faces"]:
+        if face["id"] not in touched:
+            faces.append(face)
+            continue
+        pairs = face_pairs[face["id"]]
+        crossed = [i for i, pair in enumerate(pairs) if pair in cut]
+        if len(crossed) != 2 or (crossed[1] - crossed[0]) % 4 != 2:
+            raise ValueError("Loop cut cannot cross itself within a face")
+        i = crossed[0]
+        c = face["corners"][i:] + face["corners"][:i]
+        first, second = midpoints[pairs[i]], midpoints[pairs[(i + 2) % 4]]
+        faces.append({"id": face["id"], "material": face["material"], "corners": [midpoint_corner(c[0], c[1], first), c[1], c[2], midpoint_corner(c[2], c[3], second)]})
+        faces.append({"id": _id(doc, "f"), "material": face["material"], "corners": [midpoint_corner(c[2], c[3], second), c[3], c[0], midpoint_corner(c[0], c[1], first)]})
+        centers.append(tuple(sorted((first, second))))
+    loose = loose_edges(doc)
+    doc["faces"] = faces
+    doc["edges"] = split_edges
+    _edges(doc, loose)
+    doc["schema_version"] = 2
+    selected = [e["id"] for e in doc["edges"] if tuple(sorted(e["vertices"])) in centers]
+    return compile(doc)[0], selected
+
+
 def dissolve_edges(mesh, identities):
     """Join planar face regions across selected interior edges, keeping boundaries.
 
@@ -1134,6 +1218,11 @@ def edit_selected(
             raise ValueError("Choose edge selection mode first")
         result, face_ids = dissolve_edges(mesh, selected.get("ids", []))
         selected = {"mode": "faces", "ids": face_ids}
+    elif operation == "loop_cut":
+        if selected.get("mode") != "edges":
+            raise ValueError("Choose edge selection mode first")
+        result, edge_ids = loop_cut(mesh, selected.get("ids", []))
+        selected = {"mode": "edges", "ids": edge_ids}
     elif operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
             raise ValueError(f"{operation.title()} requires selected faces")
