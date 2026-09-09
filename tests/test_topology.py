@@ -793,3 +793,54 @@ def test_zero_scale_collapse_rejects_before_mesh_binding():
     with pytest.raises(ValueError, match='zero area|degenerate'):
         topology.edit_selected(p, 'scale', scale=[0,0,0])
     assert vars(p) == before
+
+
+def test_dissolve_planar_region_preserves_boundary_ids_and_corner_uvs():
+    mesh = primitives.build('Plane', {'width':2, 'depth':2, 'segments':2})[0]
+    original = mesh_document.to_json(mesh)
+    usage = topology.edge_usage(mesh.topology)
+    ids = [e['id'] for e in mesh.topology['edges'] if len(usage[tuple(sorted(e['vertices']))]) == 2]
+    result, joined = topology.dissolve_edges(mesh, ids)
+    doc = result.topology
+    assert [len(doc[k]) for k in ('vertices','edges','faces')] == [8,8,1]
+    assert joined == [mesh.topology['faces'][0]['id']]
+    assert len(doc['faces'][0]['corners']) == 8
+    corners = {c['id']:c for f in mesh.topology['faces'] for c in f['corners']}
+    assert all(c['uv'] == corners[c['id']]['uv'] for c in doc['faces'][0]['corners'])
+    assert {e['id'] for e in doc['edges']} == {e['id'] for e in mesh.topology['edges']} - set(ids)
+    assert mesh_document.to_json(mesh) == original
+    assert mesh_document.from_json(mesh_document.to_json(result)).topology == doc
+
+
+def test_dissolve_single_edge_retains_unaffected_polygons_and_orphan_wires():
+    mesh = primitives.build('Plane', {'width':2, 'depth':2, 'segments':2})[0]
+    usage = topology.edge_usage(mesh.topology)
+    seed = next(e['id'] for e in mesh.topology['edges'] if len(usage[tuple(sorted(e['vertices']))]) == 2)
+    mesh, first = topology.add_vertex(mesh, [5,0,0])
+    mesh, second = topology.add_vertex(mesh, [6,0,0])
+    mesh, wire = topology.connect_vertices(mesh, [first, second])
+    result, joined = topology.dissolve_edges(mesh, [seed])
+    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [11,12,3]
+    assert sorted(len(f['corners']) for f in result.topology['faces']) == [4,4,6]
+    assert any(e['id'] == wire for e in result.topology['edges'])
+    before = {f['id']:f for f in mesh.topology['faces']}
+    assert all(f == before[f['id']] for f in result.topology['faces'] if f['id'] not in joined)
+
+
+@pytest.mark.parametrize('case', ['boundary','nonplanar','material'])
+def test_dissolve_invalid_regions_reject_atomically(case):
+    mesh = cube() if case == 'nonplanar' else primitives.build('Plane', {'width':2,'depth':2,'segments':2})[0]
+    doc = deepcopy(mesh.topology)
+    if case == 'material':
+        for i,f in enumerate(doc['faces']):
+            f['material'] = i
+    mesh = topology.compile(doc)[0]
+    usage = topology.edge_usage(doc)
+    seed = next(e['id'] for e in doc['edges'] if len(usage[tuple(sorted(e['vertices']))]) == (1 if case == 'boundary' else 2))
+    p = SimpleNamespace(kind='Mesh3D', name='Dissolve', props={}, mesh_kind='')
+    mesh_document.bind(p, mesh, label='Dissolve')
+    topology.select(p, 'edges', [seed])
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError):
+        topology.edit_selected(p, 'dissolve_edges')
+    assert vars(p) == before

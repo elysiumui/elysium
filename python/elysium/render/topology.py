@@ -578,6 +578,92 @@ def delete_components(mesh, mode, identities):
     return compile(doc)[0]
 
 
+def dissolve_edges(mesh, identities):
+    """Join planar face regions across selected interior edges, keeping boundaries.
+
+    Boundary vertices are retained, and existing loose geometry is untouched.
+    Holes, mixed materials, inconsistent winding and nonplanar regions reject.
+    """
+    doc = document(mesh)
+    chosen = set(identities)
+    edges = {e["id"]: tuple(sorted(e["vertices"])) for e in doc["edges"]}
+    if not chosen or chosen - edges.keys():
+        raise ValueError("Select existing interior edges to dissolve")
+    by_pair = {}
+    for face in doc["faces"]:
+        for pair in edge_usage({"faces": [face]}):
+            by_pair.setdefault(pair, []).append(face["id"])
+    adjacency = {}
+    for identity in chosen:
+        neighbors = by_pair.get(edges[identity], [])
+        if len(neighbors) != 2:
+            raise ValueError("Dissolve requires interior edges shared by exactly two faces")
+        a, b = neighbors
+        adjacency.setdefault(a, set()).add(b)
+        adjacency.setdefault(b, set()).add(a)
+    remaining = set(adjacency)
+    groups = []
+    for face in doc["faces"]:
+        if face["id"] not in remaining:
+            continue
+        pending, group = [face["id"]], set()
+        while pending:
+            identity = pending.pop()
+            if identity in group:
+                continue
+            group.add(identity)
+            pending.extend(adjacency[identity] - group)
+        remaining -= group
+        groups.append([f for f in doc["faces"] if f["id"] in group])
+    positions = {v["id"]: v["position"] for v in doc["vertices"]}
+    candidates, removed, joined = set(), set(), []
+    for group in groups:
+        if len({f["material"] for f in group}) != 1:
+            raise ValueError("Dissolve faces with one material at a time")
+        uses = edge_usage({"faces": group})
+        if any(len(u) > 2 or (len(u) == 2 and u[0] != u[1][::-1]) for u in uses.values()):
+            raise ValueError("Dissolve region has inconsistent or nonmanifold winding")
+        boundary = {}
+        for face in group:
+            corners = face["corners"]
+            for first, second in zip(corners, corners[1:] + corners[:1]):
+                a, b = first["vertex"], second["vertex"]
+                candidates.add(a)
+                if len(uses[tuple(sorted((a, b)))]) == 1:
+                    if a in boundary:
+                        raise ValueError("Dissolve requires a simple boundary without branches")
+                    boundary[a] = (b, first)
+        if len(boundary) < 3:
+            raise ValueError("Dissolve requires an open planar face region")
+        current = start = next(iter(boundary))
+        cycle, visited = [], set()
+        while current not in visited:
+            if current not in boundary:
+                raise ValueError("Dissolve region boundary is not closed")
+            visited.add(current)
+            current, corner = boundary[current]
+            cycle.append(corner)
+        if current != start or len(visited) != len(boundary):
+            raise ValueError("Dissolve holes or multiple boundary loops separately")
+        points = np.array([positions[c["vertex"]] for c in cycle])
+        n = normal(points)
+        all_points = np.array([positions[c["vertex"]] for f in group for c in f["corners"]])
+        if np.max(np.abs((all_points - points[0]) @ n)) > max(float(np.ptp(all_points, axis=0).max()), 1e-12) * 1e-6:
+            raise ValueError("Dissolve requires coplanar faces")
+        triangles(points)
+        for corner in cycle:
+            corner["normal"] = None
+        joined.append({"id": group[0]["id"], "material": group[0]["material"], "corners": cycle})
+        removed.update(f["id"] for f in group)
+    loose = loose_edges(doc)
+    doc["faces"] = [f for f in doc["faces"] if f["id"] not in removed] + joined
+    _edges(doc, loose)
+    used = {v for e in doc["edges"] for v in e["vertices"]}
+    doc["vertices"] = [v for v in doc["vertices"] if v["id"] not in candidates or v["id"] in used]
+    doc["schema_version"] = 2
+    return compile(doc)[0], [f["id"] for f in joined]
+
+
 def fill_loop(mesh, mode, identities):
     """Cap one simple closed boundary/wire loop, preserving its edge identities."""
     doc = document(mesh)
@@ -1043,6 +1129,11 @@ def edit_selected(
             raise ValueError("Choose edge selection mode first")
         result, edge_ids = extrude_edges(mesh, selected.get("ids", []), offset)
         selected = {"mode": "edges", "ids": edge_ids}
+    elif operation == "dissolve_edges":
+        if selected.get("mode") != "edges":
+            raise ValueError("Choose edge selection mode first")
+        result, face_ids = dissolve_edges(mesh, selected.get("ids", []))
+        selected = {"mode": "faces", "ids": face_ids}
     elif operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
             raise ValueError(f"{operation.title()} requires selected faces")
