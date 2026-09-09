@@ -677,3 +677,75 @@ def test_invalid_proportional_radius_is_atomic(radius):
     with pytest.raises(ValueError, match="radius"):
         topology.edit_selected(p, "move", offset=[0, 0.5, 0], radius=radius)
     assert p.__dict__ == before
+
+
+def test_merge_cube_edge_preserves_winding_attributes_and_source():
+    mesh = cube()
+    doc = deepcopy(mesh.topology)
+    for face in doc['faces']:
+        face['material'] = 3
+    mesh = topology.compile(doc)[0]
+    before = mesh_document.to_json(mesh)
+    chosen = [v['id'] for v in doc['vertices'] if v['position'][1:] == [1, -1]]
+    merged, survivor = topology.merge_center(mesh, chosen)
+    result = merged.topology
+    assert [len(result[k]) for k in ('vertices', 'edges', 'faces')] == [7, 11, 6]
+    assert sorted(len(f['corners']) for f in result['faces']) == [3, 3, 4, 4, 4, 4]
+    assert next(v['position'] for v in result['vertices'] if v['id'] == survivor) == [0, 1, -1]
+    assert all(f['material'] == 3 for f in result['faces'])
+    assert {f['id'] for f in result['faces']} == {f['id'] for f in doc['faces']}
+    corners = {c['id']: c for f in doc['faces'] for c in f['corners']}
+    assert all(c['uv'] == corners[c['id']]['uv'] for f in result['faces'] for c in f['corners'])
+    uses = topology.edge_usage(result)
+    assert all(len(u) == 2 for u in uses.values())
+    assert signed_volume(merged) > 0
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_merge_all_preserves_single_loose_point_and_named_part():
+    mesh = cube()
+    merged, survivor = topology.merge_center(mesh, [v['id'] for v in mesh.topology['vertices']])
+    assert merged.topology['schema_version'] == 2
+    assert merged.topology['edges'] == merged.topology['faces'] == []
+    assert merged.topology['vertices'][0]['id'] == survivor
+    np.testing.assert_array_equal(merged.verts, [[0, 0, 0]])
+    restored = mesh_document.from_json(mesh_document.to_json(merged))
+    assert restored.topology == merged.topology
+
+
+def test_merge_duplicate_wires_unions_edge_flags():
+    mesh = cube()
+    mesh = topology.delete_components(mesh, 'faces', [f['id'] for f in mesh.topology['faces']])
+    points = []
+    for p in ([0, 0, 0], [2, 0, 0], [1, 1, 0]):
+        mesh, identity = topology.add_vertex(mesh, p)
+        points.append(identity)
+    mesh, first = topology.connect_vertices(mesh, [points[0], points[2]])
+    mesh, _second = topology.connect_vertices(mesh, [points[1], points[2]])
+    doc = deepcopy(mesh.topology)
+    doc['edges'][0]['seam'] = True
+    doc['edges'][1]['sharp'] = True
+    merged, survivor = topology.merge_center(topology.compile(doc)[0], points[:2])
+    assert len(merged.topology['edges']) == 1
+    edge = merged.topology['edges'][0]
+    assert edge['id'] == first and edge['seam'] and edge['sharp']
+    assert set(edge['vertices']) == {survivor, points[2]}
+
+
+def test_merge_pinched_polygon_rejects_atomically():
+    mesh = primitives.build('Plane', {'width': 2, 'depth': 2, 'segments': 1})[0]
+    vertices = mesh.topology['vertices']
+    ids = [v['id'] for v in vertices if v['position'][0] == v['position'][2]]
+    p = SimpleNamespace(kind='Mesh3D', name='Plane', props={}, mesh_kind='')
+    mesh_document.bind(p, mesh, label='Plane')
+    topology.select(p, 'vertices', ids)
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match='pinch'):
+        topology.edit_selected(p, 'merge_center')
+    assert vars(p) == before
+
+
+@pytest.mark.parametrize('identities', [[], ['v1'], ['v1', 'v99999']])
+def test_merge_rejects_insufficient_or_stale_selection(identities):
+    with pytest.raises(ValueError, match='at least two existing'):
+        topology.merge_center(cube(), identities)

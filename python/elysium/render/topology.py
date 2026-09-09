@@ -802,6 +802,59 @@ def extrude_edges(mesh, identities, offset):
     return compile(doc)[0], cap_ids
 
 
+def merge_center(mesh, vertex_ids):
+    """Weld selected vertices at their mean, preserving surviving source identities.
+
+    Adjacent collapsed corners/edges disappear. Pinched polygons require an
+    explicit split first; they are never silently repaired or triangulated away.
+    """
+    doc = document(mesh)
+    chosen = set(vertex_ids)
+    vertices = [v for v in doc["vertices"] if v["id"] in chosen]
+    if len(chosen) < 2 or len(vertices) != len(chosen):
+        raise ValueError("Select at least two existing vertices to merge")
+    if len({v["part"] for v in vertices}) != 1:
+        raise ValueError("Merge vertices within the same named part")
+    survivor = vertices[0]
+    target = survivor["id"]
+    survivor["position"] = np.mean([v["position"] for v in vertices], axis=0).tolist()
+    doc["vertices"] = [v for v in doc["vertices"] if v["id"] not in chosen or v is survivor]
+    faces = []
+    for face in doc["faces"]:
+        affected = any(c["vertex"] in chosen for c in face["corners"])
+        corners = []
+        for corner in face["corners"]:
+            if corner["vertex"] in chosen:
+                corner["vertex"] = target
+            if affected:
+                corner["normal"] = None
+            if not corners or corners[-1]["vertex"] != corner["vertex"]:
+                corners.append(corner)
+        if len(corners) > 1 and corners[-1]["vertex"] == corners[0]["vertex"]:
+            corners.pop()
+        if len(corners) < 3:
+            continue
+        if len({c["vertex"] for c in corners}) != len(corners):
+            raise ValueError("Merge would pinch a polygon; split it first")
+        face["corners"] = corners
+        faces.append(face)
+    doc["faces"] = faces
+    edges = {}
+    for edge in doc["edges"]:
+        pair = tuple(sorted(target if v in chosen else v for v in edge["vertices"]))
+        if pair[0] == pair[1]:
+            continue
+        if pair in edges:
+            edges[pair]["seam"] |= edge["seam"]
+            edges[pair]["sharp"] |= edge["sharp"]
+        else:
+            edge["vertices"] = list(pair)
+            edges[pair] = edge
+    doc["edges"] = list(edges.values())
+    doc["schema_version"] = 2
+    return compile(doc)[0], target
+
+
 def move_vertices(mesh, vertex_ids, offset, *, radius=0.0):
     """Move points with optional smooth Euclidean falloff from selected vertices."""
     delta = _coordinates(offset)
@@ -935,10 +988,13 @@ def edit_selected(
     if operation == "add_vertex":
         result, vertex_id = add_vertex(mesh, position)
         selected = {"mode": "vertices", "ids": [vertex_id]}
-    elif operation in ("connect", "extrude_vertices"):
+    elif operation in ("connect", "extrude_vertices", "merge_center"):
         if selected.get("mode") != "vertices":
             raise ValueError("Choose vertex selection mode first")
-        if operation == "connect":
+        if operation == "merge_center":
+            result, vertex_id = merge_center(mesh, selected.get("ids", []))
+            selected = {"mode": "vertices", "ids": [vertex_id]}
+        elif operation == "connect":
             result, edge_id = connect_vertices(mesh, selected.get("ids", []))
             selected = {"mode": "edges", "ids": [edge_id]}
         else:
