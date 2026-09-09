@@ -148,6 +148,7 @@ def render(
     ortho_scale=7.0,
     shading="solid",
     grid=True,
+    component_output=None,
 ):
     obj, face_objects = compose(placements, materials=shading == "material")
     ids = np.full((height, width), -1, dtype=np.int32)
@@ -178,6 +179,14 @@ def render(
     faces = hits["face_index"]
     mask = faces >= 0
     ids[mask] = face_objects[faces[mask]]
+    if component_output is not None:
+        offsets = np.zeros(len(face_objects), dtype=np.int32)
+        for identity in np.unique(face_objects):
+            indices = np.flatnonzero(face_objects == identity)
+            offsets[indices] = indices[0]
+        local = np.full_like(faces, -1)
+        local[mask] = faces[mask] - offsets[faces[mask]]
+        component_output['face_index'] = local
     pixels = np.frombuffer(rgba, dtype=np.uint8).reshape(height, width, 4).copy()
     background = pixels[:, :, 3] == 0
     if grid:
@@ -322,6 +331,21 @@ def apply_transform(placements, placement):
         vert_normals=None if normals is None else normals.astype(np.float32),
         part_pivots=None if pivots is None else pivots.astype(np.float32),
     )
+    if mesh.topology is not None:
+        from . import topology
+        doc = deepcopy(mesh.topology)
+        for vertex in doc['vertices']:
+            vertex['position'] = (local[:3,:3] @ np.array(vertex['position']) + local[:3,3]).tolist()
+        for face in doc['faces']:
+            if np.linalg.det(local[:3,:3]) < 0:
+                face['corners'].reverse()
+            for c in face['corners']:
+                if c.get('normal') is not None:
+                    n = np.array(c['normal']) @ np.linalg.inv(local[:3,:3])
+                    c['normal'] = (n / np.linalg.norm(n)).tolist()
+        if pivots is not None:
+            doc['part_pivots'] = pivots.tolist()
+        edited = topology.compile(doc)[0]
     mesh_document.validate(edited)
     children = []
     for child in placements:

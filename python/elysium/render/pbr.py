@@ -624,6 +624,7 @@ class Mesh:
     vert_part_ids: np.ndarray | None = None       # (N,) uint8
     part_names:    list[str]  | None = None       # part_id → original name
     part_pivots:   np.ndarray | None = None       # (P, 3) float32 world pivot
+    topology: dict | None = None  # Editable polygon/corner source; triangles are compiled.
 
 
 # --- BVH acceleration structure ------------------------------------------

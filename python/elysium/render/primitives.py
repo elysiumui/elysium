@@ -117,6 +117,10 @@ def build(kind: str, parameters: dict | None = None) -> tuple[pbr.Mesh, dict]:
         and np.einsum("ij,ij->i", tri[:, 0], np.cross(tri[:, 1], tri[:, 2])).sum() < 0
     ):
         mesh = replace(mesh, faces=mesh.faces[:, [0, 2, 1]].copy())
+    if kind == "Cube":
+        from . import topology
+        polygons = [(0,3,2,1),(4,5,6,7),(0,1,5,4),(2,3,7,6),(1,2,6,5),(0,4,7,3)]
+        mesh = topology.compile(topology.from_mesh(mesh, polygons))[0]
     mesh_document.validate(mesh)
     return mesh, values
 

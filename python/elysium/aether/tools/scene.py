@@ -205,3 +205,42 @@ def frame_set(session, frame):
     from ...render import scene_animation
 
     return {"frame": scene_animation.seek(session.designer, frame)}
+
+
+@register_tool(
+    name="mesh.topology_get",
+    description="Read durable vertex, edge, polygon and corner identities, UVs and material slots. Legacy triangles are described without mutating the source.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def topology_get(session,id):
+    from ...render import mesh_document, topology
+    p=session.lookup(id)
+    if p.kind!='Mesh3D': raise ValueError('Topology requires a mesh')
+    return {'placement_id':id,'topology':topology.document(mesh_document.resolve(p.mesh_kind)),
+            'selection':p.props.get('components3d',{})}
+
+
+@register_tool(
+    name="mesh.components_select",
+    description="Select persistent vertex, edge or polygon IDs; additive selection toggles the specified IDs.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{
+        "id":{"type":"string"},"mode":{"enum":["vertices","edges","faces"]},
+        "ids":{"type":"array","items":{"type":"string"}},"additive":{"type":"boolean"}},
+        "required":["id","mode","ids"]},
+)
+def components_select(session,id,mode,ids,additive=False):
+    from ...render import topology
+    return topology.select(session.lookup(id),mode,ids,additive=additive)
+
+
+@register_tool(
+    name="mesh.components_edit",
+    description="Extrude a face region along its averaged normal, inset individual planar convex faces by positive distance, or move components in local meters. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{
+        "id":{"type":"string"},"operation":{"enum":["extrude","inset","move"]},
+        "distance":{"type":"number"},"offset":_VECTOR},"required":["id","operation"]},
+)
+def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.)):
+    from ...render import topology
+    return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset)

@@ -16,7 +16,7 @@ import numpy as np
 
 from . import pbr
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 ARRAY_FIELDS = {
     "verts": (np.float32, 3), "faces": (np.int32, 3),
     "face_mats": (np.int32, None), "vert_normals": (np.float32, 3),
@@ -63,17 +63,30 @@ def validate(mesh: pbr.Mesh) -> None:
     ):
         raise ValueError("part index outside part names")
 
+    if mesh.topology is not None:
+        from . import topology
+        compiled, _, _ = topology.compile(mesh.topology)
+        for key in ARRAY_FIELDS:
+            a, b = getattr(mesh, key), getattr(compiled, key)
+            if a is None and b is None:
+                continue
+            if a is None or b is None or a.shape != b.shape or not np.allclose(a, b, atol=1e-6, rtol=1e-6):
+                raise ValueError(f"Editable topology and compiled mesh.{key} disagree")
+
 
 def to_json(mesh: pbr.Mesh) -> dict:
     validate(mesh)
     data = {key: (None if getattr(mesh, key) is None else getattr(mesh, key).tolist())
             for key in ARRAY_FIELDS}
     data["part_names"] = None if mesh.part_names is None else list(mesh.part_names)
+    if mesh.topology is not None:
+        from copy import deepcopy
+        data["topology"] = deepcopy(mesh.topology)
     return data
 
 
 def from_json(data: dict) -> pbr.Mesh:
-    if not isinstance(data, dict) or set(data) - (set(ARRAY_FIELDS) | {"part_names"}):
+    if not isinstance(data, dict) or set(data) - (set(ARRAY_FIELDS) | {"part_names", "topology"}):
         raise ValueError("unknown or invalid mesh asset fields")
     kwargs = {}
     for key, (dtype, width) in ARRAY_FIELDS.items():
@@ -91,6 +104,8 @@ def from_json(data: dict) -> pbr.Mesh:
             array = array.reshape((0, width) if width else (0,))
         kwargs[key] = array
     kwargs["part_names"] = data.get("part_names")
+    from copy import deepcopy
+    kwargs["topology"] = deepcopy(data.get("topology"))
     mesh = pbr.Mesh(**kwargs)
     validate(mesh)
     return mesh
@@ -142,7 +157,7 @@ def capture(placements) -> dict:
 def restore(document: dict | None, placements=None) -> None:
     if document is None:  # Legacy document without embedded geometry.
         return
-    if not isinstance(document, dict) or document.get("schema_version") != SCHEMA_VERSION:
+    if not isinstance(document, dict) or document.get("schema_version") not in (1, SCHEMA_VERSION):
         raise ValueError("unsupported mesh document version")
     raw = document.get("assets")
     if not isinstance(raw, dict) or not all(isinstance(k, str) and k for k in raw):
@@ -185,6 +200,23 @@ def with_vertices(mesh: pbr.Mesh, verts: np.ndarray) -> pbr.Mesh:
         for corner in range(3):
             np.add.at(normals, mesh.faces[:, corner], face_normals)
         normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    if mesh.topology is not None:
+        from . import topology
+        from copy import deepcopy
+        doc = deepcopy(mesh.topology)
+        _, ids, _ = topology.compile(doc)
+        positions = {}
+        for identity, position in zip(ids, verts):
+            if identity in positions and not np.allclose(position, positions[identity]):
+                raise ValueError("Deformation split an editable vertex across corners")
+            positions[identity] = position
+        for vertex in doc['vertices']:
+            if vertex['id'] in positions:
+                vertex['position'] = positions[vertex['id']].tolist()
+        for face in doc['faces']:
+            for corner in face['corners']:
+                corner['normal'] = None
+        return topology.compile(doc)[0]
     result = replace(mesh, verts=verts.copy(), vert_normals=normals)
     validate(result)
     return result
