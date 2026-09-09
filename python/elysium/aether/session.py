@@ -176,6 +176,10 @@ class Session:
 
     # --- placement id ↔ object table ---------------------------------
     def id_for(self, placement) -> str:
+        stable = getattr(placement, "entity_id", None)
+        if stable is not None:
+            from ..scene_identity import parse
+            return parse(stable)
         key = id(placement)
         if key in self._rev_id_table:
             return self._rev_id_table[key]
@@ -185,9 +189,19 @@ class Session:
         return new
 
     def lookup(self, ident: str):
-        # Try cached id first; fall back to name match.
+        # Resolve against the current document, never a pre-undo/rollback copy.
+        matches = [p for p in self.designer.placements
+                   if getattr(p, "entity_id", None) == ident]
+        if len(matches) > 1:
+            raise ValueError(f"duplicate scene entity_id: {ident}")
+        if matches:
+            return matches[0]
+        if ident.startswith("entity:"):
+            raise KeyError(f"no placement matches scene id {ident!r}")
+        # Compatibility for legacy hosts without persistent scene identities.
         p = self._id_table.get(ident)
-        if p is not None and p in self.designer.placements: return p
+        if p is not None and any(p is live for live in self.designer.placements):
+            return p
         for pl in self.designer.placements:
             if pl.name == ident:
                 return pl

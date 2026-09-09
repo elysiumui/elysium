@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .. import scene_identity
+
 
 # Mirror the Designer's Placement + AnimState shapes — the tools import
 # these via `session.designer_models`. Kept compatible with the real
@@ -98,6 +100,8 @@ class Placement:
     _t_opacity: float = 1.0
     _t_rotation: float = 0.0
 
+    entity_id: str = field(default_factory=scene_identity.new_id)
+
     def to_json(self) -> dict:
         out = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
         out["states"] = [s.to_json() for s in self.states]
@@ -178,6 +182,7 @@ class HeadlessDesigner:
                                                   if k in Placement.__dataclass_fields__}))
         else:
             d.skin_path.mkdir(parents=True, exist_ok=True)
+        scene_identity.validate(d.placements)
         d._rebuild_counters()
         return d
 
@@ -214,6 +219,7 @@ class HeadlessDesigner:
                           if k in Placement.__dataclass_fields__})
             for p in data.get("placements", [])
         ]
+        scene_identity.validate(self.placements)
         self._rebuild_counters()
 
     def _build_document(self) -> dict:

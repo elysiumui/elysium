@@ -166,11 +166,17 @@ def placement_duplicate(session, id: str, dx: float = 24,
     p = session.lookup(id)
     from copy import deepcopy
     new = deepcopy(p)
+    if hasattr(new, "entity_id"):
+        from ...scene_identity import new_id
+        new.entity_id = new_id()
     new.x, new.y = p.x + dx, p.y + dy
     new.name = designer._assign_name(p.kind)
     if p.kind == "Mesh3D":
         from elysium.render.mesh_document import bind, resolve
         bind(new, resolve(p.mesh_kind))
+        from elysium.render.primitives import settings
+        if settings(p) is not None:
+            new.props["primitive"]["mesh_key"] = new.mesh_kind
     designer.placements.append(new)
     return {"placement_id": session.id_for(new), "name": new.name}
 
