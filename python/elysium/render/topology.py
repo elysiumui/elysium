@@ -840,6 +840,68 @@ def select(placement, mode, identities, *, additive=False):
     return deepcopy(selection)
 
 
+def expand_edge_selection(placement, pattern):
+    """Expand seeds across quad opposites (ring) or regular four-edge vertices (loop)."""
+    from . import mesh_document
+
+    if pattern not in ("loop", "ring") or placement.kind != "Mesh3D":
+        raise ValueError("Choose an edge loop or ring on a mesh")
+    selection = placement.props.get("components3d", {})
+    if selection.get("mode") != "edges" or not selection.get("ids"):
+        raise ValueError("Select one or more seed edges first")
+    doc = document(mesh_document.resolve(placement.mesh_kind))
+    edges = {e["id"]: e for e in doc["edges"]}
+    chosen = set(selection["ids"])
+    if chosen - edges.keys():
+        raise ValueError("Selected edges no longer exist")
+    pair_ids = {tuple(sorted(e["vertices"])): e["id"] for e in doc["edges"]}
+    edge_faces = {e: set() for e in edges}
+    incident = {}
+    adjacency = {e: set() for e in edges}
+    for edge in edges.values():
+        for vertex in edge["vertices"]:
+            incident.setdefault(vertex, set()).add(edge["id"])
+    for face in doc["faces"]:
+        vertices = [c["vertex"] for c in face["corners"]]
+        boundary = [
+            pair_ids[tuple(sorted((a, b)))] for a, b in zip(vertices, vertices[1:] + vertices[:1])
+        ]
+        for edge in boundary:
+            edge_faces[edge].add(face["id"])
+        if pattern == "ring" and len(boundary) == 4:
+            for i, edge in enumerate(boundary):
+                adjacency[edge].add(boundary[(i + 2) % 4])
+    if pattern == "loop":
+        quad_faces = {f["id"] for f in doc["faces"] if len(f["corners"]) == 4}
+        for around in incident.values():
+            if len(around) != 4 or any(
+                len(edge_faces[e]) != 2 or not edge_faces[e] <= quad_faces for e in around
+            ):
+                continue
+            for edge in around:
+                opposite = [
+                    other
+                    for other in around
+                    if other != edge and not edge_faces[edge] & edge_faces[other]
+                ]
+                if len(opposite) == 1:
+                    adjacency[edge].add(opposite[0])
+    else:
+        # Ambiguous nonmanifold fans terminate the traversal.
+        for edge, neighbors in adjacency.items():
+            if len(edge_faces[edge]) > 2:
+                neighbors.clear()
+            else:
+                adjacency[edge] = {e for e in neighbors if len(edge_faces[e]) <= 2}
+    pending = list(chosen)
+    while pending:
+        edge = pending.pop()
+        new = adjacency[edge] - chosen
+        chosen.update(new)
+        pending.extend(new)
+    return select(placement, "edges", sorted(chosen))
+
+
 def edit_selected(
     placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0), position=(0.0, 0.0, 0.0)
 ):

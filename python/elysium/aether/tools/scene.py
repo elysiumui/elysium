@@ -235,6 +235,17 @@ def components_select(session,id,mode,ids,additive=False):
 
 
 @register_tool(
+    name="mesh.components_expand",
+    description="Expand selected edge seeds into quad edge rings or loops through regular four-edge vertices. Rings cross opposite quad edges. Loops stop at boundaries, poles and non-quad neighborhoods. Preserves mesh geometry and uses persistent component IDs.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{
+        "id":{"type":"string"},"pattern":{"enum":["loop","ring"]}},"required":["id","pattern"]},
+)
+def components_expand(session,id,pattern):
+    from ...render import topology
+    return topology.expand_edge_selection(session.lookup(id),pattern)
+
+
+@register_tool(
     name="mesh.components_edit",
     description="Extrude a face region along its averaged normal or extrude_individual faces along their own normals, inset individual planar convex faces by positive distance, move components in local meters, delete selected components, or fill one planar boundary/wire loop. Add an isolated vertex at position, connect exactly two selected vertices, or extrude_vertices by offset into independent edges. Connect does not split existing faces. Vertex extrusion selects the new endpoints. extrude_edges sweeps boundary/wire chains by offset into quads and selects new parallel edges; branches and interior edges reject. Delete preserves surviving loose geometry; fill creates a material-0 face with planar UVs. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
     input_schema={"type":"object","additionalProperties":False,"properties":{

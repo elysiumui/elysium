@@ -581,3 +581,49 @@ def test_unknown_topology_fields_and_part_name_disagreement_reject_before_restor
     with pytest.raises(ValueError, match="part_names disagree"):
         mesh_document.restore({"schema_version": 2, "assets": {"invalid-parts": asset}})
     assert set(primitives.pbr.MESH_LIBRARY) == before
+
+
+def test_quad_torus_edge_loop_and_ring_selection_preserves_geometry():
+    mesh = primitives.build(
+        "Torus", {"major_segments": 8, "minor_segments": 4, "major_radius": 1, "minor_radius": 0.25}
+    )[0]
+    positions = {v["id"]: np.array(v["position"]) for v in mesh.topology["vertices"]}
+    seed = next(
+        e["id"]
+        for e in mesh.topology["edges"]
+        if all(abs(np.linalg.norm(positions[v][[0, 2]]) - 1.25) < 1e-6 for v in e["vertices"])
+    )
+    p = SimpleNamespace(kind="Mesh3D", name="Torus", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh)
+    key = p.mesh_kind
+    geometry = mesh_document.to_json(mesh_document.resolve(key))
+    topology.select(p, "edges", [seed])
+    loop = topology.expand_edge_selection(p, "loop")
+    assert len(loop["ids"]) == 8
+    chosen = [e for e in mesh.topology["edges"] if e["id"] in loop["ids"]]
+    assert all(
+        abs(np.linalg.norm(positions[v][[0, 2]]) - 1.25) < 1e-6
+        for e in chosen
+        for v in e["vertices"]
+    )
+    topology.select(p, "edges", [seed])
+    ring = topology.expand_edge_selection(p, "ring")
+    assert len(ring["ids"]) == 4
+    assert set(loop["ids"]) & set(ring["ids"]) == {seed}
+    assert p.mesh_kind == key
+    assert mesh_document.to_json(mesh_document.resolve(key)) == geometry
+    p.props["components3d"]["ids"].append("e999999")
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="no longer exist"):
+        topology.expand_edge_selection(p, "loop")
+    assert p.__dict__ == before
+
+
+def test_edge_loop_stops_at_irregular_vertices_and_ring_crosses_quad_faces():
+    mesh = cube()
+    p = SimpleNamespace(kind="Mesh3D", name="Cube", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh)
+    seed = mesh.topology["edges"][0]["id"]
+    topology.select(p, "edges", [seed])
+    assert topology.expand_edge_selection(p, "loop")["ids"] == [seed]
+    assert len(topology.expand_edge_selection(p, "ring")["ids"]) == 4
