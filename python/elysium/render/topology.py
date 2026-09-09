@@ -286,11 +286,19 @@ def _selected(doc, face_ids):
     return found
 
 
-def extrude(mesh, face_ids, distance):
+def extrude(mesh, face_ids, distance, *, individual=False):
     if type(distance) not in (float, int) or not np.isfinite(distance) or abs(distance) <= 1e-12:
         raise ValueError("Extrusion distance must be finite and nonzero")
     doc = document(mesh)
     selected = _selected(doc, face_ids)
+    groups = [[face] for face in selected] if individual else [selected]
+    for group in groups:
+        _extrude_region(doc, group, distance)
+    return compile(doc)[0]
+
+
+def _extrude_region(doc, selected, distance):
+    """Mutate an unpublished document; each group keeps its own cap vertices."""
     verts = {v["id"]: v for v in doc["vertices"]}
     normals = [normal([verts[c["vertex"]]["position"] for c in f["corners"]]) for f in selected]
     direction = np.sum(normals, axis=0)
@@ -311,7 +319,8 @@ def extrude(mesh, face_ids, distance):
     if not boundary:
         raise ValueError("Select an open face region with a boundary")
     moved = {}
-    for old in {c["vertex"] for f in selected for c in f["corners"]}:
+    chosen = {c["vertex"] for f in selected for c in f["corners"]}
+    for old in (identity for identity in verts if identity in chosen):
         v = deepcopy(verts[old])
         v["id"] = _id(doc, "v")
         v["position"] = (np.array(v["position"]) + offset).tolist()
@@ -341,7 +350,6 @@ def extrude(mesh, face_ids, distance):
         source = inherited_edges.get(tuple(edge["vertices"]))
         if source is not None:
             edge["seam"], edge["sharp"] = source["seam"], source["sharp"]
-    return compile(doc)[0]
 
 
 def inset(mesh, face_ids, thickness):
@@ -469,12 +477,18 @@ def edit_selected(placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0))
         raise ValueError("Component editing requires a mesh")
     selected = placement.props.get("components3d", {})
     mesh = mesh_document.resolve(placement.mesh_kind)
-    if operation in ("extrude", "inset"):
+    if operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
             raise ValueError(f"{operation.title()} requires selected faces")
-        result = (extrude if operation == "extrude" else inset)(
-            mesh, selected.get("ids", []), distance
-        )
+        if operation == "inset":
+            result = inset(mesh, selected.get("ids", []), distance)
+        else:
+            result = extrude(
+                mesh,
+                selected.get("ids", []),
+                distance,
+                individual=operation == "extrude_individual",
+            )
     elif operation == "move":
         doc = document(mesh)
         chosen = selected.get("ids", [])

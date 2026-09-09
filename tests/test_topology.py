@@ -249,3 +249,55 @@ def test_move_rejects_mixed_valid_and_stale_component_ids_atomically():
     with pytest.raises(ValueError, match="existing"):
         topology.edit_selected(p, "move", offset=[0.1, 0, 0])
     assert p.__dict__ == before
+
+
+def test_individual_extrusion_separates_adjacent_caps_and_preserves_closed_shell():
+    mesh = cube()
+    before = deepcopy(mesh.topology)
+    identities = [f["id"] for f in before["faces"]]
+    result = topology.extrude(mesh, identities, 0.25, individual=True)
+    doc = result.topology
+    assert [len(doc[k]) for k in ("vertices", "edges", "faces")] == [32, 60, 30]
+    assert signed_volume(result) == pytest.approx(14)
+    positions = {v["id"]: np.array(v["position"]) for v in doc["vertices"]}
+    old_positions = {v["id"]: np.array(v["position"]) for v in before["vertices"]}
+    caps = {f["id"]: f for f in doc["faces"] if f["id"] in identities}
+    cap_vertices = set()
+    for original in before["faces"]:
+        direction = topology.normal([old_positions[c["vertex"]] for c in original["corners"]])
+        cap = caps[original["id"]]
+        for a, b in zip(original["corners"], cap["corners"]):
+            assert a["id"] == b["id"]
+            assert b["vertex"] not in cap_vertices
+            cap_vertices.add(b["vertex"])
+            np.testing.assert_allclose(
+                positions[b["vertex"]], old_positions[a["vertex"]] + direction * 0.25
+            )
+            assert a["uv"] == b["uv"] and a["normal"] == b["normal"]
+    usages = {}
+    for face in doc["faces"]:
+        ids = [c["vertex"] for c in face["corners"]]
+        for a, b in zip(ids, ids[1:] + ids[:1]):
+            usages.setdefault(tuple(sorted((a, b))), []).append((a, b))
+    assert all(len(v) == 2 and v[0] == v[1][::-1] for v in usages.values())
+    assert mesh.topology == before
+    assert mesh_document.from_json(mesh_document.to_json(result)).topology == doc
+
+
+def test_individual_extrusion_rejects_stale_selection_without_partial_publication():
+    mesh = cube()
+    p = SimpleNamespace(
+        kind="Mesh3D", entity_id="individual", name="Individual", props={}, mesh_kind=""
+    )
+    mesh_document.bind(p, mesh)
+    topology.select(p, "faces", [f["id"] for f in mesh.topology["faces"]])
+    before = deepcopy(p.__dict__)
+    p.props["components3d"]["ids"].append("f999999")
+    invalid = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="no longer exists"):
+        topology.edit_selected(p, "extrude_individual", distance=0.25)
+    assert p.__dict__ == invalid
+    p.props = before["props"]
+    result = topology.edit_selected(p, "extrude_individual", distance=0.25)
+    assert (result["vertices"], result["edges"], result["faces"]) == (32, 60, 30)
+    assert result["selection"] == before["props"]["components3d"]

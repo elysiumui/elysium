@@ -38,3 +38,12 @@ Cylinder cap inset followed by inward extrusion was performed in both GUIs and r
 GUI and public Aether sphere (radius 1, rings 4, segments 8) and torus (major radius 1, minor radius .25, segments 8/4) also match Blender GUI topology. The comparison uses a bijective vertex map within 1e-6 meters and requires exact edges and oriented polygon cycles after mapping. Maximum Blender deviation is 6.7435e-7 meters (torus); GUI/Aether positions agree exactly. Decimal rounding was replaced because rounding boundaries are not a Euclidean distance predicate. Blender's local torus operator constructs vertices through mathutils rotation matrices; the native factory uses direct trigonometry. Cone and plane connectivity have regression coverage; their updated GUI reference fixtures remain pending.
 
 Current suites: 196 Designer tests and 93 targeted framework tests pass. Matching framework wheel was installed for the GUI checks. The broader authoring/visual/performance plan remains incomplete.
+
+
+## Individual-face extrusion checkpoint (2026-09-09)
+
+`extrude(..., individual=True)` and public `mesh.components_edit` operation `extrude_individual` create separate caps along each selected polygon's own unit normal. The GUI exposes this as **Extrude Each**, with a local-meter distance. All selected groups are evaluated in an unpublished document and bound as one mesh revision only after validation. Cap polygon/corner identities and corner attributes remain stable. New parallel cap edges inherit seam/sharp flags. Source vertex traversal is deterministic.
+
+Designer also exposes component All/None buttons, A to select all, and Alt+A to clear. All includes occluded components on the active mesh. Selection uses the same persisted ID model as public Aether selection.
+
+An independently authored 2 m cube with all six faces extruded by 0.25 m matches GUI-created Blender `Extrude Individual Faces and Move` exactly in vertex positions, edges and oriented polygons: 32 vertices, 60 edges, 30 quads. Designer GUI Undo/Redo/save and Aether replay were exercised. Cone (8 segments) and Plane (2×2 quads) now also pass GUI/Aether/Blender comparisons, bringing this limited matrix to nine fixtures. No full topology/operator or visual-material parity is claimed.
