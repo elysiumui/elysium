@@ -187,6 +187,12 @@ def render(
         local = np.full_like(faces, -1)
         local[mask] = faces[mask] - offsets[faces[mask]]
         component_output['face_index'] = local
+        look = -np.array([np.cos(pitch) * np.sin(yaw), np.sin(pitch), np.cos(pitch) * np.cos(yaw)])
+        # Camera-axis depth works for perspective and orthographic rays. Keep
+        # this geometric buffer independent of shading and selection colors.
+        component_output['depth'] = hits['depth'] * (hits['ray_direction'] @ look)
+        component_output['occlusion_mesh'] = obj.mesh
+        component_output['occlusion_bvh'] = pbr._cached_bvh_for(obj, obj.mesh.verts)
     pixels = np.frombuffer(rgba, dtype=np.uint8).reshape(height, width, 4).copy()
     background = pixels[:, :, 3] == 0
     if grid:
