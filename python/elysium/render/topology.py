@@ -579,6 +579,74 @@ def fill_loop(mesh, mode, identities):
     return compile(doc)[0], face["id"]
 
 
+def _coordinates(values):
+    if (
+        not isinstance(values, (list, tuple, np.ndarray))
+        or len(values) != 3
+        or any(type(v) not in (int, float) or not np.isfinite(v) for v in values)
+    ):
+        raise ValueError("Requires three finite coordinates in local meters")
+    return np.asarray(values, dtype=float)
+
+
+def add_vertex(mesh, position):
+    """Add an isolated editable vertex without welding to nearby geometry."""
+    point = _coordinates(position)
+    doc = document(mesh)
+    vertex = {"id": _id(doc, "v"), "position": point.tolist(), "part": None}
+    doc["vertices"].append(vertex)
+    doc["schema_version"] = 2
+    return compile(doc)[0], vertex["id"]
+
+
+def connect_vertices(mesh, identities):
+    """Connect two existing vertices; never split faces or duplicate an edge."""
+    doc = document(mesh)
+    chosen = set(identities)
+    vertices = {v["id"]: v for v in doc["vertices"]}
+    if len(chosen) != 2 or chosen - vertices.keys():
+        raise ValueError("Select exactly two existing vertices to connect")
+    pair = sorted(chosen)
+    if any(set(e["vertices"]) == chosen for e in doc["edges"]):
+        raise ValueError("Selected vertices are already connected")
+    if np.array_equal(vertices[pair[0]]["position"], vertices[pair[1]]["position"]):
+        raise ValueError("Cannot connect coincident vertices")
+    edge = {"id": _id(doc, "e"), "vertices": pair, "seam": False, "sharp": False}
+    doc["edges"].append(edge)
+    doc["schema_version"] = 2
+    return compile(doc)[0], edge["id"]
+
+
+def extrude_vertices(mesh, identities, offset):
+    """Duplicate each selected point with a connecting edge; keep all old geometry."""
+    delta = _coordinates(offset)
+    if not np.any(delta):
+        raise ValueError("Vertex extrusion requires a nonzero offset")
+    doc = document(mesh)
+    chosen = set(identities)
+    if not chosen or chosen - {v["id"] for v in doc["vertices"]}:
+        raise ValueError("Select existing vertices to extrude")
+    new_ids = []
+    for vertex in list(doc["vertices"]):
+        if vertex["id"] not in chosen:
+            continue
+        added = deepcopy(vertex)
+        added["id"] = _id(doc, "v")
+        added["position"] = (np.asarray(vertex["position"]) + delta).tolist()
+        doc["vertices"].append(added)
+        new_ids.append(added["id"])
+        doc["edges"].append(
+            {
+                "id": _id(doc, "e"),
+                "vertices": sorted((vertex["id"], added["id"])),
+                "seam": False,
+                "sharp": False,
+            }
+        )
+    doc["schema_version"] = 2
+    return compile(doc)[0], new_ids
+
+
 def move_vertices(mesh, vertex_ids, offset):
     if len(offset) != 3 or any(type(v) not in (int, float) or not np.isfinite(v) for v in offset):
         raise ValueError("Move requires three finite coordinates")
@@ -617,14 +685,28 @@ def select(placement, mode, identities, *, additive=False):
     return deepcopy(selection)
 
 
-def edit_selected(placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0)):
+def edit_selected(
+    placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0), position=(0.0, 0.0, 0.0)
+):
     from . import mesh_document
 
     if placement.kind != "Mesh3D":
         raise ValueError("Component editing requires a mesh")
     selected = placement.props.get("components3d", {})
     mesh = mesh_document.resolve(placement.mesh_kind)
-    if operation in ("extrude", "extrude_individual", "inset"):
+    if operation == "add_vertex":
+        result, vertex_id = add_vertex(mesh, position)
+        selected = {"mode": "vertices", "ids": [vertex_id]}
+    elif operation in ("connect", "extrude_vertices"):
+        if selected.get("mode") != "vertices":
+            raise ValueError("Choose vertex selection mode first")
+        if operation == "connect":
+            result, edge_id = connect_vertices(mesh, selected.get("ids", []))
+            selected = {"mode": "edges", "ids": [edge_id]}
+        else:
+            result, vertex_ids = extrude_vertices(mesh, selected.get("ids", []), offset)
+            selected = {"mode": "vertices", "ids": vertex_ids}
+    elif operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
             raise ValueError(f"{operation.title()} requires selected faces")
         if operation == "inset":

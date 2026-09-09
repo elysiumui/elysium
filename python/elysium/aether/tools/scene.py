@@ -236,11 +236,11 @@ def components_select(session,id,mode,ids,additive=False):
 
 @register_tool(
     name="mesh.components_edit",
-    description="Extrude a face region along its averaged normal or extrude_individual faces along their own normals, inset individual planar convex faces by positive distance, move components in local meters, delete selected components, or fill one planar boundary/wire loop. Delete preserves surviving loose geometry; fill creates a material-0 face with planar UVs. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
+    description="Extrude a face region along its averaged normal or extrude_individual faces along their own normals, inset individual planar convex faces by positive distance, move components in local meters, delete selected components, or fill one planar boundary/wire loop. Add an isolated vertex at position, connect exactly two selected vertices, or extrude_vertices by offset into independent edges. Connect does not split existing faces. Vertex extrusion selects the new endpoints. Delete preserves surviving loose geometry; fill creates a material-0 face with planar UVs. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
     input_schema={"type":"object","additionalProperties":False,"properties":{
-        "id":{"type":"string"},"operation":{"enum":["extrude","extrude_individual","inset","move","delete","fill"]},
-        "distance":{"type":"number"},"offset":_VECTOR},"required":["id","operation"]},
+        "id":{"type":"string"},"operation":{"enum":["extrude","extrude_individual","inset","move","delete","fill","add_vertex","connect","extrude_vertices"]},
+        "distance":{"type":"number"},"offset":_VECTOR,"position":_VECTOR},"required":["id","operation"]},
 )
-def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.)):
+def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.),position=(0.,0.,0.)):
     from ...render import topology
-    return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset)
+    return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset,position=position)

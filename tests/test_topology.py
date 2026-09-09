@@ -385,3 +385,71 @@ def test_extrude_and_inset_preserve_preexisting_wires():
     ):
         assert edge in result.topology["edges"] and loose_vertex in result.topology["vertices"]
         assert len(result.verts) >= len(wired.verts)
+
+
+def test_point_wire_construction_round_trip_keeps_existing_attributes():
+    mesh = cube()
+    original = deepcopy(mesh.topology)
+    first, a = topology.add_vertex(mesh, [3, 0, 0])
+    second, b = topology.add_vertex(first, [3, 1, 0])
+    connected, edge = topology.connect_vertices(second, [a, b])
+    extended, endpoints = topology.extrude_vertices(connected, [a, b], [0, 0, 2])
+    doc = extended.topology
+    assert [len(doc[k]) for k in ("vertices", "edges", "faces")] == [12, 15, 6]
+    assert doc["faces"] == original["faces"]
+    assert all(e in doc["edges"] for e in original["edges"])
+    assert len(topology.loose_edges(doc)) == 3
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    assert [points[v] for v in endpoints] == [[3, 0, 2], [3, 1, 2]]
+    assert edge in {e["id"] for e in doc["edges"]}
+    assert mesh_document.from_json(mesh_document.to_json(extended)).topology == doc
+    assert mesh.topology == original
+
+
+@pytest.mark.parametrize(
+    "operation,kwargs",
+    [
+        ("add_vertex", {"position": [float("nan"), 0, 0]}),
+        ("add_vertex", {"position": [1, 2]}),
+        ("extrude_vertices", {"offset": [0, 0, 0]}),
+        ("extrude_vertices", {"offset": [0, float("inf"), 0]}),
+        ("connect", {}),  # A single selected point cannot define an edge.
+    ],
+)
+def test_invalid_wire_commands_never_publish_a_revision(operation, kwargs):
+    p = SimpleNamespace(kind="Mesh3D", name="Wire", props={}, mesh_kind="")
+    mesh_document.bind(p, cube())
+    topology.select(p, "vertices", ["v1"])
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError):
+        topology.edit_selected(p, operation, **kwargs)
+    assert p.__dict__ == before
+
+
+def test_vertex_wire_construction_empty_mesh_selection_and_rejections():
+    mesh = cube()
+    empty = topology.delete_components(mesh, "faces", [f["id"] for f in mesh.topology["faces"]])
+    p = SimpleNamespace(kind="Mesh3D", name="Wire", props={}, mesh_kind="")
+    mesh_document.bind(p, empty)
+    first = topology.edit_selected(p, "add_vertex", position=[0, 0, 0])
+    a = first["selection"]["ids"][0]
+    second = topology.edit_selected(p, "add_vertex", position=[1, 0, 0])
+    b = second["selection"]["ids"][0]
+    topology.select(p, "vertices", [a, b])
+    edge = topology.edit_selected(p, "connect")
+    assert edge["selection"]["mode"] == "edges"
+    assert (edge["vertices"], edge["edges"], edge["faces"]) == (2, 1, 0)
+    topology.select(p, "vertices", [a, b])
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="already connected"):
+        topology.edit_selected(p, "connect")
+    assert p.__dict__ == before
+    p.props["components3d"]["ids"].append("v999999")
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="existing vertices"):
+        topology.edit_selected(p, "extrude_vertices", offset=[0, 1, 0])
+    assert p.__dict__ == before
+    # Coincident authoring points stay separate; connecting them is rejected.
+    coincident, c = topology.add_vertex(mesh_document.resolve(p.mesh_kind), [1, 0, 0])
+    with pytest.raises(ValueError, match="coincident"):
+        topology.connect_vertices(coincident, [b, c])
