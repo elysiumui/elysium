@@ -276,6 +276,9 @@ pub struct MouseState {
     /// Monotonic counter incremented on every left-button press transition;
     /// Python compares against a cached value to detect new clicks.
     pub press_count: AtomicU64,
+    /// Window-local origin of the most recent left-button press.
+    pub left_press_x: AtomicI32,
+    pub left_press_y: AtomicI32,
     /// Same counter, for right-button presses. Lets Python distinguish
     /// "open context menu" from "use this swatch".
     pub right_press_count: AtomicU64,
@@ -289,6 +292,16 @@ pub struct MouseState {
     /// contributed since the last poll — lets the scroll system pick
     /// momentum behaviour. Cleared on drain.
     pub scroll_precise: std::sync::atomic::AtomicBool,
+}
+
+impl MouseState {
+    pub fn record_left_press(&self) {
+        self.left_press_x
+            .store(self.x.load(Ordering::Acquire), Ordering::Release);
+        self.left_press_y
+            .store(self.y.load(Ordering::Acquire), Ordering::Release);
+        self.press_count.fetch_add(1, Ordering::AcqRel);
+    }
 }
 
 /// One wheel "line" is treated as this many logical pixels when an OS
@@ -899,6 +912,20 @@ pub mod ely_core_hook_stub {
 #[cfg(test)]
 mod tier2_tests {
     use super::*;
+
+    #[test]
+    fn press_origin_survives_motion_and_release_between_frames() {
+        let mouse = MouseState::default();
+        mouse.x.store(120, Ordering::Release);
+        mouse.y.store(160, Ordering::Release);
+        mouse.record_left_press();
+        mouse.x.store(240, Ordering::Release);
+        mouse.y.store(190, Ordering::Release);
+        mouse.pressed_left.store(false, Ordering::Release);
+        assert_eq!(mouse.press_count.load(Ordering::Acquire), 1);
+        assert_eq!(mouse.left_press_x.load(Ordering::Acquire), 120);
+        assert_eq!(mouse.left_press_y.load(Ordering::Acquire), 160);
+    }
 
     #[test]
     fn scroll_accumulates_and_drains() {

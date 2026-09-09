@@ -140,6 +140,20 @@ impl PyWindow {
             .load(std::sync::atomic::Ordering::Acquire)
     }
 
+    /// Origin of the last left press, retained after a fast drag/release.
+    #[getter]
+    fn left_press_position(&self) -> Option<(i32, i32)> {
+        use std::sync::atomic::Ordering;
+        let mouse = self.handle.mouse();
+        if mouse.press_count.load(Ordering::Acquire) == 0 {
+            return None;
+        }
+        Some((
+            mouse.left_press_x.load(Ordering::Acquire),
+            mouse.left_press_y.load(Ordering::Acquire),
+        ))
+    }
+
     #[getter]
     fn mouse_right_pressed(&self) -> bool {
         self.handle

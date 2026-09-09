@@ -792,7 +792,7 @@ impl ApplicationHandler for AppHandler {
                             .pressed_left
                             .swap(pressed, Ordering::AcqRel);
                         if pressed && !was {
-                            lw.handle.mouse().press_count.fetch_add(1, Ordering::AcqRel);
+                            lw.handle.mouse().record_left_press();
                         }
                     }
                     winit::event::MouseButton::Right => {

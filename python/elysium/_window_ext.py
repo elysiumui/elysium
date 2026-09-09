@@ -89,6 +89,11 @@ class _WindowProxy:
         return self._native.press_count
 
     @property
+    def left_press_position(self):
+        """Origin of the last left press, or None on older native builds."""
+        return getattr(self._native, "left_press_position", None)
+
+    @property
     def mouse_right_pressed(self) -> bool:
         """True while the secondary (right) mouse button is held down.
         Provided for context-menu / alternate-action UIs. Older native
