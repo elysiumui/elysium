@@ -647,6 +647,98 @@ def extrude_vertices(mesh, identities, offset):
     return compile(doc)[0], new_ids
 
 
+def extrude_edges(mesh, identities, offset):
+    """Sweep boundary/wire chains into quads, with shared new vertices and stable caps."""
+    delta = _coordinates(offset)
+    if not np.any(delta):
+        raise ValueError("Edge extrusion requires a nonzero offset")
+    doc = document(mesh)
+    chosen = set(identities)
+    edges = [e for e in doc["edges"] if e["id"] in chosen]
+    if not chosen or chosen - {e["id"] for e in edges}:
+        raise ValueError("Select existing edges to extrude")
+    uses = edge_usage(doc)
+    graph = {}
+    by_pair = {}
+    for edge in edges:
+        a, b = edge["vertices"]
+        pair = tuple(sorted((a, b)))
+        if len(uses.get(pair, [])) > 1:
+            raise ValueError("Extrude boundary or wire edges, not edges shared by two faces")
+        by_pair[pair] = edge
+        graph.setdefault(a, []).append(b)
+        graph.setdefault(b, []).append(a)
+    if any(len(n) > 2 for n in graph.values()):
+        raise ValueError("Extrude edge chains or loops without branches")
+    remaining = set(by_pair)
+    oriented = []
+    while remaining:
+        active = {v for pair in remaining for v in pair}
+        start = next((v for v in graph if v in active and len(graph[v]) == 1), None)
+        start = start or next(v for v in graph if v in active)
+        current, chain = start, []
+        while True:
+            following = next(
+                (v for v in graph[current] if tuple(sorted((current, v))) in remaining), None
+            )
+            if following is None:
+                break
+            remaining.remove(tuple(sorted((current, following))))
+            chain.append((current, following))
+            current = following
+        directions = [
+            uses[tuple(sorted((a, b)))][0] == (a, b)
+            for a, b in chain
+            if uses.get(tuple(sorted((a, b))))
+        ]
+        if directions and any(d != directions[0] for d in directions):
+            raise ValueError("Selected boundary winding is inconsistent")
+        # Blender edge-only extrusion puts the base edge in reverse order
+        # when a wire has no neighboring face to establish its winding.
+        if not directions or directions[0]:
+            chain = [(b, a) for a, b in chain]
+        oriented.extend(chain)
+    source_vertices = {v["id"]: v for v in doc["vertices"]}
+    duplicates = {}
+    for vertex in list(doc["vertices"]):
+        if vertex["id"] in graph:
+            added = deepcopy(vertex)
+            added["id"] = _id(doc, "v")
+            added["position"] = (np.asarray(vertex["position"]) + delta).tolist()
+            duplicates[vertex["id"]] = added["id"]
+            doc["vertices"].append(added)
+    materials = {
+        pair: face["material"] for face in doc["faces"] for pair in edge_usage({"faces": [face]})
+    }
+    preserved = loose_edges(doc)
+    cap_ids = []
+    height = float(np.linalg.norm(delta))
+    for a, b in oriented:
+        pair = tuple(sorted((a, b)))
+        width = float(
+            np.linalg.norm(
+                np.asarray(source_vertices[b]["position"]) - source_vertices[a]["position"]
+            )
+        )
+        cycle = [a, b, duplicates[b], duplicates[a]]
+        uv = [[0, 0], [width, 0], [width, height], [0, height]]
+        doc["faces"].append(
+            {
+                "id": _id(doc, "f"),
+                "corners": [_corner(doc, v, coord) for v, coord in zip(cycle, uv)],
+                "material": materials.get(pair, 0),
+            }
+        )
+        cap = deepcopy(by_pair[pair])
+        cap["id"] = _id(doc, "e")
+        cap["vertices"] = sorted((duplicates[a], duplicates[b]))
+        doc["edges"].append(cap)
+        cap_ids.append(cap["id"])
+    _edges(doc, preserved)
+    doc["schema_version"] = 2
+    return compile(doc)[0], cap_ids
+
+
 def move_vertices(mesh, vertex_ids, offset):
     if len(offset) != 3 or any(type(v) not in (int, float) or not np.isfinite(v) for v in offset):
         raise ValueError("Move requires three finite coordinates")
@@ -706,6 +798,11 @@ def edit_selected(
         else:
             result, vertex_ids = extrude_vertices(mesh, selected.get("ids", []), offset)
             selected = {"mode": "vertices", "ids": vertex_ids}
+    elif operation == "extrude_edges":
+        if selected.get("mode") != "edges":
+            raise ValueError("Choose edge selection mode first")
+        result, edge_ids = extrude_edges(mesh, selected.get("ids", []), offset)
+        selected = {"mode": "edges", "ids": edge_ids}
     elif operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
             raise ValueError(f"{operation.title()} requires selected faces")

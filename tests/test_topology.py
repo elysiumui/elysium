@@ -453,3 +453,68 @@ def test_vertex_wire_construction_empty_mesh_selection_and_rejections():
     coincident, c = topology.add_vertex(mesh_document.resolve(p.mesh_kind), [1, 0, 0])
     with pytest.raises(ValueError, match="coincident"):
         topology.connect_vertices(coincident, [b, c])
+
+
+def test_boundary_edge_extrusion_preserves_winding_attributes_and_shared_vertices():
+    mesh = primitives.build("Plane", {"segments": 1})[0]
+    doc = deepcopy(mesh.topology)
+    doc["faces"][0]["material"] = 2
+    for edge in doc["edges"]:
+        edge["seam"], edge["sharp"] = True, True
+    mesh = topology.compile(doc)[0]
+    result, caps = topology.extrude_edges(mesh, [e["id"] for e in doc["edges"]], [0, 1, 0])
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [8, 12, 5]
+    assert result.topology["faces"][0] == doc["faces"][0]
+    assert all(e in result.topology["edges"] for e in doc["edges"])
+    assert all(f["material"] == 2 for f in result.topology["faces"])
+    assert all(e["seam"] and e["sharp"] for e in result.topology["edges"] if e["id"] in caps)
+    assert all(
+        len(u) == 1 or u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values()
+    )
+    assert mesh_document.from_json(mesh_document.to_json(result)).topology == result.topology
+
+
+def test_wire_edge_extrusion_makes_quads_and_selects_parallel_edges():
+    mesh = cube()
+    empty = topology.delete_components(mesh, "faces", [f["id"] for f in mesh.topology["faces"]])
+    mesh, a = topology.add_vertex(empty, [0, 0, 0])
+    mesh, b = topology.add_vertex(mesh, [1, 0, 0])
+    mesh, edge = topology.connect_vertices(mesh, [a, b])
+    p = SimpleNamespace(kind="Mesh3D", name="Surface", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh)
+    topology.select(p, "edges", [edge])
+    result = topology.edit_selected(p, "extrude_edges", offset=[0, 1, 0])
+    assert (result["vertices"], result["edges"], result["faces"]) == (4, 4, 1)
+    assert result["selection"]["mode"] == "edges" and result["selection"]["ids"] != [edge]
+    actual = mesh_document.resolve(p.mesh_kind)
+    positions = {v["id"]: v["position"] for v in actual.topology["vertices"]}
+    face = actual.topology["faces"][0]
+    np.testing.assert_allclose(
+        topology.normal([positions[c["vertex"]] for c in face["corners"]]), [0, 0, -1]
+    )
+    # Sweep the selected cap again. The join keeps a consistent outward winding.
+    result = topology.edit_selected(p, "extrude_edges", offset=[0, 1, 0])
+    assert (result["vertices"], result["edges"], result["faces"]) == (6, 7, 2)
+    assert all(
+        len(u) == 1 or u[0] == u[1][::-1]
+        for u in topology.edge_usage(mesh_document.resolve(p.mesh_kind).topology).values()
+    )
+
+
+def test_edge_extrusion_rejects_interior_or_degenerate_sweeps_atomically():
+    p = SimpleNamespace(kind="Mesh3D", name="Invalid", props={}, mesh_kind="")
+    mesh = cube()
+    mesh_document.bind(p, mesh)
+    topology.select(p, "edges", [mesh.topology["edges"][0]["id"]])
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="shared by two faces"):
+        topology.edit_selected(p, "extrude_edges", offset=[0, 1, 0])
+    assert p.__dict__ == before
+    plane = primitives.build("Plane", {"segments": 1})[0]
+    edge = plane.topology["edges"][0]
+    points = {v["id"]: v["position"] for v in plane.topology["vertices"]}
+    parallel = (np.array(points[edge["vertices"][1]]) - points[edge["vertices"][0]]).tolist()
+    original = mesh_document.to_json(plane)
+    with pytest.raises(ValueError):
+        topology.extrude_edges(plane, [edge["id"]], parallel)
+    assert mesh_document.to_json(plane) == original
