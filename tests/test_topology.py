@@ -627,3 +627,53 @@ def test_edge_loop_stops_at_irregular_vertices_and_ring_crosses_quad_faces():
     topology.select(p, "edges", [seed])
     assert topology.expand_edge_selection(p, "loop")["ids"] == [seed]
     assert len(topology.expand_edge_selection(p, "ring")["ids"]) == 4
+
+
+def test_proportional_move_has_measured_smooth_radius_and_preserves_attributes():
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
+    original = deepcopy(mesh.topology)
+    center = next(v["id"] for v in original["vertices"] if v["position"] == [0, 0, 0])
+    moved = topology.move_vertices(mesh, [center], [0, 0.5, 0], radius=1.5)
+    points = {tuple(v["position"][::2]): v["position"][1] for v in moved.topology["vertices"]}
+    assert points[(0, 0)] == pytest.approx(0.5)
+    assert points[(1, 0)] == pytest.approx(0.5 * 7 / 27)
+    assert points[(0, -1)] == pytest.approx(0.5 * 7 / 27)
+    assert 0 < points[(1, 1)] < 0.005
+    assert moved.topology["edges"] == original["edges"]
+    for before, after in zip(original["faces"], moved.topology["faces"]):
+        assert before["id"] == after["id"] and before["material"] == after["material"]
+        assert [(c["id"], c["vertex"], c["uv"]) for c in before["corners"]] == [
+            (c["id"], c["vertex"], c["uv"]) for c in after["corners"]
+        ]
+    at_boundary = topology.move_vertices(mesh, [center], [0, 0.5, 0], radius=1)
+    assert all(
+        v["position"] == old["position"]
+        for old, v in zip(original["vertices"], at_boundary.topology["vertices"])
+        if v["id"] != center
+    )
+    assert mesh.topology == original
+    assert mesh_document.from_json(mesh_document.to_json(moved)).topology == moved.topology
+
+
+def test_proportional_radius_uses_nearest_selected_point_not_centroid():
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
+    selected = [
+        v["id"] for v in mesh.topology["vertices"] if v["position"] in ([-1, 0, 0], [1, 0, 0])
+    ]
+    moved = topology.move_vertices(mesh, selected, [0, 0.5, 0], radius=0.8)
+    center = next(
+        v for v in moved.topology["vertices"] if v["position"][0] == 0 and v["position"][2] == 0
+    )
+    assert center["position"] == [0, 0, 0]
+    assert sum(v["position"][1] == 0.5 for v in moved.topology["vertices"]) == 2
+
+
+@pytest.mark.parametrize("radius", [-1, float("nan"), float("inf"), True])
+def test_invalid_proportional_radius_is_atomic(radius):
+    p = SimpleNamespace(kind="Mesh3D", name="Plane", props={}, mesh_kind="")
+    mesh_document.bind(p, cube())
+    topology.select(p, "vertices", ["v1"])
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="radius"):
+        topology.edit_selected(p, "move", offset=[0, 0.5, 0], radius=radius)
+    assert p.__dict__ == before

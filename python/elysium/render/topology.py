@@ -802,18 +802,33 @@ def extrude_edges(mesh, identities, offset):
     return compile(doc)[0], cap_ids
 
 
-def move_vertices(mesh, vertex_ids, offset):
-    if len(offset) != 3 or any(type(v) not in (int, float) or not np.isfinite(v) for v in offset):
-        raise ValueError("Move requires three finite coordinates")
+def move_vertices(mesh, vertex_ids, offset, *, radius=0.0):
+    """Move points with optional smooth Euclidean falloff from selected vertices."""
+    delta = _coordinates(offset)
+    if type(radius) not in (int, float) or not 0 <= radius <= MAX_FLOAT32 or not isfinite(radius):
+        raise ValueError("Proportional radius must be finite and nonnegative")
     doc = document(mesh)
     if not vertex_ids or set(vertex_ids) - {v["id"] for v in doc["vertices"]}:
         raise ValueError("Select existing vertices")
-    for vertex in doc["vertices"]:
-        if vertex["id"] in vertex_ids:
-            vertex["position"] = (np.asarray(vertex["position"]) + offset).tolist()
-    # Recalculate edited corner normals, preserving corner UVs and material slots.
+    positions = np.array([v["position"] for v in doc["vertices"]], dtype=float)
+    mask = np.array([v["id"] in vertex_ids for v in doc["vertices"]])
+    if radius > 0:
+        from scipy.spatial import cKDTree
+
+        distances, _ = cKDTree(positions[mask]).query(positions, distance_upper_bound=radius)
+        weights = np.clip(1 - distances / radius, 0, 1)
+        weights = weights**2 * (3 - 2 * weights)
+        weights[mask] = 1
+    else:
+        weights = mask.astype(float)
+    moved = set()
+    for vertex, position, weight in zip(doc["vertices"], positions, weights):
+        if weight > 0:
+            vertex["position"] = (position + delta * weight).tolist()
+            moved.add(vertex["id"])
+    # Recalculate affected normals, preserving corner UVs and material slots.
     for face in doc["faces"]:
-        if any(c["vertex"] in vertex_ids for c in face["corners"]):
+        if any(c["vertex"] in moved for c in face["corners"]):
             for c in face["corners"]:
                 c["normal"] = None
     return compile(doc)[0]
@@ -903,7 +918,13 @@ def expand_edge_selection(placement, pattern):
 
 
 def edit_selected(
-    placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0), position=(0.0, 0.0, 0.0)
+    placement,
+    operation,
+    *,
+    distance=1.0,
+    offset=(0.0, 0.0, 0.0),
+    position=(0.0, 0.0, 0.0),
+    radius=0.0,
 ):
     from . import mesh_document
 
@@ -960,7 +981,7 @@ def edit_selected(
             ids = {c["vertex"] for f in doc["faces"] if f["id"] in chosen for c in f["corners"]}
         else:
             raise ValueError("Select components to move")
-        result = move_vertices(mesh, ids, offset)
+        result = move_vertices(mesh, ids, offset, radius=radius)
     else:
         raise ValueError("Unknown topology operation")
     key = mesh_document.bind(placement, result, label=placement.name)

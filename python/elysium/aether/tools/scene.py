@@ -247,11 +247,11 @@ def components_expand(session,id,pattern):
 
 @register_tool(
     name="mesh.components_edit",
-    description="Extrude a face region along its averaged normal or extrude_individual faces along their own normals, inset individual planar convex faces by positive distance, move components in local meters, delete selected components, or fill one planar boundary/wire loop. Add an isolated vertex at position, connect exactly two selected vertices, or extrude_vertices by offset into independent edges. Connect does not split existing faces. Vertex extrusion selects the new endpoints. extrude_edges sweeps boundary/wire chains by offset into quads and selects new parallel edges; branches and interior edges reject. Delete preserves surviving loose geometry; fill creates a material-0 face with planar UVs. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
+    description="Extrude a face region along its averaged normal or extrude_individual faces along their own normals, inset individual planar convex faces by positive distance, move components in local meters (radius 0 affects only selection; positive radius uses smooth Euclidean falloff), delete selected components, or fill one planar boundary/wire loop. Add an isolated vertex at position, connect exactly two selected vertices, or extrude_vertices by offset into independent edges. Connect does not split existing faces. Vertex extrusion selects the new endpoints. extrude_edges sweeps boundary/wire chains by offset into quads and selects new parallel edges; branches and interior edges reject. Delete preserves surviving loose geometry; fill creates a material-0 face with planar UVs. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
     input_schema={"type":"object","additionalProperties":False,"properties":{
         "id":{"type":"string"},"operation":{"enum":["extrude","extrude_individual","inset","move","delete","fill","add_vertex","connect","extrude_vertices","extrude_edges"]},
-        "distance":{"type":"number"},"offset":_VECTOR,"position":_VECTOR},"required":["id","operation"]},
+        "distance":{"type":"number"},"offset":_VECTOR,"position":_VECTOR,"radius":{"type":"number","minimum":0}},"required":["id","operation"]},
 )
-def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.),position=(0.,0.,0.)):
+def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.),position=(0.,0.,0.),radius=0.0):
     from ...render import topology
-    return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset,position=position)
+    return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset,position=position,radius=radius)
