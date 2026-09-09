@@ -20,7 +20,7 @@ def _corner(doc, vertex, uv=None, normal=None):
     return {"id": _id(doc, "c"), "vertex": vertex, "uv": deepcopy(uv), "normal": deepcopy(normal)}
 
 
-def _edges(doc):
+def _edges(doc, loose=()):
     old = {tuple(sorted(e["vertices"])): e for e in doc["edges"]}
     needed = {}
     for face in doc["faces"]:
@@ -32,6 +32,8 @@ def _edges(doc):
                 or needed.get(pair)
                 or {"id": _id(doc, "e"), "vertices": list(pair), "seam": False, "sharp": False}
             )
+    for edge in loose:
+        needed.setdefault(tuple(sorted(edge["vertices"])), edge)
     doc["edges"] = list(needed.values())
 
 
@@ -156,7 +158,7 @@ def triangles(points):
 
 
 def validate(doc):
-    if not isinstance(doc, dict) or doc.get("schema_version") != 1:
+    if not isinstance(doc, dict) or doc.get("schema_version") not in (1, 2):
         raise ValueError("Unsupported editable topology version")
     if type(doc.get("next_id")) is not int or doc["next_id"] < 1:
         raise ValueError("Invalid topology identity counter")
@@ -208,10 +210,15 @@ def validate(doc):
         if len(edge["vertices"]) != 2:
             raise ValueError("Edge requires two vertices")
         pair = tuple(sorted(edge["vertices"]))
-        if pair in actual or pair not in needed:
+        if (
+            pair in actual
+            or pair[0] == pair[1]
+            or any(v not in verts for v in pair)
+            or (doc["schema_version"] == 1 and pair not in needed)
+        ):
             raise ValueError("Invalid or duplicate polygon edge")
         actual.add(pair)
-    if actual != needed:
+    if not needed <= actual:
         raise ValueError("Polygon edges are incomplete")
 
 
@@ -249,6 +256,16 @@ def compile(doc):
             faces.append([compiled[i] for i in triangle])
             materials.append(face["material"])
             face_ids.append(face["id"])
+    if doc["schema_version"] >= 2:
+        # Loose vertices/edges are authored geometry even without a surface.
+        used = set(ids)
+        for v in doc["vertices"]:
+            if v["id"] not in used:
+                positions.append(v["position"])
+                ids.append(v["id"])
+                uvs.append([0.0, 0.0])
+                normals.append([0.0, 1.0, 0.0])
+                parts.append(v.get("part") or 0)
     # Geometry order follows durable vertices, independent of face winding.
     rank = {v["id"]: i for i, v in enumerate(doc["vertices"])}
     order = sorted(range(len(ids)), key=lambda i: rank[ids[i]])
@@ -299,6 +316,7 @@ def extrude(mesh, face_ids, distance, *, individual=False):
 
 def _extrude_region(doc, selected, distance):
     """Mutate an unpublished document; each group keeps its own cap vertices."""
+    loose = loose_edges(doc)
     verts = {v["id"]: v for v in doc["vertices"]}
     normals = [normal([verts[c["vertex"]]["position"] for c in f["corners"]]) for f in selected]
     direction = np.sum(normals, axis=0)
@@ -339,13 +357,14 @@ def _extrude_region(doc, selected, distance):
             c["vertex"] = moved[c["vertex"]]
     doc["faces"].extend(sides)
     used = {c["vertex"] for f in doc["faces"] for c in f["corners"]}
+    used.update(v for e in loose for v in e["vertices"])
     doc["vertices"] = [v for v in doc["vertices"] if v["id"] in used or v["id"] not in moved]
     inherited_edges = {
         tuple(sorted((moved[e["vertices"][0]], moved[e["vertices"][1]]))): e
         for e in doc["edges"]
         if all(v in moved for v in e["vertices"])
     }
-    _edges(doc)
+    _edges(doc, loose)
     for edge in doc["edges"]:
         source = inherited_edges.get(tuple(edge["vertices"]))
         if source is not None:
@@ -362,6 +381,7 @@ def inset(mesh, face_ids, thickness):
     if type(thickness) not in (int, float) or not np.isfinite(thickness) or thickness <= 0:
         raise ValueError("Inset thickness must be finite and positive")
     doc = document(mesh)
+    loose = loose_edges(doc)
     selected = _selected(doc, face_ids)
     vertices = {v["id"]: v for v in doc["vertices"]}
     borders = []
@@ -428,8 +448,135 @@ def inset(mesh, face_ids, thickness):
                 }
             )
     doc["faces"].extend(borders)
-    _edges(doc)
+    _edges(doc, loose)
     return compile(doc)[0]
+
+
+def edge_usage(doc):
+    uses = {}
+    for face in doc["faces"]:
+        ids = [c["vertex"] for c in face["corners"]]
+        for a, b in zip(ids, ids[1:] + ids[:1]):
+            uses.setdefault(tuple(sorted((a, b))), []).append((a, b))
+    return uses
+
+
+def loose_edges(doc):
+    used = edge_usage(doc)
+    return [e for e in doc["edges"] if tuple(sorted(e["vertices"])) not in used]
+
+
+def delete_components(mesh, mode, identities):
+    """Delete vertices, edges or faces; preserve surviving loose geometry.
+
+    Face deletion removes only newly unused edges/vertices of the deleted faces.
+    Edge deletion retains other edges as wires; vertex deletion removes all
+    incident edges/faces. The object remains even when its geometry is empty.
+    """
+    doc = document(mesh)
+    if mode not in ("vertices", "edges", "faces") or not identities:
+        raise ValueError("Select components to delete")
+    chosen = set(identities)
+    if chosen - {v["id"] for v in doc[mode]}:
+        raise ValueError("Selected components no longer exist")
+    doc["schema_version"] = 2
+    removed_edges = set()
+    candidates = set()
+    if mode == "vertices":
+        candidates = chosen
+        removed_edges = {e["id"] for e in doc["edges"] if chosen.intersection(e["vertices"])}
+        removed_faces = {
+            f["id"] for f in doc["faces"] if any(c["vertex"] in chosen for c in f["corners"])
+        }
+    elif mode == "edges":
+        removed_edges = chosen
+        pairs = {tuple(sorted(e["vertices"])) for e in doc["edges"] if e["id"] in chosen}
+        candidates = {v for pair in pairs for v in pair}
+        removed_faces = set()
+        for f in doc["faces"]:
+            ids = [c["vertex"] for c in f["corners"]]
+            if any(tuple(sorted((a, b))) in pairs for a, b in zip(ids, ids[1:] + ids[:1])):
+                removed_faces.add(f["id"])
+    else:
+        removed_faces = chosen
+        candidates = {c["vertex"] for f in doc["faces"] if f["id"] in chosen for c in f["corners"]}
+        removed_pairs = edge_usage({"faces": [f for f in doc["faces"] if f["id"] in chosen]})
+        remaining_pairs = edge_usage({"faces": [f for f in doc["faces"] if f["id"] not in chosen]})
+        removed_edges = {
+            e["id"]
+            for e in doc["edges"]
+            if tuple(sorted(e["vertices"])) in removed_pairs
+            and tuple(sorted(e["vertices"])) not in remaining_pairs
+        }
+    doc["faces"] = [f for f in doc["faces"] if f["id"] not in removed_faces]
+    doc["edges"] = [e for e in doc["edges"] if e["id"] not in removed_edges]
+    used = {v for e in doc["edges"] for v in e["vertices"]}
+    doc["vertices"] = [v for v in doc["vertices"] if v["id"] not in candidates or v["id"] in used]
+    return compile(doc)[0]
+
+
+def fill_loop(mesh, mode, identities):
+    """Cap one simple closed boundary/wire loop, preserving its edge identities."""
+    doc = document(mesh)
+    if mode not in ("vertices", "edges") or not identities:
+        raise ValueError("Select one closed loop of boundary edges or vertices")
+    chosen = set(identities)
+    if chosen - {v["id"] for v in doc[mode]}:
+        raise ValueError("Selected components no longer exist")
+    edges = [
+        e
+        for e in doc["edges"]
+        if (e["id"] in chosen if mode == "edges" else set(e["vertices"]) <= chosen)
+    ]
+    graph = {}
+    for edge in edges:
+        a, b = edge["vertices"]
+        graph.setdefault(a, []).append(b)
+        graph.setdefault(b, []).append(a)
+    if (
+        len(graph) < 3
+        or any(len(n) != 2 for n in graph.values())
+        or (mode == "vertices" and set(graph) != chosen)
+    ):
+        raise ValueError("Fill requires one closed loop without branches")
+    start = next(iter(graph))
+    cycle, previous, current = [start], start, graph[start][0]
+    while current != start:
+        if current in cycle:
+            raise ValueError("Fill requires one closed loop")
+        cycle.append(current)
+        following = next(n for n in graph[current] if n != previous)
+        previous, current = current, following
+    if len(cycle) != len(graph):
+        raise ValueError("Fill one boundary loop at a time")
+    uses = edge_usage(doc)
+    orientations = []
+    for a, b in zip(cycle, cycle[1:] + cycle[:1]):
+        shared = uses.get(tuple(sorted((a, b))), [])
+        if len(shared) > 1:
+            raise ValueError("Cannot fill an edge already shared by two faces")
+        if shared:
+            orientations.append(shared[0] == (a, b))
+    if orientations and any(o != orientations[0] for o in orientations):
+        raise ValueError("Boundary winding is inconsistent")
+    if orientations and orientations[0]:
+        cycle.reverse()
+    vertices = {v["id"]: v["position"] for v in doc["vertices"]}
+    points = np.array([vertices[v] for v in cycle])
+    n = normal(points)
+    if (
+        np.max(np.abs((points - points[0]) @ n))
+        > max(float(np.ptp(points, axis=0).max()), 1e-12) * 1e-6
+    ):
+        raise ValueError("Fill requires a planar boundary loop")
+    triangles(points)  # Reject crossed or degenerate loops before publishing.
+    uv = np.delete(points, int(np.argmax(np.abs(n))), axis=1)
+    uv = (uv - uv.min(axis=0)) / np.maximum(np.ptp(uv, axis=0), 1e-12)
+    corners = [_corner(doc, v, coord.tolist()) for v, coord in zip(cycle, uv)]
+    face = {"id": _id(doc, "f"), "corners": corners, "material": 0}
+    doc["faces"].append(face)
+    doc["schema_version"] = 2
+    return compile(doc)[0], face["id"]
 
 
 def move_vertices(mesh, vertex_ids, offset):
@@ -489,6 +636,12 @@ def edit_selected(placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0))
                 distance,
                 individual=operation == "extrude_individual",
             )
+    elif operation == "delete":
+        result = delete_components(mesh, selected.get("mode"), selected.get("ids", []))
+        selected = {"mode": selected["mode"], "ids": []}
+    elif operation == "fill":
+        result, face_id = fill_loop(mesh, selected.get("mode"), selected.get("ids", []))
+        selected = {"mode": "faces", "ids": [face_id]}
     elif operation == "move":
         doc = document(mesh)
         chosen = selected.get("ids", [])
@@ -507,6 +660,7 @@ def edit_selected(placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0))
     else:
         raise ValueError("Unknown topology operation")
     key = mesh_document.bind(placement, result, label=placement.name)
+    placement.props["components3d"] = deepcopy(selected)
     return {
         "mesh_key": key,
         "vertices": len(result.topology["vertices"]),

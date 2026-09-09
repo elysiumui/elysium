@@ -108,7 +108,7 @@ def compose(placements, *, materials=False):
         mats.append(material(p))
         face_objects.extend([i] * len(mesh.faces))
         count += len(mesh.verts)
-    if not verts:
+    if not verts or count == 0:
         return None, np.empty(0, dtype=np.int32)
     # Neutral solid viewport material; this does not edit authored materials.
     mesh = pbr.Mesh(
@@ -152,7 +152,7 @@ def render(
 ):
     obj, face_objects = compose(placements, materials=shading == "material")
     ids = np.full((height, width), -1, dtype=np.int32)
-    if obj is None:
+    if obj is None or len(obj.mesh.faces) == 0:
         # Empty geometry still needs camera rays for the world grid.
         obj = pbr.MeshObject(
             pbr.Mesh(

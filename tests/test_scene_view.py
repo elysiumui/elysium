@@ -78,3 +78,24 @@ def test_reflection_keeps_outward_surface_winding():
     triangles = obj.mesh.verts[obj.mesh.faces]
     normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
     assert (np.sum(normals * triangles.mean(axis=1), axis=1) > 0).all()
+
+
+def test_empty_and_wire_mesh_render_grid_and_frame_without_false_object_hits():
+    from elysium.render import topology
+
+    p = primitive("Plane")
+    mesh = mesh_document.resolve(p.mesh_kind)
+    wire = topology.delete_components(mesh, "edges", [mesh.topology["edges"][0]["id"]])
+    mesh_document.bind(p, wire)
+    target, distance = scene.frame([p])
+    np.testing.assert_allclose(target, [0, 0, 0])
+    assert distance > 0
+    for candidate in (
+        wire,
+        topology.delete_components(mesh, "faces", [f["id"] for f in mesh.topology["faces"]]),
+    ):
+        mesh_document.bind(p, candidate)
+        rgba, ids = scene.render([p], 40, 40, component_output={})
+        assert (ids == -1).all()
+        assert len(rgba) == 40 * 40 * 4
+        assert np.isfinite(scene.frame([p])[1])

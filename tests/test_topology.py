@@ -301,3 +301,87 @@ def test_individual_extrusion_rejects_stale_selection_without_partial_publicatio
     result = topology.edit_selected(p, "extrude_individual", distance=0.25)
     assert (result["vertices"], result["edges"], result["faces"]) == (32, 60, 30)
     assert result["selection"] == before["props"]["components3d"]
+
+
+def test_delete_face_and_fill_boundary_restore_oriented_geometry():
+    mesh = cube()
+    face_id = top_face(mesh)["id"]
+    cut = topology.delete_components(mesh, "faces", [face_id])
+    assert [len(cut.topology[k]) for k in ("vertices", "edges", "faces")] == [8, 12, 5]
+    uses = topology.edge_usage(cut.topology)
+    boundary = [e["id"] for e in cut.topology["edges"] if len(uses[tuple(e["vertices"])]) == 1]
+    assert len(boundary) == 4
+    filled, identity = topology.fill_loop(cut, "edges", boundary)
+    assert [len(filled.topology[k]) for k in ("vertices", "edges", "faces")] == [8, 12, 6]
+    assert signed_volume(filled) == pytest.approx(8)
+    assert filled.topology["edges"] == mesh.topology["edges"]
+    assert len(next(f for f in filled.topology["faces"] if f["id"] == identity)["corners"]) == 4
+    assert all(
+        len(v) == 2 and v[0] == v[1][::-1] for v in topology.edge_usage(filled.topology).values()
+    )
+    assert mesh_document.from_json(mesh_document.to_json(filled)).topology == filled.topology
+
+
+def test_delete_edges_keeps_wires_and_loose_vertices_in_compiled_document():
+    mesh = primitives.build("Plane", {"segments": 1})[0]
+    edge = mesh.topology["edges"][0]
+    wire = topology.delete_components(mesh, "edges", [edge["id"]])
+    assert [len(wire.topology[k]) for k in ("vertices", "edges", "faces")] == [4, 3, 0]
+    assert wire.verts.shape == (4, 3) and wire.faces.shape == (0, 3)
+    assert len(topology.loose_edges(wire.topology)) == 3
+    restored = mesh_document.from_json(mesh_document.to_json(wire))
+    assert restored.topology == wire.topology
+    vertex = edge["vertices"][0]
+    moved = topology.move_vertices(restored, [vertex], [0, 0.5, 0])
+    assert len(moved.verts) == 4 and len(moved.topology["edges"]) == 3
+    with pytest.raises(ValueError, match="closed loop"):
+        topology.fill_loop(wire, "edges", [e["id"] for e in wire.topology["edges"]])
+
+
+@pytest.mark.parametrize("mode", ["vertices", "edges", "faces"])
+def test_delete_all_retains_valid_empty_mesh_and_identity_counter(mode):
+    mesh = cube()
+    empty = topology.delete_components(mesh, mode, [v["id"] for v in mesh.topology[mode]])
+    assert empty.verts.shape == (0, 3) and empty.faces.shape == (0, 3)
+    assert not any(empty.topology[k] for k in ("vertices", "edges", "faces"))
+    assert empty.topology["next_id"] == mesh.topology["next_id"]
+    assert mesh_document.from_json(mesh_document.to_json(empty)).topology == empty.topology
+
+
+def test_fill_rejects_closed_shell_stale_and_disconnected_selections_atomically():
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    for ids in (
+        [mesh.topology["edges"][0]["id"], "e999999"],
+        [e["id"] for e in mesh.topology["edges"]],
+    ):
+        with pytest.raises(ValueError):
+            topology.fill_loop(mesh, "edges", ids)
+    top = {c["vertex"] for c in top_face(mesh)["corners"]}
+    boundary = [e["id"] for e in mesh.topology["edges"] if set(e["vertices"]) <= top]
+    with pytest.raises(ValueError, match="two faces"):
+        topology.fill_loop(mesh, "edges", boundary)
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_extrude_and_inset_preserve_preexisting_wires():
+    mesh = cube()
+    doc = deepcopy(mesh.topology)
+    doc["schema_version"] = 2
+    loose_vertex = {"id": topology._id(doc, "v"), "position": [3, 0, 0], "part": None}
+    doc["vertices"].append(loose_vertex)
+    edge = {
+        "id": topology._id(doc, "e"),
+        "vertices": [doc["vertices"][0]["id"], loose_vertex["id"]],
+        "seam": True,
+        "sharp": True,
+    }
+    doc["edges"].append(edge)
+    wired = topology.compile(doc)[0]
+    selected = top_face(wired)["id"]
+    for result in (
+        topology.extrude(wired, [selected], 0.25),
+        topology.inset(wired, [selected], 0.2),
+    ):
+        assert edge in result.topology["edges"] and loose_vertex in result.topology["vertices"]
+        assert len(result.verts) >= len(wired.verts)

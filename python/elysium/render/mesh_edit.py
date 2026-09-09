@@ -46,7 +46,7 @@ def taper_set(placement, values):
 
 def evaluate(placement):
     source = mesh_document.resolve(placement.mesh_kind)
-    if "taper3d" not in placement.props:
+    if "taper3d" not in placement.props or len(source.verts) == 0:
         return source
     settings = taper_settings(placement)
     axis = "xyz".index(settings["axis"])
