@@ -897,7 +897,9 @@ def _intersect_rays_mesh(ray_o: np.ndarray, ray_d: np.ndarray,
 def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                 cam_dist: float = 3.5, cam_yaw: float = 0.4, cam_pitch: float = 0.25,
                 wireframe: bool = False, wireframe_width: float = 1.0,
-                transparent_bg: bool = False) -> bytes:
+                transparent_bg: bool = False,
+                cam_target: Tuple[float, float, float] = (0., 0., 0.),
+                hit_output: dict | None = None) -> bytes:
     """Render a MeshObject with Cook-Torrance PBR + IBL. Returns RGBA bytes.
 
     When ``transparent_bg`` is True, pixels that don't hit the mesh
@@ -911,6 +913,7 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                         cam_dist * sp_,
                         cam_dist * cp_ * cy_], dtype=np.float32)
     look = -cam_pos / max(np.linalg.norm(cam_pos), 1e-8)
+    cam_pos += np.asarray(cam_target, dtype=np.float32)
     up_w = np.array([0, 1, 0], dtype=np.float32)
     right = np.cross(look, up_w); right /= max(np.linalg.norm(right), 1e-8)
     up = np.cross(right, look)
@@ -938,6 +941,11 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     bvh = _cached_bvh_for(obj, verts_w)
     t_min, face_idx, bary_u, bary_v = _intersect_rays_mesh(
         ro_flat, rd_flat, verts_w, obj.mesh.faces, bvh=bvh)
+    if hit_output is not None:
+        hit_output["face_index"] = face_idx.reshape(h, w).copy()
+        hit_output["depth"] = t_min.reshape(h, w).copy()
+        hit_output["ray_origin"] = ro_flat.reshape(h, w, 3)
+        hit_output["ray_direction"] = rd_flat.reshape(h, w, 3)
     hit_mask = face_idx >= 0
 
     # Shade hit pixels.

@@ -101,7 +101,7 @@ def register_tool(
 # Trigger registration by importing every tool module.
 from . import (                                       # noqa: F401  pragma: no cover
     placement, window, shape, material, texture, animation,
-    mesh, hook, codelink, code, run, snapshot, meta, tester, brush, primitives,
+    mesh, hook, codelink, code, run, snapshot, meta, tester, brush, primitives, scene,
 )
 
 
