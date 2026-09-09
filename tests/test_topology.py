@@ -905,3 +905,25 @@ def test_loop_cut_rejects_triangle_strip_without_mutation():
     with pytest.raises(ValueError, match='quad'):
         topology.edit_selected(p, 'loop_cut')
     assert vars(p) == before
+
+
+@pytest.mark.parametrize('cuts', [2,3,8,64])
+def test_multiple_loop_cuts_are_even_and_keep_cube_watertight(cuts):
+    mesh = cube()
+    points = {v['id']:v['position'] for v in mesh.topology['vertices']}
+    seed = next(e['id'] for e in mesh.topology['edges'] if all(points[v][0] == -1 and points[v][2] == -1 for v in e['vertices']))
+    result, selected = topology.loop_cut(mesh, [seed], cuts=cuts)
+    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [8+4*cuts,12+8*cuts,6+4*cuts]
+    assert len(selected) == 4*cuts
+    points = {v['id']:v['position'] for v in result.topology['vertices']}
+    levels = sorted({points[v][1] for e in result.topology['edges'] if e['id'] in selected for v in e['vertices']})
+    np.testing.assert_allclose(levels, np.linspace(-1,1,cuts+2)[1:-1], atol=1e-14)
+    assert signed_volume(result) == pytest.approx(8)
+    assert all(len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values())
+
+
+@pytest.mark.parametrize('cuts', [0,65,-1,True,1.5,'2'])
+def test_loop_cut_rejects_invalid_counts(cuts):
+    mesh = cube()
+    with pytest.raises(ValueError, match='integer'):
+        topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']], cuts=cuts)

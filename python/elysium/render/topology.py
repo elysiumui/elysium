@@ -6,6 +6,7 @@ copies so callers can publish one undoable mesh revision atomically.
 """
 
 from copy import deepcopy
+from itertools import pairwise
 from math import isfinite
 
 import numpy as np
@@ -578,8 +579,10 @@ def delete_components(mesh, mode, identities):
     return compile(doc)[0]
 
 
-def loop_cut(mesh, identities):
-    """Insert one centered cut through the quad strip reached from a seed edge."""
+def loop_cut(mesh, identities, *, cuts=1):
+    """Insert evenly spaced cuts through the quad strip reached from a seed edge."""
+    if type(cuts) is not int or not 1 <= cuts <= 64:
+        raise ValueError("Loop cut count must be an integer from 1 to 64")
     doc = document(mesh)
     edges = {e["id"]: e for e in doc["edges"]}
     if len(identities) != 1 or identities[0] not in edges:
@@ -609,7 +612,7 @@ def loop_cut(mesh, identities):
             pending.append(opposite)
             touched[face["id"]] = face
     vertices = {v["id"]: v for v in doc["vertices"]}
-    midpoints = {}
+    edge_points = {}
     split_edges = []
     for edge in doc["edges"]:
         pair = tuple(sorted(edge["vertices"]))
@@ -619,25 +622,42 @@ def loop_cut(mesh, identities):
         a, b = [vertices[v] for v in edge["vertices"]]
         if a["part"] != b["part"]:
             raise ValueError("Loop cut cannot interpolate across named parts")
-        vertex = {"id": _id(doc, "v"), "position": ((np.array(a["position"]) + b["position"]) / 2).tolist(), "part": a["part"]}
-        doc["vertices"].append(vertex)
-        midpoints[pair] = vertex["id"]
-        for i, endpoint in enumerate(edge["vertices"]):
+        chain = [a["id"]]
+        for k in range(1, cuts + 1):
+            fraction = k / (cuts + 1)
+            point = (1 - fraction) * np.array(a["position"]) + fraction * np.array(b["position"])
+            vertex = {"id": _id(doc, "v"), "position": point.tolist(), "part": a["part"]}
+            doc["vertices"].append(vertex)
+            chain.append(vertex["id"])
+        chain.append(b["id"])
+        edge_points[pair] = chain
+        for i, (start, end) in enumerate(pairwise(chain)):
             half = deepcopy(edge)
             half["id"] = edge["id"] if i == 0 else _id(doc, "e")
-            half["vertices"] = sorted((endpoint, vertex["id"]))
+            half["vertices"] = sorted((start, end))
             split_edges.append(half)
     faces, centers = [], []
 
-    def midpoint_corner(a, b, identity):
-        uv = None if a["uv"] is None or b["uv"] is None else ((np.array(a["uv"]) + b["uv"]) / 2).tolist()
+    def interpolated_corner(a, b, chain, k):
+        if k == 0:
+            return a
+        if k == cuts + 1:
+            return b
+        fraction = k / (cuts + 1)
+        uv = None
+        if a["uv"] is not None and b["uv"] is not None:
+            uv = ((1 - fraction) * np.array(a["uv"]) + fraction * np.array(b["uv"])).tolist()
         n = None
         if a["normal"] is not None and b["normal"] is not None:
-            average = np.array(a["normal"]) + b["normal"]
+            average = (1 - fraction) * np.array(a["normal"]) + fraction * np.array(b["normal"])
             length = np.linalg.norm(average)
             if length > 1e-12:
                 n = (average / length).tolist()
-        return _corner(doc, identity, uv, n)
+        return _corner(doc, chain[k], uv, n)
+
+    def oriented_chain(a, b):
+        chain = edge_points[tuple(sorted((a["vertex"], b["vertex"])))]
+        return chain if chain[0] == a["vertex"] else chain[::-1]
 
     for face in doc["faces"]:
         if face["id"] not in touched:
@@ -649,10 +669,17 @@ def loop_cut(mesh, identities):
             raise ValueError("Loop cut cannot cross itself within a face")
         i = crossed[0]
         c = face["corners"][i:] + face["corners"][:i]
-        first, second = midpoints[pairs[i]], midpoints[pairs[(i + 2) % 4]]
-        faces.append({"id": face["id"], "material": face["material"], "corners": [midpoint_corner(c[0], c[1], first), c[1], c[2], midpoint_corner(c[2], c[3], second)]})
-        faces.append({"id": _id(doc, "f"), "material": face["material"], "corners": [midpoint_corner(c[2], c[3], second), c[3], c[0], midpoint_corner(c[0], c[1], first)]})
-        centers.append(tuple(sorted((first, second))))
+        first, second = oriented_chain(c[0], c[1]), oriented_chain(c[3], c[2])
+        for k in range(cuts + 1):
+            corners = [
+                interpolated_corner(c[0], c[1], first, k),
+                interpolated_corner(c[0], c[1], first, k + 1),
+                interpolated_corner(c[3], c[2], second, k + 1),
+                interpolated_corner(c[3], c[2], second, k),
+            ]
+            faces.append({"id": face["id"] if k == 0 else _id(doc, "f"), "material": face["material"], "corners": corners})
+            if k:
+                centers.append(tuple(sorted((first[k], second[k]))))
     loose = loose_edges(doc)
     doc["faces"] = faces
     doc["edges"] = split_edges
@@ -1186,6 +1213,7 @@ def edit_selected(
     radius=0.0,
     rotation=(0.0, 0.0, 0.0),
     scale=(1.0, 1.0, 1.0),
+    cuts=1,
 ):
     from . import mesh_document
 
@@ -1221,7 +1249,7 @@ def edit_selected(
     elif operation == "loop_cut":
         if selected.get("mode") != "edges":
             raise ValueError("Choose edge selection mode first")
-        result, edge_ids = loop_cut(mesh, selected.get("ids", []))
+        result, edge_ids = loop_cut(mesh, selected.get("ids", []), cuts=cuts)
         selected = {"mode": "edges", "ids": edge_ids}
     elif operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
