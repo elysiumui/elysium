@@ -197,3 +197,55 @@ def test_inset_oblique_triangle_has_even_perpendicular_thickness():
             assert np.linalg.norm(np.cross(after[j] - a, edge)) / np.linalg.norm(
                 edge
             ) == pytest.approx(0.1)
+
+
+def test_cylinder_nozzle_inset_then_inward_extrusion_has_expected_cavity_volume():
+    n, thickness, depth = 8, 0.2, 0.4
+    mesh = primitives.build("Cylinder", {"segments": n})[0]
+    face = top_face(mesh)
+    inset_mesh = topology.inset(mesh, [face["id"]], thickness)
+    result = topology.extrude(inset_mesh, [face["id"]], -depth)
+    inner_radius = 1 - thickness / np.cos(np.pi / n)
+    area = n / 2 * np.sin(2 * np.pi / n)
+    assert signed_volume(result) == pytest.approx(
+        2 * area - depth * area * inner_radius**2, rel=1e-6
+    )
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [32, 56, 26]
+    # Inner wall UVs inherit their boundary rather than replacing all UVs by zero.
+    for f in result.topology["faces"][-n:]:
+        a, b, c, d = f["corners"]
+        assert a["uv"] == d["uv"] and b["uv"] == c["uv"] and a["uv"] != b["uv"]
+    assert mesh_document.from_json(mesh_document.to_json(result)).topology == result.topology
+
+
+def test_extrusion_propagates_parallel_edge_flags_and_rejects_inconsistent_winding():
+    mesh = cube()
+    doc = deepcopy(mesh.topology)
+    face = top_face(mesh)
+    selected_ids = {c["vertex"] for c in face["corners"]}
+    edge = next(e for e in doc["edges"] if set(e["vertices"]) <= selected_ids)
+    edge["seam"] = edge["sharp"] = True
+    mesh = topology.compile(doc)[0]
+    result = topology.extrude(mesh, [face["id"]], 1)
+    marked = [e for e in result.topology["edges"] if e["seam"] and e["sharp"]]
+    assert len(marked) == 2 and edge in marked
+    neighbor = next(
+        f
+        for f in doc["faces"]
+        if f["id"] != face["id"] and len({c["vertex"] for c in f["corners"]} & selected_ids) == 2
+    )
+    neighbor["corners"].reverse()
+    malformed_winding = topology.compile(doc)[0]
+    with pytest.raises(ValueError, match="winding"):
+        topology.extrude(malformed_winding, [face["id"], neighbor["id"]], 1)
+
+
+def test_move_rejects_mixed_valid_and_stale_component_ids_atomically():
+    mesh = cube()
+    p = SimpleNamespace(kind="Mesh3D", entity_id="stale", name="Stale", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh)
+    p.props["components3d"] = {"mode": "edges", "ids": [mesh.topology["edges"][0]["id"], "e9999"]}
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError, match="existing"):
+        topology.edit_selected(p, "move", offset=[0.1, 0, 0])
+    assert p.__dict__ == before

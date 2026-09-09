@@ -305,6 +305,8 @@ def extrude(mesh, face_ids, distance):
             usage.setdefault(pair, []).append((a, b, face["material"]))
     if any(len(v) > 2 for v in usage.values()):
         raise ValueError("Cannot extrude a non-manifold face region")
+    if any(len(v) == 2 and v[0][0]["vertex"] == v[1][0]["vertex"] for v in usage.values()):
+        raise ValueError("Selected faces have inconsistent shared-edge winding")
     boundary = [v[0] for v in usage.values() if len(v) == 1]
     if not boundary:
         raise ValueError("Select an open face region with a boundary")
@@ -318,7 +320,10 @@ def extrude(mesh, face_ids, distance):
     sides = []
     for a, b, material in boundary:
         va, vb = a["vertex"], b["vertex"]
-        corners = [_corner(doc, v) for v in (va, vb, moved[vb], moved[va])]
+        corners = [
+            _corner(doc, v, c.get("uv"))
+            for v, c in zip((va, vb, moved[vb], moved[va]), (a, b, b, a))
+        ]
         sides.append({"id": _id(doc, "f"), "corners": corners, "material": material})
     for face in selected:
         for c in face["corners"]:
@@ -326,7 +331,16 @@ def extrude(mesh, face_ids, distance):
     doc["faces"].extend(sides)
     used = {c["vertex"] for f in doc["faces"] for c in f["corners"]}
     doc["vertices"] = [v for v in doc["vertices"] if v["id"] in used or v["id"] not in moved]
+    inherited_edges = {
+        tuple(sorted((moved[e["vertices"][0]], moved[e["vertices"][1]]))): e
+        for e in doc["edges"]
+        if all(v in moved for v in e["vertices"])
+    }
     _edges(doc)
+    for edge in doc["edges"]:
+        source = inherited_edges.get(tuple(edge["vertices"]))
+        if source is not None:
+            edge["seam"], edge["sharp"] = source["seam"], source["sharp"]
     return compile(doc)[0]
 
 
@@ -465,6 +479,8 @@ def edit_selected(placement, operation, *, distance=1.0, offset=(0.0, 0.0, 0.0))
         doc = document(mesh)
         chosen = selected.get("ids", [])
         mode = selected.get("mode")
+        if mode not in ("vertices", "edges", "faces") or set(chosen) - {c["id"] for c in doc[mode]}:
+            raise ValueError("Select existing components to move")
         if mode == "vertices":
             ids = chosen
         elif mode == "edges":

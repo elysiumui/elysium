@@ -4,7 +4,7 @@ Status: implemented foundation, partial operator coverage. September 9, 2026.
 
 Native authoring needs polygon identity independently of triangle rendering. Mesh now carries an optional versioned topology source. Its vertices, edges, faces and face corners each have monotonic durable IDs. Corners own UVs and split normals; faces own material-slot indices. Edges retain seam/sharp flags across edits that preserve the edge. The compiled triangle mesh is evaluated output, with maps back to source vertex and polygon IDs.
 
-Mesh-document schema 2 stores this source alongside its validated compiled output. The loader accepts older schema-1 documents. A legacy triangle mesh migrates without welding coincident or UV-seam vertices. Cube creation supplies six quads directly. Other primitives currently retain their previous triangle source. Earlier runtimes that only accept schema 1 cannot open new schema-2 editing projects; use the matching framework wheel.
+Mesh-document schema 2 stores this source alongside its validated compiled output. The loader accepts older schema-1 documents. A legacy triangle mesh migrates without welding coincident or UV-seam vertices. All six native primitive factories now supply explicit polygon connectivity: cube quads; cylinder side quads/end n-gons; cone triangles/base n-gon; plane quads; sphere quad bands/pole triangles; torus quads. Parametric seam aliases connect source vertices while retaining separate corner UVs and normals. Earlier runtimes that only accept schema 1 cannot open new schema-2 editing projects; use the matching framework wheel.
 
 Operations validate a copied source, compile it, and bind one new owned mesh revision. GUI commands publish one undo snapshot; public Aether commands use the serialized acknowledgement/rollback boundary. Component selection is persisted by source IDs in placement properties. Extrusion retains the selected cap's face/corner IDs. Inset retains the inner face/corner IDs. New topology receives new IDs. Undo/redo and document reopen restore the exact source.
 
@@ -23,10 +23,18 @@ Independent public Aether creation/extrusion also matches the GUI result. Inset 
 
 ## Remaining foundation work
 
-Complete primitive polygon sources, edge-attribute propagation for new topology, extrusion side UV policy, stronger malformed-source validation, non-manifold regional semantics, and all remaining topology operators require further work. This architecture checkpoint does not close a plan family.
+Full new-edge attribute semantics, connected-region/concave inset, stronger malformed-source validation, non-manifold regional semantics, and all remaining topology operators require further work. This architecture checkpoint does not close a plan family.
 
 ## Visibility and selection checkpoint
 
 Component overlays now query the same composed geometry/BVH as the rendered solid at each projected point. This avoids both back-face bleed-through and lost silhouette corners from approximate pixel-depth comparisons. Lines clip to the view and camera near plane, use perspective-correct screen sampling and cache the result between edits. Face mode displays authored polygon boundaries. Vertex/edge picks use only visible geometry, including silhouette points; Shift-add preserves the object selection. Playback suspends component overlays/edit picks.
 
 The GUI, independent public Aether and Blender GUI also match a single vertex move from Designer [1,1,1] to [1.25,1,1]. Evidence: component-authoring-matrix.json in the implementation artifacts. Designer tests cover perspective/orthographic occlusion, a foreground occluder, silhouette picking, additive selection and near-plane clipping. Cmd/Ctrl+Shift+S now opens Save As; its new-project path was verified in the GUI. The native window title after Save As remains a known UI issue.
+
+## Primitive and nozzle checkpoint
+
+Cylinder cap inset followed by inward extrusion was performed in both GUIs and replayed independently through public Aether from blank geometry. The 8-sided radius-1/height-2 cylinder, inset 0.2 and extrusion -0.4 yields 32 vertices/56 edges/26 faces. Source connectivity is closed and its measured volume agrees with the analytic cavity volume. New extrusion side corners inherit boundary UVs; parallel cap edges inherit seam/sharp flags. Inconsistent selected-face winding and stale component IDs are rejected. Side UVs may require subsequent unwrap; no unwrap parity is claimed.
+
+GUI and public Aether sphere (radius 1, rings 4, segments 8) and torus (major radius 1, minor radius .25, segments 8/4) also match Blender GUI topology. The comparison uses a bijective vertex map within 1e-6 meters and requires exact edges and oriented polygon cycles after mapping. Maximum Blender deviation is 6.7435e-7 meters (torus); GUI/Aether positions agree exactly. Decimal rounding was replaced because rounding boundaries are not a Euclidean distance predicate. Blender's local torus operator constructs vertices through mathutils rotation matrices; the native factory uses direct trigonometry. Cone and plane connectivity have regression coverage; their updated GUI reference fixtures remain pending.
+
+Current suites: 196 Designer tests and 93 targeted framework tests pass. Matching framework wheel was installed for the GUI checks. The broader authoring/visual/performance plan remains incomplete.

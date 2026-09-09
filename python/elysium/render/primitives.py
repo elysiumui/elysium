@@ -7,7 +7,29 @@ from dataclasses import replace
 
 import numpy as np
 
-from . import mesh_document, pbr
+from . import mesh_document, pbr, topology
+
+
+def _polygon_source(mesh, polygons, aliases=None):
+    """Use explicit primitive connectivity, preserving render-corner seams.
+
+    Aliases come from the primitive's parametric rings, never proximity welding.
+    Coincident vertices in an arbitrary imported mesh remain independent.
+    """
+    aliases = aliases or {}
+    source = sorted({aliases.get(i, i) for face in polygons for i in face})
+    indices = {original: i for i, original in enumerate(source)}
+    remapped = [[indices[aliases.get(i, i)] for i in face] for face in polygons]
+    seed = pbr.Mesh(mesh.verts[source].copy(), np.empty((0, 3), dtype=np.int32))
+    doc = topology.from_mesh(seed, remapped)
+    for face, original in zip(doc["faces"], polygons):
+        for corner, i in zip(face["corners"], original):
+            if mesh.vert_uvs is not None:
+                corner["uv"] = mesh.vert_uvs[i].tolist()
+            if mesh.vert_normals is not None:
+                corner["normal"] = mesh.vert_normals[i].tolist()
+    return topology.compile(doc)[0]
+
 
 # name: (default, minimum, maximum, integer, visible label)
 PARAMETERS = {
@@ -118,9 +140,67 @@ def build(kind: str, parameters: dict | None = None) -> tuple[pbr.Mesh, dict]:
     ):
         mesh = replace(mesh, faces=mesh.faces[:, [0, 2, 1]].copy())
     if kind == "Cube":
-        from . import topology
-        polygons = [(0,3,2,1),(4,5,6,7),(0,1,5,4),(2,3,7,6),(1,2,6,5),(0,4,7,3)]
-        mesh = topology.compile(topology.from_mesh(mesh, polygons))[0]
+        polygons = [
+            (0, 3, 2, 1),
+            (4, 5, 6, 7),
+            (0, 1, 5, 4),
+            (2, 3, 7, 6),
+            (1, 2, 6, 5),
+            (0, 4, 7, 3),
+        ]
+        mesh = _polygon_source(mesh, polygons)
+    elif kind == "Sphere":
+        rings, n = v["rings"], v["segments"]
+        aliases = {}
+        for r in range(rings + 1):
+            for s in range(n + 1):
+                raw = r * (n + 1) + s
+                aliases[raw] = r * (n + 1) if r in (0, rings) else r * (n + 1) + s % n
+        polygons = []
+        for r in range(rings):
+            for s in range(n):
+                a = r * (n + 1) + s
+                b, c, d = a + 1, a + n + 1, a + n + 2
+                polygons.append(
+                    [b, d, c] if r == 0 else [a, b, c] if r == rings - 1 else [a, b, d, c]
+                )
+        mesh = _polygon_source(mesh, polygons, aliases)
+    elif kind == "Torus":
+        major, minor = v["major_segments"], v["minor_segments"]
+        aliases = {
+            i * (minor + 1) + j: (i % major) * (minor + 1) + j % minor
+            for i in range(major + 1)
+            for j in range(minor + 1)
+        }
+        polygons = []
+        for i in range(major):
+            for j in range(minor):
+                a = i * (minor + 1) + j
+                polygons.append([a, a + 1, a + minor + 2, a + minor + 1])
+        mesh = _polygon_source(mesh, polygons, aliases)
+    elif kind == "Cylinder":
+        n = v["segments"]
+        polygons = [[2 * i, 2 * i + 1, 2 * i + 3, 2 * i + 2] for i in range(n)]
+        aliases = {2 * n: 0, 2 * n + 1: 1}
+        for cap in (0, 1):
+            center = (2 + cap) * (n + 1)
+            rim = [center + 1 + i for i in range(n)]
+            polygons.append(rim if cap == 0 else rim[::-1])
+            aliases.update({raw: 2 * i + cap for i, raw in enumerate(rim)})
+        mesh = _polygon_source(mesh, polygons, aliases)
+    elif kind == "Cone":
+        n = v["segments"]
+        polygons = [[0, 2 + (i + 1) % n, 2 + i] for i in range(n)]
+        polygons.append(list(range(2, n + 2)))
+        mesh = _polygon_source(mesh, polygons)
+    elif kind == "Plane":
+        n = v["segments"]
+        polygons = []
+        for j in range(n):
+            for i in range(n):
+                a = j * (n + 1) + i
+                polygons.append([a, a + n + 1, a + n + 2, a + 1])
+        mesh = _polygon_source(mesh, polygons)
     mesh_document.validate(mesh)
     return mesh, values
 
