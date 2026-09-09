@@ -192,10 +192,12 @@ def mesh_uv_unwrap(session, id: str, mode: str,
         uvs = _np.stack([u, w], axis=-1)
     else:
         raise ValueError(f"unknown uv_unwrap mode: {mode!r}")
-    mesh.vert_uvs = uvs.astype(_np.float32)
-    # Rebind in MESH_LIBRARY so subsequent renders see the new UVs.
-    if not p.mesh_kind.startswith("file:"):
-        _pbr.MESH_LIBRARY[p.mesh_kind] = (lambda m=mesh: m)
+    from dataclasses import replace
+    mesh = replace(mesh, vert_uvs=uvs.astype(_np.float32))
+    # Persist an owned revision for BOTH imported and preset meshes. Never
+    # overwrite a shared preset or discard edits when the next render reloads.
+    from elysium.render.mesh_document import bind
+    bind(p, mesh)
     # Flush mesh caches so the next paint re-renders with the new UVs.
     designer = session.designer
     for ca in ("_mesh_cache", "_mesh_bytes_cache", "_pbr_cache"):

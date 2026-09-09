@@ -38,6 +38,9 @@ class AetherBridge:
         self.designer = designer
         self.port = port
         self.session = None        # lazy — only when first request lands
+        from .execution import Operations
+        self.operations = Operations(designer, self._ensure_session,
+                                     lambda: self.paused or self.stopped)
         self.daemon  = None
         self.event_queue: queue.Queue = queue.Queue(maxsize=2000)
         self.started = False
@@ -220,6 +223,15 @@ class AetherBridge:
             # --- GET --------------------------------------------------
             def do_GET(self):
                 try:
+                    if self.path.startswith("/operations/"):
+                        if bridge.paused or bridge.stopped:
+                            return self._json(423, {"error": "aether_paused_or_stopped"})
+                        from urllib.parse import unquote
+                        try:
+                            result = bridge.operations.read(unquote(self.path[len("/operations/"):]))
+                        except KeyError:
+                            return self._json(404, {"error": "unknown operation"})
+                        return self._json(200, result)
                     if self.path == "/state":     return self._state()
                     if self.path == "/tools":     return self._tools()
                     if self.path == "/snapshot":  return self._snapshot()
@@ -296,47 +308,41 @@ class AetherBridge:
 
             # --- handlers ---------------------------------------------
             def _state(self):
-                d = bridge.designer
-                bridge._ensure_session()
-                placements = []
-                for p in d.placements:
-                    placements.append({
-                        "id":   bridge.session.id_for(p),
-                        "kind": p.kind, "name": p.name,
-                        "x": p.x, "y": p.y, "w": p.w, "h": p.h,
-                        "hook": (p.props or {}).get("hook"),
-                        "states": [s.name for s in p.states],
-                    })
-                return self._json(200, {
-                    "skin_path":  str(d.skin_path),
-                    "window":     d.window_doc.to_json(),
-                    "placements": placements,
-                    "selection":  {"kind": d.sel_kind, "idx": d.sel_idx},
-                    "playing":    d.playing,
-                    "menu_status": getattr(d, "menu_status", ""),
-                })
+                def collect():
+                    d = bridge.designer
+                    session = bridge._ensure_session()
+                    return {
+                        "skin_path": str(d.skin_path),
+                        "window": d.window_doc.to_json(),
+                        "placements": [{"id": session.id_for(p), "kind": p.kind,
+                            "name": p.name, "x": p.x, "y": p.y, "w": p.w, "h": p.h,
+                            "hook": (p.props or {}).get("hook"),
+                            "states": [state.name for state in p.states]}
+                            for p in d.placements],
+                        "selection": {"kind": d.sel_kind, "idx": d.sel_idx},
+                        "playing": d.playing,
+                        "revision": getattr(d, "_document_revision", 0),
+                        "menu_status": getattr(d, "menu_status", ""),
+                    }
+                if bridge.paused or bridge.stopped:
+                    return self._json(423, {"error": "aether_paused_or_stopped"})
+                return self._json(200, bridge.operations.invoke_read(collect))
 
             def _tools(self):
                 from elysium import aether
                 cat = [{"name": t.name, "description": t.description,
                          "input_schema": t.input_schema,
                          "side_effect": t.side_effect.value,
-                         "undoable": t.undoable}
+                         "undoable": t.undoable,
+                         "requires_confirmation": t.requires_confirmation}
                         for t in aether.REGISTRY.all()]
                 return self._json(200, {"tools": cat, "count": len(cat)})
 
             def _snapshot(self):
-                # Prefer the rich designer-preview that knows about
-                # Mesh3D / PBRSphere / components / animations; fall
-                # back to the reduced .esk compiler only when the
-                # designer-preview helper isn't available.
-                try:
-                    from elysium.render.designer_preview import paint_designer_png
-                    png = paint_designer_png(bridge.designer)
-                except Exception as e:
-                    from elysium.render.preview import paint_skin_png
-                    bridge.designer.save_layout()
-                    png = paint_skin_png(bridge.designer.skin_path)
+                if bridge.paused or bridge.stopped:
+                    return self._json(423, {"error": "aether_paused_or_stopped"})
+                from elysium.render.designer_preview import paint_designer_png
+                png = bridge.operations.invoke_read(lambda: paint_designer_png(bridge.designer))
                 self._png(png)
 
             def _logs(self):
@@ -375,78 +381,32 @@ class AetherBridge:
                     return
 
             def _tool(self, payload):
-                from elysium import aether
-                from elysium.aether.types import ToolCall, SideEffect
-                # Pause / stop gates — return 423 Locked when the user
-                # has taken control. We 423 EVERY tool (including reads)
-                # because pause means "fully hands off"; the agent
-                # should not even snoop the canvas state mid-pause.
-                tool_name = payload.get("name", "")
-                tool = aether.REGISTRY.get(tool_name)
-                if bridge.stopped:
-                    return self._json(423, {"error": "aether_stopped",
-                        "hint": "POST /resume to give control back"})
-                if bridge.paused:
-                    return self._json(423, {"error": "aether_paused",
-                        "hint": "POST /resume to continue",
-                        "since_last_call_s":
-                            time.time() - bridge.last_call_ts})
-                session = bridge._ensure_session()
-                args = payload.get("args", {}) or {}
-                call_id = payload.get("id") or f"bridge-{int(time.time()*1000)}"
-                if tool is None:
-                    return self._json(404, {"error": f"unknown tool {tool_name}"})
-                # Surface any queued user feedback as the result of an
-                # invisible "agent.read_feedback" prepended to this call.
-                drained = bridge.drain_feedback()
-                if drained:
-                    bridge._push_event({"kind": "feedback_observed",
-                        "payload": {"messages": drained},
-                        "ts": time.time()})
-                # Auto-snapshot for write/destructive (mirrors daemon).
-                snap_id = None
-                if tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE):
+                from concurrent.futures import TimeoutError
+                if bridge.paused or bridge.stopped:
+                    return self._json(423, {"error": "aether_paused_or_stopped"})
+                try:
+                    request_id, future = bridge.operations.submit(payload)
+                    bridge.last_call_name = payload.get("name", "")
+                    bridge.last_call_ts = time.time()
+                    bridge.is_busy = True
                     try:
-                        snap = session.snapshots.capture(session,
-                            action=f"bridge:{tool_name}")
-                        snap_id = snap.id
-                    except Exception: pass
-                # Visual feedback: tell the Designer overlay what target
-                # the agent is touching.
-                bridge.is_busy = True
-                bridge.last_call_name = tool_name
-                bridge.last_call_target = str(args.get("id") or "")
-                bridge.last_call_ts = time.time()
-                call = ToolCall(id=call_id, name=tool_name, args=args)
-                bridge._push_event({"kind": "tool_call",
-                                      "payload": {"id": call_id,
-                                                    "name": tool_name,
-                                                    "args": args,
-                                                    "target": bridge.last_call_target,
-                                                    "pending_feedback": drained},
-                                      "ts": time.time()})
-                res = aether.REGISTRY.dispatch(call, session)
-                if snap_id: res.snapshot_id = snap_id
-                # Optional pacing so the user can see each call happen.
-                if bridge.pace_ms > 0: time.sleep(bridge.pace_ms / 1000.0)
-                bridge.is_busy = False
-                session.audit({"kind": "tool_call", "tool": tool_name,
-                                 "args": args, "ok": res.ok,
-                                 "value": res.value, "error": res.error,
-                                 "snapshot_id": snap_id, "ts": time.time(),
-                                 "source": "bridge"})
-                bridge._push_event({"kind": "tool_result",
-                                      "payload": {"id": call_id,
-                                                    "ok": res.ok,
-                                                    "value": res.value,
-                                                    "error": res.error,
-                                                    "snapshot": snap_id},
-                                      "ts": time.time()})
-                return self._json(200 if res.ok else 400, {
-                    "ok": res.ok, "value": res.value,
-                    "error": res.error, "snapshot": snap_id,
-                    "feedback_observed": drained,
-                })
+                        result = future.result(timeout=120)
+                    except TimeoutError:
+                        # Operation remains queryable and idempotent. A client
+                        # must not blindly retry a mutation with a new id.
+                        return self._json(202, bridge.operations.read(request_id))
+                    status = 200 if result.get("ok") else 400
+                    if "confirmation_required" in (result.get("error") or ""):
+                        status = 409
+                    if "aether_paused_or_stopped" in (result.get("error") or ""):
+                        status = 423
+                    bridge._push_event({"kind": "tool_result", "payload": result,
+                                        "ts": time.time()})
+                    return self._json(status, result)
+                except (ValueError, TypeError) as exc:
+                    return self._json(400, {"ok": False, "error": str(exc)})
+                finally:
+                    bridge.is_busy = False
 
             # --- control / introspection ----------------------------
             def _status(self):

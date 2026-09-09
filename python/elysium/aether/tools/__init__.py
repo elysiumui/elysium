@@ -57,6 +57,8 @@ class Registry:
             return ToolResult(id=call.id, ok=False,
                               error=f"tool_not_found: {call.name}")
         try:
+            from jsonschema import Draft202012Validator
+            Draft202012Validator(tool.input_schema).validate(call.args)
             # Session-aware tools receive `session` as their first arg;
             # plain tools just get the unpacked kwargs.
             sig = inspect.signature(tool.fn)
@@ -65,6 +67,8 @@ class Registry:
                 value = tool.fn(session=session, **kwargs)
             else:
                 value = tool.fn(**kwargs)
+            if isinstance(value, dict) and value.get("error"):
+                return ToolResult(id=call.id, ok=False, value=value, error=str(value["error"]))
             return ToolResult(id=call.id, ok=True, value=value)
         except Exception as e:
             return ToolResult(id=call.id, ok=False, error=f"{type(e).__name__}: {e}")

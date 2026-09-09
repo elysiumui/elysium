@@ -70,8 +70,8 @@ class SnapshotStore:
         out = self.base / f"{sid}.tar.gz"
         # Persist in-memory state to disk first so the tarball reflects
         # the live canvas + paired Python file.
-        try: session.designer.save_layout()
-        except Exception: pass
+        if session.designer.save_layout() is False:
+            raise RuntimeError("Cannot checkpoint: Designer save failed")
         skin = session.designer.skin_path
         code = session.code_file()
         with tarfile.open(out, "w:gz") as tar:

@@ -1248,6 +1248,47 @@ def cube_mesh(size: float = 1.0) -> Mesh:
     return Mesh(verts=v, faces=f)
 
 
+def cylinder_mesh(radius: float = 1.0, height: float = 2.0, segs: int = 32) -> Mesh:
+    """Capped Y-up cylinder with a UV seam and separate flat cap normals.
+
+    Radius and height are model-space dimensions. The side uses a full-width
+    UV strip; cap discs occupy separate islands above that strip.
+    """
+    if isinstance(segs, bool) or not isinstance(segs, int) or not 3 <= segs <= 4096:
+        raise ValueError("cylinder segments must be an integer between 3 and 4096")
+    if not math.isfinite(radius) or not math.isfinite(height) or radius <= 0 or height <= 0:
+        raise ValueError("cylinder radius and height must be finite and positive")
+    verts, normals, uvs, faces = [], [], [], []
+    for i in range(segs + 1):
+        angle = 2 * math.pi * i / segs
+        c, sn = math.cos(angle), math.sin(angle)
+        for y, v in ((-height / 2, 0.), (height / 2, .5)):
+            verts.append((radius * c, y, radius * sn))
+            normals.append((c, 0., sn))
+            uvs.append((i / segs, v))
+    for i in range(segs):
+        b, t, bn, tn = 2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 3
+        faces.extend(((b, t, bn), (t, tn, bn)))
+    for sign, center_u in ((-1, .25), (1, .75)):
+        center = len(verts)
+        verts.append((0., sign * height / 2, 0.))
+        normals.append((0., float(sign), 0.))
+        uvs.append((center_u, .75))
+        for i in range(segs):
+            angle = 2 * math.pi * i / segs
+            c, sn = math.cos(angle), math.sin(angle)
+            verts.append((radius * c, sign * height / 2, radius * sn))
+            normals.append((0., float(sign), 0.))
+            uvs.append((center_u + .24 * c, .75 + .24 * sn))
+        for i in range(segs):
+            a, b = center + 1 + i, center + 1 + (i + 1) % segs
+            faces.append((center, a, b) if sign < 0 else (center, b, a))
+    return Mesh(verts=np.asarray(verts, dtype=np.float32),
+                faces=np.asarray(faces, dtype=np.int32),
+                vert_normals=np.asarray(normals, dtype=np.float32),
+                vert_uvs=np.asarray(uvs, dtype=np.float32))
+
+
 def torus_mesh(R: float = 1.0, r: float = 0.30, major: int = 24, minor: int = 16) -> Mesh:
     verts = []
     for i in range(major + 1):
@@ -1433,6 +1474,7 @@ def _panel_quad(width: float, depth: float, mat_index: int,
 MESH_LIBRARY: dict[str, callable] = {
     "Sphere":     lambda: sphere_mesh(),
     "Cube":       lambda: cube_mesh(),
+    "Cylinder":   lambda: cylinder_mesh(),
     "Torus":      lambda: torus_mesh(),
     "Plane":      lambda: plane_mesh(),
     "Cone":       lambda: cone_mesh(),

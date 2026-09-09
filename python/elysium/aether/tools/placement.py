@@ -164,10 +164,13 @@ def placement_duplicate(session, id: str, dx: float = 24,
                          dy: float = 24) -> dict:
     designer = session.designer
     p = session.lookup(id)
-    from dataclasses import replace
-    new = replace(p, x=p.x + dx, y=p.y + dy,
-                  name=designer._assign_name(p.kind),
-                  props=dict(p.props or {}))
+    from copy import deepcopy
+    new = deepcopy(p)
+    new.x, new.y = p.x + dx, p.y + dy
+    new.name = designer._assign_name(p.kind)
+    if p.kind == "Mesh3D":
+        from elysium.render.mesh_document import bind, resolve
+        bind(new, resolve(p.mesh_kind))
     designer.placements.append(new)
     return {"placement_id": session.id_for(new), "name": new.name}
 

@@ -7,6 +7,7 @@ import os
 import signal
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -28,8 +29,7 @@ def _safe_entry(session, path: str | None) -> Path:
     description="Spawn the user app as a subprocess with ELYSIUM_INSPECTOR=1.",
     input_schema={"type": "object",
                    "properties": {"entry": {"type": "string"},
-                                   "env":   {"type": "object"}},
-                   "properties": {}},
+                                   "env":   {"type": "object"}}},
 )
 def run_start(session, entry: str | None = None,
               env: dict | None = None) -> dict:
@@ -39,7 +39,7 @@ def run_start(session, entry: str | None = None,
     env_full["ELYSIUM_HOT_RELOAD"] = "1"
     if env: env_full.update({str(k): str(v) for k, v in env.items()})
     proc = subprocess.Popen(
-        ["python", str(e)],
+        [sys.executable, str(e)],
         env=env_full,
         cwd=str(session.project_root),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
