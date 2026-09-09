@@ -689,6 +689,68 @@ def loop_cut(mesh, identities, *, cuts=1):
     return compile(doc)[0], selected
 
 
+def slide_edges(mesh, identities, factor):
+    """Slide one connected quad edge chain/loop toward either neighboring rail.
+
+    A geometric seed and dominant local axis define the positive rail, making
+    the sign independent of source record order. UV coordinates stay unchanged.
+    """
+    if type(factor) not in (int, float) or not isfinite(factor) or not -1 < factor < 1:
+        raise ValueError("Slide factor must be finite and strictly between -1 and 1")
+    doc = document(mesh)
+    chosen = set(identities)
+    edges = {e["id"]: e for e in doc["edges"]}
+    if not chosen or chosen - edges.keys():
+        raise ValueError("Select existing edges to slide")
+    incident, selected_incident = {}, {}
+    for edge in doc["edges"]:
+        for vertex in edge["vertices"]:
+            incident.setdefault(vertex, set()).add(edge["id"])
+            if edge["id"] in chosen:
+                selected_incident.setdefault(vertex, set()).add(edge["id"])
+    if any(len(e) > 2 or len(incident[v] - e) != 2 for v, e in selected_incident.items()):
+        raise ValueError("Slide requires one unbranched quad loop or boundary-to-boundary chain")
+    pairs = {tuple(sorted(e["vertices"])): e["id"] for e in doc["edges"] if e["id"] in chosen}
+    sides = {identity: [] for identity in chosen}
+    for face in doc["faces"]:
+        vertices = [c["vertex"] for c in face["corners"]]
+        for i, (a, b) in enumerate(zip(vertices, vertices[1:] + vertices[:1])):
+            identity = pairs.get(tuple(sorted((a, b))))
+            if identity is None:
+                continue
+            if len(vertices) != 4:
+                raise ValueError("Slide requires quad faces on both sides")
+            sides[identity].append({a: vertices[i - 1], b: vertices[(i + 2) % 4]})
+    if any(len(rails) != 2 for rails in sides.values()):
+        raise ValueError("Slide requires two manifold neighboring faces per edge")
+    positions = {v["id"]: np.array(v["position"]) for v in doc["vertices"]}
+    seed = min(chosen, key=lambda identity: sorted(tuple(positions[v]) for v in edges[identity]["vertices"]))
+    rail_centers = [np.mean([positions[v] for v in rail.values()], axis=0) for rail in sides[seed]]
+    axis = int(np.argmax(np.abs(rail_centers[0] - rail_centers[1])))
+    positive = 0 if rail_centers[0][axis] > rail_centers[1][axis] else 1
+    targets = dict(sides[seed][positive if factor >= 0 else 1 - positive])
+    pending, visited = [seed], {seed}
+    while pending:
+        identity = pending.pop()
+        for vertex in edges[identity]["vertices"]:
+            for neighbor in selected_incident[vertex] - visited:
+                choices = [rail for rail in sides[neighbor] if all(v not in targets or targets[v] == target for v, target in rail.items())]
+                if len(choices) != 1:
+                    raise ValueError("Slide rails are ambiguous or inconsistently connected")
+                targets.update(choices[0])
+                visited.add(neighbor)
+                pending.append(neighbor)
+    if visited != chosen or set(targets.values()) & set(selected_incident):
+        raise ValueError("Slide one connected edge chain or loop at a time")
+    result = np.array([
+        positions[v["id"]] + abs(factor) * (positions[targets[v["id"]]] - positions[v["id"]])
+        if v["id"] in targets else positions[v["id"]]
+        for v in doc["vertices"]
+    ])
+    weights = np.array([v["id"] in targets for v in doc["vertices"]], dtype=float)
+    return _publish_positions(doc, result, weights)
+
+
 def dissolve_edges(mesh, identities):
     """Join planar face regions across selected interior edges, keeping boundaries.
 
@@ -1214,6 +1276,7 @@ def edit_selected(
     rotation=(0.0, 0.0, 0.0),
     scale=(1.0, 1.0, 1.0),
     cuts=1,
+    factor=0.0,
 ):
     from . import mesh_document
 
@@ -1251,6 +1314,10 @@ def edit_selected(
             raise ValueError("Choose edge selection mode first")
         result, edge_ids = loop_cut(mesh, selected.get("ids", []), cuts=cuts)
         selected = {"mode": "edges", "ids": edge_ids}
+    elif operation == "slide_edges":
+        if selected.get("mode") != "edges":
+            raise ValueError("Choose edge selection mode first")
+        result = slide_edges(mesh, selected.get("ids", []), factor)
     elif operation in ("extrude", "extrude_individual", "inset"):
         if selected.get("mode") != "faces":
             raise ValueError(f"{operation.title()} requires selected faces")

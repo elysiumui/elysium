@@ -927,3 +927,75 @@ def test_loop_cut_rejects_invalid_counts(cuts):
     mesh = cube()
     with pytest.raises(ValueError, match='integer'):
         topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']], cuts=cuts)
+
+
+def test_edge_slide_moves_quad_loop_along_rails_without_changing_connectivity():
+    mesh = cube()
+    points = {v['id']:v['position'] for v in mesh.topology['vertices']}
+    seed = next(e['id'] for e in mesh.topology['edges'] if all(points[v][0] == -1 and points[v][2] == -1 for v in e['vertices']))
+    cut, selected = topology.loop_cut(mesh, [seed])
+    original = mesh_document.to_json(cut)
+    up = topology.slide_edges(cut, selected, .5)
+    down = topology.slide_edges(cut, selected, -.5)
+    old_ids = {v['id'] for v in mesh.topology['vertices']}
+    upper = [v['position'][1] for v in up.topology['vertices'] if v['id'] not in old_ids]
+    lower = [v['position'][1] for v in down.topology['vertices'] if v['id'] not in old_ids]
+    assert len(set(upper)) == len(set(lower)) == 1
+    assert abs(upper[0]) == pytest.approx(.5)
+    assert upper[0] == -lower[0]
+    assert up.topology['edges'] == cut.topology['edges']
+    assert [[c['vertex'] for c in f['corners']] for f in up.topology['faces']] == [[c['vertex'] for c in f['corners']] for f in cut.topology['faces']]
+    assert signed_volume(up) == pytest.approx(8)
+    assert mesh_document.to_json(cut) == original
+    restored = topology.slide_edges(up, selected, -1/3)
+    np.testing.assert_allclose([v['position'] for v in restored.topology['vertices']], [v['position'] for v in cut.topology['vertices']], atol=1e-12)
+
+
+def test_edge_slide_preserves_uvs_and_unselected_vertices_on_open_strip():
+    mesh = primitives.build('Plane', {'width':2,'depth':2,'segments':2})[0]
+    doc = deepcopy(mesh.topology)
+    points = {v['id']:v['position'] for v in doc['vertices']}
+    for f in doc['faces']:
+        for c in f['corners']:
+            c['uv'] = [points[c['vertex']][0], points[c['vertex']][2]]
+    mesh = topology.compile(doc)[0]
+    seed = next(e['id'] for e in doc['edges'] if all(points[v] in [[0,0,-1],[0,0,0]] for v in e['vertices']))
+    cut, selected = topology.loop_cut(mesh, [seed])
+    result = topology.slide_edges(cut, selected, .5)
+    chosen = {v for e in cut.topology['edges'] if e['id'] in selected for v in e['vertices']}
+    old = {v['id']:v for v in cut.topology['vertices']}
+    assert all(v == old[v['id']] for v in result.topology['vertices'] if v['id'] not in chosen)
+    assert [c['uv'] for f in result.topology['faces'] for c in f['corners']] == [c['uv'] for f in cut.topology['faces'] for c in f['corners']]
+    assert mesh_document.from_json(mesh_document.to_json(result)).topology == result.topology
+
+
+@pytest.mark.parametrize('factor', [-1,1,True,float('nan'),float('inf')])
+def test_edge_slide_invalid_factor_rejects(factor):
+    mesh = cube()
+    with pytest.raises(ValueError, match='strictly between'):
+        topology.slide_edges(mesh, [mesh.topology['edges'][0]['id']], factor)
+
+
+def test_edge_slide_disconnected_selected_loops_reject_atomically():
+    mesh = cube()
+    cut, selected = topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']], cuts=2)
+    p = SimpleNamespace(kind='Mesh3D', name='Cut cube', props={}, mesh_kind='')
+    mesh_document.bind(p, cut, label='Cut cube')
+    topology.select(p, 'edges', selected)
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match='one connected'):
+        topology.edit_selected(p, 'slide_edges', factor=.5)
+    assert vars(p) == before
+
+
+def test_edge_slide_direction_is_independent_of_source_face_and_edge_order():
+    mesh = cube()
+    cut, selected = topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']])
+    shuffled = deepcopy(cut.topology)
+    shuffled['faces'].reverse()
+    shuffled['edges'].reverse()
+    for f in shuffled['faces']:
+        f['corners'] = f['corners'][1:] + f['corners'][:1]
+    a = topology.slide_edges(cut, selected, .5)
+    b = topology.slide_edges(topology.compile(shuffled)[0], selected[::-1], .5)
+    assert a.topology['vertices'] == b.topology['vertices']
