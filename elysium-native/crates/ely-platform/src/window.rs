@@ -360,8 +360,10 @@ pub enum CursorKind {
     ZoomOut,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum WindowRequest {
+    /// Cross-platform native title update, applied on the event-loop thread.
+    SetTitle { title: String },
     SetOuterPosition {
         x: i32,
         y: i32,
@@ -800,6 +802,13 @@ impl WindowHandle {
             .push(WindowRequest::SetOuterPosition { x, y });
     }
 
+    pub fn request_set_title(&self, title: String) {
+        self.inner
+            .window_requests
+            .lock()
+            .push(WindowRequest::SetTitle { title });
+    }
+
     pub fn drain_window_requests(&self) -> Vec<WindowRequest> {
         std::mem::take(&mut *self.inner.window_requests.lock())
     }
@@ -1068,5 +1077,21 @@ mod tier2_tests {
         assert_eq!(h.scale_factor(), 2.0);
         h.set_scale_factor(f64::NAN); // never poison the divisor
         assert_eq!(h.scale_factor(), 1.0);
+    }
+}
+
+#[cfg(test)]
+mod title_request_tests {
+    use super::*;
+
+    #[test]
+    fn title_updates_are_owned_and_queued_for_the_event_thread() {
+        let handle = WindowHandle::stub(WindowConfig::default());
+        let title = String::from("Elysium Designer — 日本語.esk");
+        handle.request_set_title(title.clone());
+        drop(title);
+        let requests = handle.drain_window_requests();
+        assert!(matches!(&requests[..], [WindowRequest::SetTitle { title }] if title == "Elysium Designer — 日本語.esk"));
+        assert!(handle.drain_window_requests().is_empty());
     }
 }

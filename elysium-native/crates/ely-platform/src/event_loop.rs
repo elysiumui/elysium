@@ -462,6 +462,7 @@ fn hwnd_for(win: &WinitWindow) -> Option<isize> {
 /// other OSes via `#[cfg]`.
 fn apply_window_request(win: &WinitWindow, req: WindowRequest) {
     match req {
+        WindowRequest::SetTitle { title } => win.set_title(&title),
         WindowRequest::SetOuterPosition { x, y } => {
             // x, y are LOGICAL coords — that's what `WindowEvent::Moved`
             // records via `record_outer_position` after dividing by the

@@ -99,6 +99,11 @@ impl PyWindow {
         self.handle.close();
     }
 
+    /// Update the native window title safely from any Python thread.
+    fn set_title(&self, title: String) {
+        self.handle.request_set_title(title);
+    }
+
     /// (x, y) in window-local logical pixels, or `None` if the cursor is
     /// outside the window. Read each animation frame from Python.
     #[getter]
