@@ -1170,3 +1170,63 @@ def test_bridge_source_reordering_does_not_change_geometric_alignment():
         )
 
     assert polygons(reference) == polygons(reordered)
+
+
+def test_vertex_bevel_all_cube_corners_truncates_by_edge_distance_and_is_watertight():
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    result, caps = topology.bevel_vertices(mesh, [v["id"] for v in mesh.topology["vertices"]], 0.25)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [24, 36, 14]
+    assert len(caps) == 8
+    assert sorted(len(f["corners"]) for f in result.topology["faces"]) == [3] * 8 + [8] * 6
+    assert signed_volume(result) == pytest.approx(8 - 8 * 0.25**3 / 6)
+    assert all(
+        len(v) == 2 and v[0] == v[1][::-1] for v in topology.edge_usage(result.topology).values()
+    )
+    for v in result.topology["vertices"]:
+        assert sorted(abs(x) for x in v["position"]) == [0.75, 1, 1]
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_vertex_bevel_one_corner_preserves_unaffected_geometry_uvs_and_edge_flags():
+    mesh = cube()
+    doc = deepcopy(mesh.topology)
+    chosen = doc["vertices"][0]["id"]
+    doc["edges"][0]["seam"] = True
+    for face in doc["faces"]:
+        face["material"] = 2
+        for i, c in enumerate(face["corners"]):
+            c["uv"] = [[0, 0], [1, 0], [1, 1], [0, 1]][i]
+    mesh = topology.compile(doc)[0]
+    result, caps = topology.bevel_vertices(mesh, [chosen], 0.5)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [10, 15, 7]
+    assert len(caps) == 1
+    assert signed_volume(result) == pytest.approx(8 - 0.5**3 / 6)
+    old_corners = {c["id"]: c for f in doc["faces"] for c in f["corners"] if c["vertex"] != chosen}
+    after_corners = {c["id"]: c for f in result.topology["faces"] for c in f["corners"]}
+    assert all(after_corners[k] == c for k, c in old_corners.items())
+    assert all(f["material"] == 2 for f in result.topology["faces"])
+    assert next(e for e in result.topology["edges"] if e["id"] == doc["edges"][0]["id"])["seam"]
+    for f in result.topology["faces"][:6]:
+        for c in f["corners"]:
+            assert all(0 <= t <= 1 for t in c["uv"])
+    untouched = {v["id"]: v for v in doc["vertices"] if v["id"] != chosen}
+    assert all(v == untouched[v["id"]] for v in result.topology["vertices"] if v["id"] in untouched)
+
+
+@pytest.mark.parametrize("amount", [0, -1, 1, 2, float("nan"), float("inf"), True])
+def test_vertex_bevel_invalid_or_collapsing_distance_is_atomic(amount):
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    with pytest.raises(ValueError):
+        topology.bevel_vertices(mesh, [v["id"] for v in mesh.topology["vertices"]], amount)
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_vertex_bevel_rejects_boundary_and_stale_selections_without_mutation():
+    plane = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 1})[0]
+    before = mesh_document.to_json(plane)
+    for ids in ([], ["v999999"], [plane.topology["vertices"][0]["id"]]):
+        with pytest.raises(ValueError):
+            topology.bevel_vertices(plane, ids, 0.25)
+        assert mesh_document.to_json(plane) == before

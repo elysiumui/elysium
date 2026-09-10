@@ -920,6 +920,117 @@ def fill_loop(mesh, mode, identities):
     return compile(doc)[0], face["id"]
 
 
+def bevel_vertices(mesh, identities, distance):
+    """Truncate closed convex three-edge corners by distance along each edge."""
+    if type(distance) not in (int, float) or not np.isfinite(distance) or distance <= 0:
+        raise ValueError("Bevel distance must be positive and finite")
+    doc = document(mesh)
+    selected = set(identities)
+    vertices = {v["id"]: v for v in doc["vertices"]}
+    if not selected or selected - vertices.keys():
+        raise ValueError("Select existing vertices to bevel")
+    positions = {v: np.asarray(record["position"], dtype=float) for v, record in vertices.items()}
+    graph = {v: [] for v in vertices}
+    usage = edge_usage(doc)
+    for edge in doc["edges"]:
+        a, b = edge["vertices"]
+        graph[a].append(b)
+        graph[b].append(a)
+        if selected.intersection((a, b)):
+            uses = usage.get(tuple(sorted((a, b))), [])
+            if len(uses) != 2 or uses[0] != uses[1][::-1]:
+                raise ValueError("Vertex bevel requires a closed consistently wound surface")
+            length = float(np.linalg.norm(positions[b] - positions[a]))
+            if distance * (int(a in selected) + int(b in selected)) >= length * (1 - 1e-9):
+                raise ValueError("Bevel distance collapses an existing edge")
+    incident = {v: [] for v in selected}
+    for face in doc["faces"]:
+        for corner in face["corners"]:
+            if corner["vertex"] in selected:
+                incident[corner["vertex"]].append(face)
+    for v in selected:
+        if len(graph[v]) != 3 or len(incident[v]) != 3:
+            raise ValueError("Vertex bevel currently requires three-edge manifold corners")
+        if any(vertices[n]["part"] != vertices[v]["part"] for n in graph[v]):
+            raise ValueError("Bevel within one named part")
+        for face in incident[v]:
+            n = normal([positions[c["vertex"]] for c in face["corners"]])
+            extent = max(float(np.linalg.norm(positions[u] - positions[v])) for u in graph[v])
+            if any(float((positions[u] - positions[v]) @ n) > extent * 1e-7 for u in graph[v]):
+                raise ValueError("Vertex bevel requires locally convex corners")
+    cuts = {}
+    for v in vertices:
+        if v not in selected:
+            continue
+        for neighbor in graph[v]:
+            length = float(np.linalg.norm(positions[neighbor] - positions[v]))
+            ratio = distance / length
+            added = {
+                "id": _id(doc, "v"),
+                "position": (positions[v] + ratio * (positions[neighbor] - positions[v])).tolist(),
+                "part": vertices[v]["part"],
+            }
+            doc["vertices"].append(added)
+            cuts[(v, neighbor)] = (added["id"], ratio)
+    cap_edges = {v: [] for v in selected}
+    for face in doc["faces"]:
+        old = face["corners"]
+        corners = []
+        for i, corner in enumerate(old):
+            v = corner["vertex"]
+            if v not in selected:
+                corners.append(corner)
+                continue
+            previous, following = old[i - 1], old[(i + 1) % len(old)]
+            new = []
+            for j, neighbor in enumerate((previous, following)):
+                identity, ratio = cuts[(v, neighbor["vertex"])]
+                uv = (
+                    None
+                    if corner["uv"] is None or neighbor["uv"] is None
+                    else (
+                        (1 - ratio) * np.asarray(corner["uv"]) + ratio * np.asarray(neighbor["uv"])
+                    ).tolist()
+                )
+                item = _corner(doc, identity, uv, corner["normal"])
+                if j == 0:
+                    item["id"] = corner["id"]
+                new.append(item)
+            corners.extend(new)
+            cap_edges[v].append((new[1]["vertex"], new[0]["vertex"]))
+        face["corners"] = corners
+    # Shortened original edges keep their IDs and flags.
+    for edge in doc["edges"]:
+        a, b = edge["vertices"]
+        edge["vertices"] = sorted(
+            (cuts[(a, b)][0] if a in selected else a, cuts[(b, a)][0] if b in selected else b)
+        )
+    doc["vertices"] = [v for v in doc["vertices"] if v["id"] not in selected]
+    points = {v["id"]: np.asarray(v["position"]) for v in doc["vertices"]}
+    faces = []
+    for v in vertices:
+        if v not in selected:
+            continue
+        links = dict(cap_edges[v])
+        start = cap_edges[v][0][0]
+        cycle = [start, links[start], links[links[start]]]
+        if len(set(cycle)) != 3 or links[cycle[-1]] != start:
+            raise ValueError("Vertex bevel corner fan is inconsistent")
+        coords = np.array([points[c] for c in cycle])
+        n = normal(coords)
+        uv = np.delete(coords, int(np.argmax(np.abs(n))), axis=1)
+        uv = (uv - uv.min(axis=0)) / np.maximum(np.ptp(uv, axis=0), 1e-12)
+        face = {
+            "id": _id(doc, "f"),
+            "corners": [_corner(doc, c, coord.tolist()) for c, coord in zip(cycle, uv)],
+            "material": incident[v][0]["material"],
+        }
+        doc["faces"].append(face)
+        faces.append(face["id"])
+    _edges(doc, loose_edges(doc))
+    return compile(doc)[0], faces
+
+
 def bridge_edges(mesh, identities):
     """Join two equal boundary/wire loops or chains with untwisted quads.
 
@@ -1445,6 +1556,11 @@ def edit_selected(
             raise ValueError("Choose edge selection mode first")
         result, edge_ids = extrude_edges(mesh, selected.get("ids", []), offset)
         selected = {"mode": "edges", "ids": edge_ids}
+    elif operation == "bevel_vertices":
+        if selected.get("mode") != "vertices":
+            raise ValueError("Choose vertex selection mode first")
+        result, face_ids = bevel_vertices(mesh, selected.get("ids", []), distance)
+        selected = {"mode": "faces", "ids": face_ids}
     elif operation == "bridge_edges":
         if selected.get("mode") != "edges":
             raise ValueError("Choose edge selection mode first")
