@@ -7,6 +7,7 @@ import numpy as np
 from . import mesh_document, topology
 
 DEFAULTS = {
+    "WeightedNormals": {"mode": "face_area", "weight": 50, "threshold": 0.01, "keep_sharp": False},
     "Mirror": {"axis": "x", "offset": 0.0, "merge": False, "threshold": 1e-6},
     "Array": {"count": 2, "offset": [3.0, 0.0, 0.0]},
     "Solidify": {"thickness": 0.1, "offset": -1.0, "rim": True},
@@ -44,6 +45,19 @@ def parameters(kind, values):
             raise ValueError("Solidify needs nonzero thickness and offset from -1 to 1")
         if type(result["rim"]) is not bool:
             raise ValueError("Solidify rim must be boolean")
+    elif kind == "WeightedNormals":
+        if result["mode"] not in ("face_area", "corner_angle", "face_angle"):
+            raise ValueError("Weighted normals mode must be face_area, corner_angle or face_angle")
+        if type(result["weight"]) is not int or not 1 <= result["weight"] <= 100:
+            raise ValueError("Normal weight must be a whole number from 1 to 100")
+        if (
+            type(result["threshold"]) not in (int, float)
+            or not np.isfinite(result["threshold"])
+            or not 0 <= result["threshold"] <= 10
+        ):
+            raise ValueError("Normal threshold must be from 0 to 10")
+        if type(result["keep_sharp"]) is not bool:
+            raise ValueError("Keep sharp must be boolean")
     else:
         if type(result["levels"]) is not int or not 1 <= result["levels"] <= 4:
             raise ValueError("Subdivision levels must be a whole number from 1 to 4")
@@ -251,6 +265,11 @@ def evaluate_stack(mesh, stack):
     result = mesh
     for item in stack["items"]:
         if item["enabled"]:
+            if item["kind"] == "WeightedNormals":
+                from . import mesh_normals
+
+                result = mesh_normals.weighted_mesh(result, item["parameters"])
+                continue
             if item["kind"] == "Subdivision":
                 from . import mesh_subdivision
 

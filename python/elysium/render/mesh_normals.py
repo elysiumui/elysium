@@ -23,7 +23,7 @@ def validate_settings(value):
         raise ValueError("Respect sharp must be boolean")
 
 
-def corner_normals(doc):
+def corner_normals(doc, weighted=None):
     """Angle-weighted normals in connected smooth fans; no position welding."""
     policy = doc["shading"]
     points = {v["id"]: np.asarray(v["position"], dtype=float) for v in doc["vertices"]}
@@ -61,6 +61,8 @@ def corner_normals(doc):
             continue
         for ca, cb in ((a[3], b[4]), (a[4], b[3])):
             parent[find(ca)] = find(cb)
+    if weighted is not None:
+        return _weighted_corners(faces, points, normals, weights, find, weighted)
     sums = {}
     for fi, face in enumerate(faces):
         for c in face["corners"]:
@@ -73,6 +75,78 @@ def corner_normals(doc):
             length = np.linalg.norm(n)
             result[c["id"]] = (n / length if length > 1e-12 else normals[fi]).tolist()
     return result
+
+
+def _weighted_corners(faces, points, normals, angles, find, settings):
+    """Descending value bands and exponential bias, matching Blender's modifier."""
+    groups = {}
+    for fi, face in enumerate(faces):
+        corners = face["corners"]
+        coords = np.asarray([points[c["vertex"]] for c in corners])
+        area = np.linalg.norm(np.cross(coords, np.roll(coords, -1, axis=0)).sum(axis=0)) / 2
+        for c in corners:
+            value = area if settings["mode"] == "face_area" else angles[c["id"]]
+            if settings["mode"] == "face_angle":
+                value *= area
+            group = find(c["id"]) if settings["keep_sharp"] else c["vertex"]
+            groups.setdefault(group, []).append((value, fi, c["id"]))
+    bias = settings["weight"] / 50
+    if settings["weight"] == 100:
+        bias = 32767.0
+    elif settings["weight"] == 1:
+        bias = 1 / 32767.0
+    elif (bias - 1) * 25 > 1:
+        bias = (bias - 1) * 25
+    result = {}
+    for items in groups.values():
+        items.sort(key=lambda item: -item[0])
+        band, previous, contributions = 0, 0.0, []
+        for value, fi, cid in items:
+            if previous == 0:
+                previous = value
+            if abs(previous - value) > settings["threshold"]:
+                band += 1
+                previous = value
+            # Log scaling avoids overflow for extreme bias and high-valence vertices.
+            if value > 0:
+                contributions.append((math.log(value) - band * math.log(bias), fi))
+        maximum = max((v for v, _ in contributions), default=0.0)
+        n = sum((math.exp(v - maximum) * normals[fi] for v, fi in contributions), np.zeros(3))
+        length = np.linalg.norm(n)
+        for _, fi, cid in items:
+            result[cid] = (n / length if length > 1e-12 else normals[fi]).tolist()
+    return result
+
+
+def weighted_mesh(mesh, settings):
+    """Bake evaluated custom corners only; retained source policy stays untouched."""
+    doc = topology.document(mesh)
+    policy = doc.get("shading")
+    if policy is None:
+        # Authored meshes have no explicit face-smoothing flags. Preserve a wholly
+        # flat authored mesh; otherwise use source edge connectivity and sharp flags.
+        points = {v["id"]: v["position"] for v in doc["vertices"]}
+        flat = all(
+            c["normal"] is None
+            or np.allclose(
+                c["normal"],
+                topology.normal([points[k["vertex"]] for k in f["corners"]]),
+                atol=1e-6,
+                rtol=0,
+            )
+            for f in doc["faces"]
+            for c in f["corners"]
+        )
+        policy = {"mode": "flat" if flat else "smooth", "angle": 180.0, "respect_sharp": True}
+    if policy["mode"] == "flat":
+        return mesh
+    doc["shading"] = policy
+    normals = corner_normals(doc, weighted=settings)
+    doc.pop("shading", None)
+    for face in doc["faces"]:
+        for corner in face["corners"]:
+            corner["normal"] = normals[corner["id"]]
+    return topology.compile(doc)[0]
 
 
 def _source(placement):
