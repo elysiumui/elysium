@@ -1308,3 +1308,57 @@ def test_invalid_bisect_parameters_are_atomic(kwargs):
     with pytest.raises(ValueError):
         topology.bisect(mesh, **args)
     assert mesh_document.to_json(mesh) == before
+
+
+@pytest.mark.parametrize("index", range(12))
+def test_single_edge_bevel_cube_matches_offset_volume_and_closed_connectivity(index):
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    edge = mesh.topology["edges"][index]
+    result, caps = topology.bevel_edges(mesh, [edge["id"]], 0.25)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [10, 15, 7]
+    assert len(caps) == 1
+    assert len(next(f for f in result.topology["faces"] if f["id"] == caps[0])["corners"]) == 4
+    assert signed_volume(result) == pytest.approx(8 - 0.25**2)
+    assert all(
+        len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values()
+    )
+    assert mesh_document.to_json(mesh) == before
+    assert edge["id"] not in {e["id"] for e in result.topology["edges"]}
+
+
+@pytest.mark.parametrize("distance", [0, -0.1, 2, float("nan"), True])
+def test_edge_bevel_invalid_distance_is_atomic(distance):
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    with pytest.raises(ValueError):
+        topology.bevel_edges(mesh, [mesh.topology["edges"][0]["id"]], distance)
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_edge_bevel_rejects_multiple_edges_and_open_surface():
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    for ids in ([], ["e999999"], [e["id"] for e in mesh.topology["edges"][:2]]):
+        with pytest.raises(ValueError):
+            topology.bevel_edges(mesh, ids, 0.25)
+        assert mesh_document.to_json(mesh) == before
+    open_mesh = topology.delete_components(mesh, "faces", [top_face(mesh)["id"]])
+    before = mesh_document.to_json(open_mesh)
+    with pytest.raises(ValueError):
+        topology.bevel_edges(open_mesh, [open_mesh.topology["edges"][0]["id"]], 0.25)
+    assert mesh_document.to_json(open_mesh) == before
+
+
+def test_edge_bevel_retains_face_materials_and_existing_uv_corner_data():
+    doc = deepcopy(cube().topology)
+    for f in doc["faces"]:
+        f["material"] = 4
+    result, caps = topology.bevel_edges(topology.compile(doc)[0], [doc["edges"][0]["id"]], 0.25)
+    assert all(f["material"] == 4 for f in result.topology["faces"])
+    originals = {c["id"]: c for f in doc["faces"] for c in f["corners"]}
+    for f in result.topology["faces"]:
+        for c in f["corners"]:
+            if c["id"] in originals:
+                assert c == originals[c["id"]]
+    assert caps

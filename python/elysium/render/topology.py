@@ -1050,6 +1050,69 @@ def bisect(mesh, plane_point, plane_normal, *, keep="both", fill=False):
     return result, "edges", cut_ids
 
 
+def bevel_edges(mesh, identities, distance):
+    """Chamfer one edge of a closed convex solid by offset distance."""
+    if type(distance) not in (int, float) or not np.isfinite(distance) or distance <= 0:
+        raise ValueError("Bevel distance must be positive and finite")
+    doc = document(mesh)
+    selected = set(identities)
+    edges = [e for e in doc["edges"] if e["id"] in selected]
+    if len(selected) != 1 or len(edges) != 1:
+        raise ValueError("Select exactly one edge to bevel")
+    usage = edge_usage(doc)
+    if any(len(u) != 2 or u[0] != u[1][::-1] for u in usage.values()) or len(usage) != len(
+        doc["edges"]
+    ):
+        raise ValueError("Edge bevel requires a closed consistently wound solid")
+    if len({v["part"] for v in doc["vertices"]}) != 1:
+        raise ValueError("Bevel within one named part")
+    points = {v["id"]: np.asarray(v["position"], dtype=float) for v in doc["vertices"]}
+    cloud = np.array(list(points.values()))
+    tolerance = max(float(np.ptp(cloud, axis=0).max()), 1e-12) * 1e-7
+    pair = tuple(sorted(edges[0]["vertices"]))
+    neighbors = []
+    for face in doc["faces"]:
+        n = normal([points[c["vertex"]] for c in face["corners"]])
+        origin = points[face["corners"][0]["vertex"]]
+        if np.any((cloud - origin) @ n > tolerance) or any(
+            abs(float((points[c["vertex"]] - origin) @ n)) > tolerance for c in face["corners"]
+        ):
+            raise ValueError("Edge bevel currently requires a convex solid with planar faces")
+        directions = edge_usage({"faces": [face]}).get(pair)
+        if directions:
+            a, b = directions[0]
+            tangent = points[b] - points[a]
+            tangent /= np.linalg.norm(tangent)
+            inward = np.cross(n, tangent)
+            neighbors.append((face, n, inward))
+    if len(neighbors) != 2:
+        raise ValueError("Select an edge shared by exactly two faces")
+    n0, n1 = neighbors[0][1], neighbors[1][1]
+    if abs(float(n0 @ n1)) >= 1 - 1e-8:
+        raise ValueError("Cannot bevel a coplanar or folded edge")
+    plane_normal = n0 + n1
+    midpoint = sum(points[v] for v in pair) / 2
+    plane_point = midpoint + distance * neighbors[0][2]
+    # Reject offsets that reach unrelated corners instead of silently clamping
+    # or cutting a larger region than the selected edge.
+    if any(
+        float((p - plane_point) @ plane_normal) >= -tolerance
+        for v, p in points.items()
+        if v not in pair
+    ):
+        raise ValueError("Bevel distance reaches neighboring vertices")
+    result, mode, faces = bisect(
+        mesh, plane_point.tolist(), plane_normal.tolist(), keep="negative", fill=True
+    )
+    if mode != "faces" or len(faces) != 1:
+        raise ValueError("Bevel did not produce one closed chamfer surface")
+    result_doc = document(result)
+    next(f for f in result_doc["faces"] if f["id"] == faces[0])["material"] = neighbors[0][0][
+        "material"
+    ]
+    return compile(result_doc)[0], faces
+
+
 def bevel_vertices(mesh, identities, distance):
     """Truncate closed convex three-edge corners by distance along each edge."""
     if type(distance) not in (int, float) or not np.isfinite(distance) or distance <= 0:
@@ -1697,6 +1760,11 @@ def edit_selected(
             raise ValueError("Select all mesh faces for Bisect")
         result, mode, ids = bisect(mesh, plane_point, plane_normal, keep=keep, fill=fill)
         selected = {"mode": mode, "ids": ids}
+    elif operation == "bevel_edges":
+        if selected.get("mode") != "edges":
+            raise ValueError("Choose edge selection mode first")
+        result, face_ids = bevel_edges(mesh, selected.get("ids", []), distance)
+        selected = {"mode": "faces", "ids": face_ids}
     elif operation == "bevel_vertices":
         if selected.get("mode") != "vertices":
             raise ValueError("Choose vertex selection mode first")
