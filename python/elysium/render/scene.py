@@ -322,7 +322,7 @@ def apply_transform(placements, placement):
         raise ValueError("Apply transforms requires mesh geometry")
     world_matrices(placements)
     local = matrix(placement)
-    mesh = mesh_edit.evaluate(placement)
+    mesh = mesh_edit.evaluate(placement, include_modifiers=False)
     verts = mesh.verts @ local[:3, :3].T + local[:3, 3]
     normals = None
     if mesh.vert_normals is not None:
@@ -353,6 +353,9 @@ def apply_transform(placements, placement):
             doc['part_pivots'] = pivots.tolist()
         edited = topology.compile(doc)[0]
     mesh_document.validate(edited)
+    from . import mesh_modifiers
+
+    mesh_modifiers.evaluate_stack(edited, mesh_modifiers.settings(placement))
     children = []
     for child in placements:
         identity, inverse = parent_data(child)

@@ -1850,6 +1850,9 @@ def edit_selected(
             )
     else:
         raise ValueError("Unknown topology operation")
+    from . import mesh_edit
+
+    mesh_edit.evaluate_mesh(result, placement)
     key = mesh_document.bind(placement, result, label=placement.name)
     placement.props["components3d"] = deepcopy(selected)
     return {

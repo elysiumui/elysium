@@ -135,11 +135,12 @@ def bind(placement, mesh: pbr.Mesh, *, label: str = "") -> str:
 
 
 def capture(placements) -> dict:
-    from . import scene, scene_animation, mesh_edit
+    from . import mesh_edit, mesh_modifiers, scene, scene_animation
     scene.world_matrices(placements)
     for p in placements:
         scene_animation.tracks(p)
         mesh_edit.taper_settings(p)
+        mesh_modifiers.settings(p)
     assets = {}
     for placement in placements:
         if placement.kind == "Mesh3D":
@@ -164,11 +165,12 @@ def restore(document: dict | None, placements=None) -> None:
     raw = document.get("assets")
     if not isinstance(raw, dict) or not all(isinstance(k, str) and k for k in raw):
         raise ValueError("invalid mesh asset map")
-    from . import scene, scene_animation, mesh_edit
+    from . import mesh_edit, mesh_modifiers, scene, scene_animation
     scene.world_matrices(placements or [])
     for p in placements or []:
         scene_animation.tracks(p)
         mesh_edit.taper_settings(p)
+        mesh_modifiers.settings(p)
     assets = {key: from_json(value) for key, value in raw.items()}
     for placement in placements or []:
         if placement.kind != "Mesh3D":
@@ -203,8 +205,9 @@ def with_vertices(mesh: pbr.Mesh, verts: np.ndarray) -> pbr.Mesh:
             np.add.at(normals, mesh.faces[:, corner], face_normals)
         normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
     if mesh.topology is not None:
-        from . import topology
         from copy import deepcopy
+
+        from . import topology
         doc = deepcopy(mesh.topology)
         _, ids, _ = topology.compile(doc)
         positions = {}

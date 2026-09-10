@@ -40,13 +40,23 @@ def taper_set(placement, values):
     candidate = deepcopy(placement)
     candidate.props["taper3d"] = {**taper_settings(placement), **values}
     checked = taper_settings(candidate)
+    evaluate(candidate)
     placement.props["taper3d"] = checked
     return deepcopy(checked)
 
 
-def evaluate(placement):
-    source = mesh_document.resolve(placement.mesh_kind)
+def evaluate(placement, *, include_modifiers=True):
+    return evaluate_mesh(
+        mesh_document.resolve(placement.mesh_kind), placement, include_modifiers=include_modifiers
+    )
+
+
+def evaluate_mesh(source, placement, *, include_modifiers=True):
     if "taper3d" not in placement.props or len(source.verts) == 0:
+        if include_modifiers:
+            from . import mesh_modifiers
+
+            return mesh_modifiers.evaluate_stack(source, mesh_modifiers.settings(placement))
         return source
     settings = taper_settings(placement)
     axis = "xyz".index(settings["axis"])
@@ -59,4 +69,9 @@ def evaluate(placement):
     factors = np.array(settings["start"]) * (1 - t) + np.array(settings["end"]) * t
     factors[:, axis] = 1.0
     verts *= factors
-    return mesh_document.with_vertices(source, verts)
+    result = mesh_document.with_vertices(source, verts)
+    if include_modifiers:
+        from . import mesh_modifiers
+
+        result = mesh_modifiers.evaluate_stack(result, mesh_modifiers.settings(placement))
+    return result

@@ -255,3 +255,46 @@ def components_expand(session,id,pattern):
 def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.),position=(0.,0.,0.),radius=0.0,rotation=(0.,0.,0.),scale=(1.,1.,1.),cuts=1,factor=0.0,segments=1,plane_point=(0.,0.,0.),plane_normal=(1.,0.,0.),keep="both",fill=False):
     from ...render import topology
     return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset,position=position,radius=radius,rotation=rotation,scale=scale,cuts=cuts,factor=factor,segments=segments,plane_point=plane_point,plane_normal=plane_normal,keep=keep,fill=fill)
+
+
+@register_tool(
+    name='mesh.modifiers_get',
+    description='Read the retained modifier stack, unchanged editable source topology and evaluated topology. Generated copies become directly editable only after applying the stack.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+    side_effect=SideEffect.READ,
+)
+def modifiers_get(session,id):
+    from ...render import mesh_modifiers,mesh_edit,mesh_document,topology
+    p=session.lookup(id)
+    if p.kind!='Mesh3D': raise ValueError('Modifiers require a mesh')
+    return {'stack':mesh_modifiers.settings(p),'source_topology':topology.document(mesh_document.resolve(p.mesh_kind)),'evaluated_topology':topology.document(mesh_edit.evaluate(p))}
+
+
+@register_tool(
+    name='mesh.modifier_add',
+    description='Append a retained Mirror, Array or Solidify modifier without changing source geometry. Mirror: axis x/y/z, offset plane coordinate in meters, merge boolean, threshold distance to plane. Array: count 1–64 and absolute local-meter XYZ offset. Solidify: nonzero thickness in meters, offset -1 to 1, rim boolean; simple angle-weighted normals on consistently oriented manifold surfaces, without even-thickness correction or intersection repair. Stack order is significant.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'kind':{'enum':['Mirror','Array','Solidify']},'parameters':{'type':'object'}},'required':['id','kind']},
+)
+def modifier_add(session,id,kind,parameters=None):
+    from ...render import mesh_modifiers
+    return mesh_modifiers.add(session.lookup(id),kind,parameters)
+
+
+@register_tool(
+    name='mesh.modifier_update',
+    description='Update retained modifier parameters, enable/bypass it, move it to a zero-based stack index, or remove it. The complete candidate stack is evaluated before one atomic change is published.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'modifier_id':{'type':'string'},'parameters':{'type':'object'},'enabled':{'type':'boolean'},'index':{'type':'integer','minimum':0},'remove':{'type':'boolean'}},'required':['id','modifier_id']},
+)
+def modifier_update(session,id,modifier_id,parameters=None,enabled=None,index=None,remove=False):
+    from ...render import mesh_modifiers
+    return mesh_modifiers.update(session.lookup(id),modifier_id,values=parameters,enabled=enabled,index=index,remove=remove)
+
+
+@register_tool(
+    name='mesh.modifiers_apply',
+    description='Bake the complete enabled modifier stack and existing taper into a new editable source revision, then remove all stack entries. Disabled entries are discarded. One undoable operation; generated components receive durable editable identities.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+)
+def modifiers_apply(session,id):
+    from ...render import mesh_modifiers
+    return mesh_modifiers.apply_all(session.lookup(id))
