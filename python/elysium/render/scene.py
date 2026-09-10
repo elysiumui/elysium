@@ -90,7 +90,7 @@ def matrix(placement):
     return result
 
 
-def compose(placements, *, materials=False):
+def compose(placements, *, materials=False, polygon_normals=None):
     """Flatten only for rendering; authored geometry/attributes stay independent."""
     verts, faces, face_objects, uvs, face_materials, mats = [], [], [], [], [], []
     count = 0
@@ -102,6 +102,21 @@ def compose(placements, *, materials=False):
         m = matrices[i]
         verts.append(mesh.verts @ m[:3, :3].T + m[:3, 3])
         face_indices = mesh.faces[:, ::-1] if np.linalg.det(m[:3, :3]) < 0 else mesh.faces
+        if polygon_normals is not None:
+            if mesh.topology is not None:
+                from . import topology
+
+                points = {v["id"]: v["position"] for v in mesh.topology["vertices"]}
+                inverse = np.linalg.inv(m[:3, :3])
+                for face in mesh.topology["faces"]:
+                    normal = topology.normal([points[c["vertex"]] for c in face["corners"]]) @ inverse
+                    normal /= np.linalg.norm(normal)
+                    polygon_normals.extend([normal] * (len(face["corners"]) - 2))
+            else:
+                triangles = verts[-1][face_indices]
+                normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
+                normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+                polygon_normals.extend(normals)
         faces.append(face_indices + count)
         uvs.append(mesh.vert_uvs if mesh.vert_uvs is not None else np.zeros((len(mesh.verts), 2)))
         face_materials.extend([len(mats)] * len(mesh.faces))
@@ -150,7 +165,8 @@ def render(
     grid=True,
     component_output=None,
 ):
-    obj, face_objects = compose(placements, materials=shading == "material")
+    polygon_normals = [] if shading == "solid" else None
+    obj, face_objects = compose(placements, materials=shading == "material", polygon_normals=polygon_normals)
     ids = np.full((height, width), -1, dtype=np.int32)
     if obj is None or len(obj.mesh.faces) == 0:
         # Empty geometry still needs camera rays for the world grid.
@@ -198,10 +214,10 @@ def render(
     if grid:
         pixels[background] = (48, 49, 52, 255)
     # Solid modeling shading is neutral, independent of material-preview studios.
-    if mask.any() and shading == "solid":
-        triangles = obj.mesh.verts[obj.mesh.faces]
-        normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
-        normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-8)
+    if mask.any() and shading == "solid" and polygon_normals:
+        # Render triangles belonging to one authored polygon share its flat
+        # normal. This avoids diagonal seams on nonplanar subdivided quads.
+        normals = np.asarray(polygon_normals)
         light = np.array([0.2, 0.8, 1.0])
         light /= np.linalg.norm(light)
         gray = np.clip(

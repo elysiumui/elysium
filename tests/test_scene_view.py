@@ -97,6 +97,20 @@ def test_orthographic_grid_does_not_overlay_mesh_or_change_hit_identity():
     assert (gridded[ids < 0, 3] == 255).all()
 
 
+def test_nonplanar_polygon_has_one_flat_shade_without_diagonal_seams():
+    from elysium.render import topology
+
+    p = primitive("Plane")
+    source = mesh_document.resolve(p.mesh_kind)
+    edited = topology.move_vertices(source, [source.topology["vertices"][0]["id"]], [0, 0.7, 0])
+    mesh_document.bind(p, edited)
+    components = {}
+    rgba, ids = scene.render([p], 160, 160, distance=5, grid=False, component_output=components)
+    pixels = np.frombuffer(rgba, np.uint8).reshape(160, 160, 4)
+    assert set(np.unique(components["face_index"][ids == 0])) == {0, 1}
+    assert len(np.unique(pixels[ids == 0, :3], axis=0)) == 1
+
+
 def test_frame_preserves_relative_scale_and_world_position():
     a, b = primitive(), primitive()
     scene.update(b, {"location": [6, 0, 0], "scale": [2, 1, 1]})

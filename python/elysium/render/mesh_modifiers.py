@@ -10,6 +10,7 @@ DEFAULTS = {
     "Mirror": {"axis": "x", "offset": 0.0, "merge": False, "threshold": 1e-6},
     "Array": {"count": 2, "offset": [3.0, 0.0, 0.0]},
     "Solidify": {"thickness": 0.1, "offset": -1.0, "rim": True},
+    "Subdivision": {"levels": 1, "method": "catmull-clark", "boundary": "all"},
 }
 
 
@@ -35,7 +36,7 @@ def parameters(kind, values):
         if type(result["count"]) is not int or not 1 <= result["count"] <= 64:
             raise ValueError("Array count must be a whole number from 1 to 64")
         result["offset"] = topology._coordinates(result["offset"]).tolist()
-    else:
+    elif kind == "Solidify":
         for name in ("thickness", "offset"):
             if type(result[name]) not in (int, float) or not np.isfinite(result[name]):
                 raise ValueError("Solidify thickness and offset must be finite numbers")
@@ -43,6 +44,13 @@ def parameters(kind, values):
             raise ValueError("Solidify needs nonzero thickness and offset from -1 to 1")
         if type(result["rim"]) is not bool:
             raise ValueError("Solidify rim must be boolean")
+    else:
+        if type(result["levels"]) is not int or not 1 <= result["levels"] <= 4:
+            raise ValueError("Subdivision levels must be a whole number from 1 to 4")
+        if result["method"] not in ("catmull-clark", "simple"):
+            raise ValueError("Subdivision method must be catmull-clark or simple")
+        if result["boundary"] not in ("all", "keep_corners"):
+            raise ValueError("Subdivision boundary must be all or keep_corners")
     return result
 
 
@@ -243,6 +251,11 @@ def evaluate_stack(mesh, stack):
     result = mesh
     for item in stack["items"]:
         if item["enabled"]:
+            if item["kind"] == "Subdivision":
+                from . import mesh_subdivision
+
+                result = mesh_subdivision.evaluate(result, item["parameters"])
+                continue
             doc = topology.document(result)
             copies = item["parameters"]["count"] if item["kind"] == "Array" else 2
             size = (

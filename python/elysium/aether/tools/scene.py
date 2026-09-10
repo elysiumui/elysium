@@ -272,8 +272,8 @@ def modifiers_get(session,id):
 
 @register_tool(
     name='mesh.modifier_add',
-    description='Append a retained Mirror, Array or Solidify modifier without changing source geometry. Mirror: axis x/y/z, offset plane coordinate in meters, merge boolean, threshold distance to plane. Array: count 1–64 and absolute local-meter XYZ offset. Solidify: nonzero thickness in meters, offset -1 to 1, rim boolean; simple angle-weighted normals on consistently oriented manifold surfaces, without even-thickness correction or intersection repair. Stack order is significant.',
-    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'kind':{'enum':['Mirror','Array','Solidify']},'parameters':{'type':'object'}},'required':['id','kind']},
+    description='Append a retained Mirror, Array, Solidify or Subdivision modifier without changing source geometry. Mirror: axis x/y/z, offset plane coordinate in meters, merge boolean, threshold distance to plane. Array: count 1–64 and absolute local-meter XYZ offset. Solidify: nonzero thickness in meters, offset -1 to 1, rim boolean; simple angle-weighted normals on consistently oriented manifold surfaces, without even-thickness correction or intersection repair. Subdivision: levels 1–4, method catmull-clark or simple, boundary all or keep_corners; discrete levels without limit-surface projection or creases, linear face-varying UV interpolation. Stack order is significant.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'kind':{'enum':['Mirror','Array','Solidify','Subdivision']},'parameters':{'type':'object'}},'required':['id','kind']},
 )
 def modifier_add(session,id,kind,parameters=None):
     from ...render import mesh_modifiers
