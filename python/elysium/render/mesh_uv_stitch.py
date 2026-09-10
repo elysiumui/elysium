@@ -56,13 +56,15 @@ def _validate_join(fixed, moving):
                 )
 
 
-def stitch(placement, corner_ids=None, *, static_corner_id=None):
+def stitch(placement, corner_ids=None, *, static_corner_id=None, clear_seams=True):
     """Keep one island fixed; rigidly join its shared edges with one other island.
 
     Selected corner seeds expand to exactly two complete islands. All their
-    shared source edges join and lose their seam flags. No scaling/stretching
+    shared source edges join; clear_seams controls their seam flags. No scaling/stretching
     is allowed. Pins that would move reject the complete operation.
     """
+    if not isinstance(clear_seams, bool):
+        raise ValueError("Clear seams must be true or false")
     doc = mesh_uv.source(placement)
     islands = mesh_uv_islands.selected(doc, corner_ids)
     if len(islands) != 2:
@@ -131,7 +133,7 @@ def stitch(placement, corner_ids=None, *, static_corner_id=None):
         c["uv"] = list(pair[1]) if pair and tuple(c["uv"]) == pair[0] else value.tolist()
     _validate_join(fixed, moving)
     for edge in doc["edges"]:
-        if tuple(sorted(edge["vertices"])) in shared:
+        if clear_seams and tuple(sorted(edge["vertices"])) in shared:
             edge["seam"] = False
     return {
         **mesh_uv._publish(placement, doc),

@@ -98,3 +98,31 @@ def test_stitch_requires_exactly_two_edge_neighbors(selection):
     with pytest.raises(ValueError):
         mesh_uv_stitch.stitch(p, corners)
     assert p.__dict__ == before
+
+
+def test_stitch_can_join_uvs_while_retaining_every_authored_seam():
+    p, fixed, moving = fixture()
+    mesh_uv.transform(p, moving["corner_ids"], angle=37, offset=[0.4, -0.3])
+    before = mesh_uv.source(p)
+    result = mesh_uv_stitch.stitch(
+        p,
+        fixed["corner_ids"] + moving["corner_ids"],
+        static_corner_id=fixed["corner_ids"][0],
+        clear_seams=False,
+    )
+    after = mesh_uv.source(p)
+    assert result["joined_edges"] == 1
+    assert len(mesh_uv_islands.read(p)) == 3
+    assert before["edges"] == after["edges"] and before["vertices"] == after["vertices"]
+    saved = mesh_document.capture([p])
+    mesh_document.restore(saved, [p])
+    assert mesh_uv.source(p) == after
+
+
+@pytest.mark.parametrize("invalid", [0, 1, "false", None])
+def test_invalid_clear_seams_option_rejects_without_mutation(invalid):
+    p, fixed, moving = fixture()
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match="Clear seams"):
+        mesh_uv_stitch.stitch(p, fixed["corner_ids"] + moving["corner_ids"], clear_seams=invalid)
+    assert vars(p) == before
