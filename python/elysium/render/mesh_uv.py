@@ -52,7 +52,7 @@ def project(placement, mode, *, face_ids=None, yaw=0.0, pitch=0.0):
     """Project selected source faces, preserving topology and independent corner UVs."""
     yaw, pitch = _number(yaw), _number(pitch)
     if not isinstance(mode, str):
-        raise ValueError("UV projection mode must be a string")
+        raise ValueError("UV projection mode must be a string")  # noqa: TRY004 — public UV validation contract
     mode = mode.lower()
     if mode not in (
         "planar",
@@ -150,7 +150,12 @@ def read(placement):
             {
                 "id": f["id"],
                 "corners": [
-                    {"id": c["id"], "vertex": c["vertex"], "uv": deepcopy(c.get("uv"))}
+                    {
+                        "id": c["id"],
+                        "vertex": c["vertex"],
+                        "uv": deepcopy(c.get("uv")),
+                        "pin": c.get("pin", False),
+                    }
                     for c in f["corners"]
                 ],
             }
@@ -158,3 +163,17 @@ def read(placement):
         ],
         "seams": [e["id"] for e in doc["edges"] if e["seam"]],
     }
+
+
+def pin(placement, corner_ids, enabled=True):
+    """Persist UV pin state on selected retained corners; manual transforms remain allowed."""
+    if type(enabled) is not bool:
+        raise ValueError("UV pin state must be boolean")
+    doc = source(placement)
+    corners = _selected([c for f in doc["faces"] for c in f["corners"]], corner_ids, "UV corner")
+    if not corners or any(c.get("uv") is None for c in corners):
+        raise ValueError("Project and select UV corners before pinning")
+    doc["schema_version"] = 3
+    for corner in corners:
+        corner["pin"] = enabled
+    return _publish(placement, doc)

@@ -1,6 +1,6 @@
 # Native corner UV authoring
 
-Status: implemented projection/transform/seam foundation; the full UV family remains open.
+Status: projection, transforms, seams and island operations have accepted GUI comparison fixtures. Persistent pins and seam-driven conformal unwrap are a code-tested candidate awaiting GUI comparison. The full UV family remains open.
 
 ## Authoritative data and atomic edits
 
@@ -35,7 +35,7 @@ Select a mesh and click **UVs** in the 3D Scene toolbar. Projection buttons expo
 
 Independent GUI / Aether / Blender GUI plane projection and scale=0.5, clockwise rotation=90°, offset=(0.25,-0.5) pass. Geometry (4 vertices / 4 edges / 1 oriented polygon) matches exactly, GUI/Aether corner UVs match exactly, and Blender's maximum UV error is 5.960464477539063e-8 at tolerance 1e-6. Native Undo/Redo and clean-process reopening pass. The first comparison exposed the opposite rotation convention and was corrected; pre-correction evidence is retained.
 
-Full seam-driven unwrap, smart/cube projection, island packing/stitching/pinning/scale normalization, texture distortion review, richer selection, drag transforms, material texture display and broader projection/attribute comparisons remain required by the approved plan.
+The extensions below add island operations, pins and a bounded seam-driven unwrap solver. Smart/cube projection, stitching, texture distortion review, richer selection, drag transforms, material texture display and broader projection/attribute comparisons remain required by the approved plan.
 
 ## Island authoring extension
 
@@ -52,3 +52,19 @@ Three independent GUI/Aether/Blender stages pass: selected-island scale, normali
 Native component view now draws unselected marked seam edges in red; selected edges retain selection highlighting. A separate plane seam/single-corner fixture matches all geometry, UVs and four seam endpoint pairs exactly across the three authoring paths, including Clear Seam and GUI Undo preservation.
 
 Full seam-driven unwrap, smart/cube projection, stitching/pinning, distortion/material texture display and broader packing/normalization variants remain open. These fixtures extend the UV foundation and do not close the complete UV family.
+
+## Persistent pins and conformal unwrap candidate
+
+`mesh.uv_pins_set(id, corner_ids, enabled=True)` sets or clears a boolean pin on selected corners. Every selected corner must have a UV coordinate. Pins use retained topology schema version 3; existing version 1 and 2 documents remain readable. Older versions reject the new field, and pinning promotes the document to version 3. Schema version 3 survives subsequent topology and modifier operations. Existing copied corners retain their pins; newly interpolated corners are unpinned. `mesh.uv_get` includes a boolean `pin` for every corner, defaulting to false when absent in the document. Save/reopen and Undo/Redo retain pins.
+
+Native **Pin** and **Unpin** operate on selected UV corners. Pinned points receive red outlines, and the editor shows the number of pinned corners. Explicit manual transforms, projections, Normalize scale and Pack can move pinned UVs; pins constrain the unwrap solver. A packing option to lock pinned islands remains unimplemented.
+
+`mesh.uv_unwrap_seams(id, face_ids?)` cuts the selected source surface at marked seam edges and solves least-squares conformal charts. Omitted face IDs mean all source faces. Native **Unwrap** uses selected faces in Face mode and all faces in other modes. It selects the affected corners after success. This is separate from the legacy projection command `mesh.uv_unwrap`.
+
+Each chart must be a consistently oriented, edge-manifold disk with one simple boundary and no holes. Closed surfaces need seams; an open cylinder still needs a longitudinal seam. Current limits are 50,000 selected corners and 2,048 boundary edges per chart. Conflicting pins joined across an uncut edge reject. At least two distinct UV anchor locations are required: authored pins supply them when possible, and a chart with fewer than two pinned nodes gets deterministic anchors using source distances. Unpinned charts are translated beside the other charts; **Pack** is a separate explicit operation to fit the unit tile. Multiple pinned charts can overlap because their coordinates are authored constraints.
+
+The solver uses the retained polygon triangulation, area-weighted conformal equations and sparse LSQR with finite-result and convergence checks. It accepts an exact zero solution as success. It rejects collapsed/flipped UV triangles and a self-intersecting chart boundary. It computes all charts and validates the complete prospective modifier stack before publishing, so a rejected solve preserves the source and undo history. Pinned corner coordinates remain exactly as authored. Local object coordinates determine surface distances; object scale is not implicitly applied.
+
+Code fixtures cover restoration of distorted plane UVs with pins, a folded plane, a closed cube requiring seams, an open cylinder requiring a longitudinal seam, conflicting pins, reversed fully pinned UVs, selected-face isolation and an exact-zero free-corner solution. Native editor integration fixtures cover Pin/Unpin, Undo/Redo, serialization and atomic failure. These tests are not a substitute for the pending independent Designer GUI / public Aether / Blender GUI comparison.
+
+Measured unwrap-only times on this Mac were 0.058 seconds for 100 quads, 0.234 for 400 and 0.943 for 1,600. The operation is synchronous. These measurements do not establish GUI responsiveness, maximum-size performance or rendered frame rate. Blender algorithm variants, holes, broader chart geometry and matched material/distortion display remain outside this candidate's acceptance.

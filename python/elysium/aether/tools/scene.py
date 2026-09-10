@@ -374,3 +374,23 @@ def uv_pack(session,id,corner_ids=None,margin=.02):
 def uv_normalize_scale(session,id,corner_ids=None):
     from ...render import mesh_uv_islands
     return mesh_uv_islands.normalize(session.lookup(id),corner_ids)
+
+
+@register_tool(
+    name="mesh.uv_pins_set",
+    description="Set persistent pin flags on selected source UV corner identities. Pinning does not move UVs or alter geometry. Manual UV transforms remain allowed; pins constrain supported unwrap solvers. Requires UVs on each selected corner. Unpin with enabled=false.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"enabled":{"type":"boolean"}},"required":["id","corner_ids"]},
+)
+def uv_pins_set(session,id,corner_ids,enabled=True):
+    from ...render import mesh_uv
+    return mesh_uv.pin(session.lookup(id),corner_ids,enabled)
+
+
+@register_tool(
+    name="mesh.uv_unwrap_seams",
+    description="Least-squares conformal unwrap of selected source faces (omitted face_ids means all), cut along marked seam edges. Supports consistently oriented manifold disk charts with one boundary and no holes; mark seams to open closed surfaces. Persistent corner pins stay exactly fixed; conflicting pins across an uncut edge reject. Unpinned charts use deterministic world-length anchors and are translated beside one another; Pack is a separate command. Folded/collapsed solutions reject atomically. Current limits: 50,000 selected corners, 2,048 boundary edges per chart.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS},"required":["id"]},
+)
+def uv_unwrap_seams(session,id,face_ids=None):
+    from ...render import mesh_uv_unwrap
+    return mesh_uv_unwrap.unwrap(session.lookup(id),face_ids)

@@ -139,3 +139,56 @@ def test_legacy_public_unwrap_uses_retained_corner_uvs_and_clears_caches():
     mesh_document.validate(mesh_document.resolve(p.mesh_kind))
     assert not designer._mesh_cache
     assert all(c["uv"] is not None for f in mesh_uv.read(p)["faces"] for c in f["corners"])
+
+
+def test_pins_are_corner_attributes_and_survive_uv_edits_modifiers_and_reload():
+    p=placement();mesh_uv.project(p,'planar_xz')
+    before=mesh_uv.source(p);corner=before['faces'][0]['corners'][0]['id']
+    mesh_uv.pin(p,[corner]);doc=mesh_uv.source(p)
+    assert doc['schema_version']==3
+    assert doc['faces'][0]['corners'][0]['pin'] is True
+    expected=deepcopy(before);expected['schema_version']=3;expected['faces'][0]['corners'][0]['pin']=True
+    assert doc==expected
+    mesh_uv.transform(p,[corner],offset=[.1,0])
+    assert mesh_uv.read(p)['faces'][0]['corners'][0]['pin']
+    mesh_modifiers.add(p,'Subdivision')
+    evaluated=mesh_edit.evaluate(p)
+    assert evaluated.topology['schema_version']==3
+    assert sum(c.get('pin',False) for f in evaluated.topology['faces'] for c in f['corners'])==1
+    saved=mesh_document.capture([p]);mesh_document.restore(saved,[p])
+    assert mesh_uv.read(p)['faces'][0]['corners'][0]['pin']
+    mesh_uv.pin(p,[corner],False)
+    assert not mesh_uv.read(p)['faces'][0]['corners'][0]['pin']
+
+
+@pytest.mark.parametrize('kind',['Mirror','Array','Solidify'])
+def test_pin_schema_is_preserved_by_retained_copy_and_shell_modifiers(kind):
+    p=placement();mesh_uv.project(p,'planar_xz')
+    corner=mesh_uv.read(p)['faces'][0]['corners'][0]['id'];mesh_uv.pin(p,[corner])
+    mesh_modifiers.add(p,kind);result=mesh_edit.evaluate(p)
+    assert result.topology['schema_version']==3
+    assert sum(c.get('pin',False) for f in result.topology['faces'] for c in f['corners'])==2
+
+
+def test_pinned_mesh_component_delete_keeps_new_schema_and_surviving_pins():
+    p=placement('Plane',{'segments':2});mesh_uv.project(p,'planar_xz');doc=mesh_uv.source(p)
+    corner=doc['faces'][0]['corners'][0]['id'];mesh_uv.pin(p,[corner])
+    topology.select(p,'faces',[doc['faces'][-1]['id']]);topology.edit_selected(p,'delete')
+    doc=mesh_uv.source(p)
+    assert doc['schema_version']==3 and doc['faces'][0]['corners'][0]['pin']
+
+
+@pytest.mark.parametrize('pin_value',[1,'yes',None])
+def test_pin_schema_rejects_non_boolean_flags(pin_value):
+    p=placement();mesh_uv.project(p,'planar_xz');doc=mesh_uv.source(p)
+    doc['schema_version']=3;doc['faces'][0]['corners'][0]['pin']=pin_value
+    with pytest.raises(ValueError):topology.compile(doc)
+
+
+def test_pin_requires_defined_uv_and_rejects_old_schema_without_publication():
+    p=placement();before=deepcopy(p.__dict__);doc=mesh_uv.source(p)
+    corner=doc['faces'][0]['corners'][0]['id']
+    with pytest.raises(ValueError):mesh_uv.pin(p,[corner])
+    assert p.__dict__==before
+    mesh_uv.project(p,'planar_xz');doc=mesh_uv.source(p);doc['faces'][0]['corners'][0]['pin']=True
+    with pytest.raises(ValueError):topology.compile(doc)

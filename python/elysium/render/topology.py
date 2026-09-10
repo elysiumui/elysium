@@ -176,7 +176,7 @@ def validate(doc):
         not isinstance(doc, dict)
         or set(doc) - fields
         or type(doc.get("schema_version")) is not int
-        or doc["schema_version"] not in (1, 2)
+        or doc["schema_version"] not in (1, 2, 3)
     ):
         raise ValueError("Unsupported editable topology version or fields")
     if type(doc.get("next_id")) is not int or doc["next_id"] < 1:
@@ -248,7 +248,15 @@ def validate(doc):
             raise ValueError("Polygon corners must be an array")  # noqa: TRY004 — document validation boundary
         ids = []
         for corner in face["corners"]:
-            record(corner, {"id", "vertex", "uv", "normal"}, {"id", "vertex"})
+            corner_fields = {"id", "vertex", "uv", "normal"}
+            if doc["schema_version"] >= 3:
+                corner_fields.add("pin")
+            record(corner, corner_fields, {"id", "vertex"})
+            if "pin" in corner and (
+                type(corner["pin"]) is not bool
+                or (corner["pin"] and corner.get("uv") is None)
+            ):
+                raise ValueError("Pinned UV corners require boolean pin state and UV coordinates")
             identity(corner, "c")
             if not isinstance(corner["vertex"], str) or corner["vertex"] not in verts:
                 raise ValueError("Corner references a missing vertex")
@@ -543,7 +551,7 @@ def delete_components(mesh, mode, identities):
     chosen = set(identities)
     if chosen - {v["id"] for v in doc[mode]}:
         raise ValueError("Selected components no longer exist")
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     removed_edges = set()
     candidates = set()
     if mode == "vertices":
@@ -690,7 +698,7 @@ def loop_cut(mesh, identities, *, cuts=1):
     doc["faces"] = faces
     doc["edges"] = split_edges
     _edges(doc, loose)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     selected = [e["id"] for e in doc["edges"] if tuple(sorted(e["vertices"])) in centers]
     return compile(doc)[0], selected
 
@@ -852,7 +860,7 @@ def dissolve_edges(mesh, identities):
     _edges(doc, loose)
     used = {v for e in doc["edges"] for v in e["vertices"]}
     doc["vertices"] = [v for v in doc["vertices"] if v["id"] not in candidates or v["id"] in used]
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], [f["id"] for f in joined]
 
 
@@ -916,7 +924,7 @@ def fill_loop(mesh, mode, identities):
     corners = [_corner(doc, v, coord.tolist()) for v, coord in zip(cycle, uv)]
     face = {"id": _id(doc, "f"), "corners": corners, "material": 0}
     doc["faces"].append(face)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], face["id"]
 
 
@@ -1034,7 +1042,7 @@ def bisect(mesh, plane_point, plane_normal, *, keep="both", fill=False):
     wire = [e for e in doc["edges"] if e["id"] in loose_ids and set(e["vertices"]) <= allowed]
     doc["vertices"] = [v for v in doc["vertices"] if v["id"] in allowed]
     _edges(doc, wire)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     result = compile(doc)[0]
     cut_ids = [e["id"] for e in doc["edges"] if all(signs[v] == 0 for v in e["vertices"])]
     if fill and cut_ids:
@@ -1362,7 +1370,7 @@ def bridge_edges(mesh, identities):
         doc["faces"].append(face)
         added.append(face["id"])
     _edges(doc, preserved)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], added
 
 
@@ -1382,7 +1390,7 @@ def add_vertex(mesh, position):
     doc = document(mesh)
     vertex = {"id": _id(doc, "v"), "position": point.tolist(), "part": None}
     doc["vertices"].append(vertex)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], vertex["id"]
 
 
@@ -1400,7 +1408,7 @@ def connect_vertices(mesh, identities):
         raise ValueError("Cannot connect coincident vertices")
     edge = {"id": _id(doc, "e"), "vertices": pair, "seam": False, "sharp": False}
     doc["edges"].append(edge)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], edge["id"]
 
 
@@ -1430,7 +1438,7 @@ def extrude_vertices(mesh, identities, offset):
                 "sharp": False,
             }
         )
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], new_ids
 
 
@@ -1522,7 +1530,7 @@ def extrude_edges(mesh, identities, offset):
         doc["edges"].append(cap)
         cap_ids.append(cap["id"])
     _edges(doc, preserved)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], cap_ids
 
 
@@ -1575,7 +1583,7 @@ def merge_center(mesh, vertex_ids):
             edge["vertices"] = list(pair)
             edges[pair] = edge
     doc["edges"] = list(edges.values())
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return compile(doc)[0], target
 
 

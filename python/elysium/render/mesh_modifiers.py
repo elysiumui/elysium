@@ -136,7 +136,7 @@ def _copies(mesh, kind, values):
                 if kind == "Mirror" and corner["normal"] is not None:
                     corner["normal"][axis] *= -1
             doc["faces"].append(added)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return topology.compile(doc)[0]
 
 
@@ -243,7 +243,7 @@ def _solidify(mesh, values):
                 if corner["normal"] is not None:
                     corner["normal"] = [-v for v in corner["normal"]]
     topology._edges(doc)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return topology.compile(doc)[0]
 
 

@@ -140,7 +140,7 @@ def step(mesh, method, boundary):
                 }
             )
     topology._edges(doc)
-    doc["schema_version"] = 2
+    doc["schema_version"] = max(2, doc["schema_version"])
     return topology.compile(doc)[0]
 
 
