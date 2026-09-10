@@ -60,6 +60,43 @@ def test_grid_and_axes_visible_in_empty_scene():
     assert ((pixels[:, :, 0] == 65) & (pixels[:, :, 2] == 170)).any()
 
 
+@pytest.mark.parametrize(
+    "yaw,pitch,colors",
+    [
+        (np.pi, 0, ((150, 65, 65), (75, 145, 80))),
+        (np.pi / 2, 0, ((75, 145, 80), (65, 100, 170))),
+        (0, np.pi / 2, ((150, 65, 65), (65, 100, 170))),
+    ],
+)
+def test_axis_orthographic_views_show_meter_grid_and_world_axes(yaw, pitch, colors):
+    rgba, ids = scene.render(
+        [], 120, 120, yaw=yaw, pitch=pitch, projection="orthographic", ortho_scale=6
+    )
+    pixels = np.frombuffer(rgba, np.uint8).reshape(120, 120, 4)
+    assert (ids == -1).all()
+    for color in colors:
+        assert np.count_nonzero(np.all(pixels[:, :, :3] == color, axis=2)) >= 100
+    # Six meters span 119 sample intervals. Antialiasing changes line
+    # brightness with subpixel phase; compare line centers, not RGB repeats.
+    columns = np.flatnonzero(np.any(pixels[10, :, :3] != (48, 49, 52), axis=1))
+    groups = np.split(columns, np.flatnonzero(np.diff(columns) > 1) + 1)
+    assert len(groups) == 7
+    np.testing.assert_allclose([g.mean() for g in groups], np.linspace(0, 119, 7), atol=0.75)
+
+
+def test_orthographic_grid_does_not_overlay_mesh_or_change_hit_identity():
+    p = primitive()
+    view = {"yaw": np.pi, "pitch": 0, "projection": "orthographic", "ortho_scale": 6}
+    plain, ids = scene.render([p], 120, 120, grid=False, **view)
+    gridded, grid_ids = scene.render([p], 120, 120, grid=True, **view)
+    plain = np.frombuffer(plain, np.uint8).reshape(120, 120, 4)
+    gridded = np.frombuffer(gridded, np.uint8).reshape(120, 120, 4)
+    np.testing.assert_array_equal(ids, grid_ids)
+    np.testing.assert_array_equal(plain[ids >= 0], gridded[ids >= 0])
+    assert (plain[ids < 0, 3] == 0).all()
+    assert (gridded[ids < 0, 3] == 255).all()
+
+
 def test_frame_preserves_relative_scale_and_world_position():
     a, b = primitive(), primitive()
     scene.update(b, {"location": [6, 0, 0], "scale": [2, 1, 1]})

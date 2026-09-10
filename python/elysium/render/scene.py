@@ -211,6 +211,33 @@ def render(
     if not grid:
         return pixels.tobytes(), ids
     ro, rd = hits["ray_origin"], hits["ray_direction"]
+    if projection == "orthographic":
+        direction = rd[height // 2, width // 2]
+        normal_axis = int(np.argmax(np.abs(direction)))
+        if abs(direction[normal_axis]) > 1 - 1e-6:
+            # Axis views need their own drawing plane. The horizontal floor
+            # is edge-on in Front/Side and cannot supply a visible grid.
+            # Project onto the target-depth plane so panning along the view
+            # direction never hides the grid behind the camera.
+            points = ro + rd * distance
+            axes = [a for a in range(3) if a != normal_axis]
+            coordinates = points[:, :, axes]
+            footprint = ortho_scale / height
+            line = np.min(np.abs(coordinates - np.round(coordinates)), axis=2)
+            visible = faces < 0
+            strength = np.where(visible, np.clip(1 - line / footprint, 0, 1), 0)
+            strength *= max(0, 1 - footprint * 3)
+            pixels[:, :, :3] = (
+                pixels[:, :, :3] * (1 - strength[:, :, None])
+                + np.array([85, 86, 89]) * strength[:, :, None]
+            ).astype(np.uint8)
+            colors = ((150, 65, 65), (75, 145, 80), (65, 100, 170))
+            for index, axis in enumerate(axes):
+                # The axis itself is the zero coordinate of the other
+                # in-plane dimension, with its own consistent world color.
+                line_mask = visible & (np.abs(coordinates[:, :, 1 - index]) < footprint)
+                pixels[line_mask, :3] = colors[axis]
+            return pixels.tobytes(), ids
     with np.errstate(divide="ignore", invalid="ignore"):
         plane_t = -ro[:, :, 1] / rd[:, :, 1]
         points = ro + rd * plane_t[:, :, None]
