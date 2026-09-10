@@ -106,3 +106,23 @@ def test_old_topology_version_cannot_smuggle_normal_policy():
     doc["shading"] = {"mode": "smooth", "angle": 180, "respect_sharp": True}
     with pytest.raises(ValueError, match="version 4"):
         topology.compile(doc)
+
+
+def test_read_maps_split_normals_to_source_face_and_vertex():
+    p = fixture()
+    mesh_normals.set_policy(p, "flat")
+    read = mesh_normals.read(p)
+    doc = mesh(p).topology
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    faces = {f["id"]: f for f in doc["faces"]}
+    covered = set()
+    for triangle, face_id in zip(read["triangles"], read["triangle_face_ids"]):
+        face = faces[face_id]
+        vertices = {c["vertex"] for c in face["corners"]}
+        expected = topology.normal([points[c["vertex"]] for c in face["corners"]])
+        for i in triangle:
+            vertex = read["render_vertex_ids"][i]
+            assert vertex in vertices
+            covered.add((face_id, vertex))
+            np.testing.assert_allclose(read["normals"][i], expected, atol=1e-7)
+    assert covered == {(f["id"], c["vertex"]) for f in doc["faces"] for c in f["corners"]}

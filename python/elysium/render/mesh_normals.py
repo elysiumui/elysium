@@ -83,13 +83,15 @@ def _source(placement):
 
 def read(placement):
     doc = _source(placement)
-    mesh, ids, _ = topology.compile(doc)
+    mesh, ids, face_ids = topology.compile(doc)
     return {
         "policy": deepcopy(
             doc.get("shading", {"mode": "authored", "angle": 180.0, "respect_sharp": True})
         ),
         "sharp_edge_ids": [e["id"] for e in doc["edges"] if e["sharp"]],
         "render_vertex_ids": ids,
+        "triangles": mesh.faces.tolist(),
+        "triangle_face_ids": face_ids,
         "normals": None if mesh.vert_normals is None else mesh.vert_normals.tolist(),
     }
 

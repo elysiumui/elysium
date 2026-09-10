@@ -11,7 +11,7 @@ The policy is evaluated during topology compilation, so geometry edits and suppo
 ## Public tools
 
 - `mesh.normals_set(id, mode, angle=180, respect_sharp=true)` accepts authored, flat or smooth for the entire source mesh.
-- `mesh.normals_get(id)` reads policy, sharp edge IDs, compiled source normals and their source vertex identity mapping. It does not evaluate modifiers or world transforms.
+- `mesh.normals_get(id)` reads policy, sharp edge IDs, compiled source normals and their source vertex identity mapping. `triangles` indexes those render vertices; `triangle_face_ids` associates each triangle with its source polygon, so split normals remain unambiguous. It does not evaluate modifiers or world transforms.
 - `mesh.edges_sharp_set(id, edge_ids, sharp=true)` marks/clears selected source edge flags without changing UV seam flags.
 
 ## Native UI
@@ -20,8 +20,8 @@ Select a mesh, open 3D Scene → Normals. Enter the smooth angle, choose respect
 
 ## Verification and limits
 
-393 focused framework tests and 250 Designer tests pass. Actual native Flat/Smooth, keyboard activation, Mark/Clear Sharp on 992 sphere edges, Undo/Redo, Save and clean-process reopening were exercised. The independent public API replay matches all source geometry, policy and normals exactly.
+394 focused framework tests and 250 Designer tests pass. Actual native Flat/Smooth, keyboard activation, Mark/Clear Sharp on 992 sphere edges, Undo/Redo, Save and clean-process reopening were exercised. The independent public API replay matches all source geometry, policy and normals exactly.
 
 The existing independently GUI/API-authored radius-1 sphere with 4 rings and 8 segments was used for the three-way Smooth fixture. Blender GUI Shade Smooth produces identical oriented connectivity: 26 vertices and 32 polygons. Position deviation is at most 1.1921e-7 m (existing geometry tolerance 1e-6); normal-vector deviation is at most 4.1656e-6 (normal tolerance 1e-5). The denser 16-ring/32-segment sphere has 3.5848e-6 normal deviation, but 1.2813e-6 position deviation, slightly beyond the existing geometry gate; this remains open.
 
-This accepts one whole-mesh Smooth operation fixture. Per-face shading flags, normal-vector editing, weighted-normal controls, independent Blender angle/sharp variants, broader topology cases, matched studio visuals and full normal-family acceptance remain open. Blender's version-matched primary reference for angle-weighted vertex normals is [mesh_normals.cc](https://github.com/blender/blender/blob/9e2066aef7ef/source/blender/blenkernel/intern/mesh_normals.cc).
+Three whole-mesh operation fixtures now pass: Smooth, a 30-degree smoothing limit, and all 56 source edges manually marked sharp. The latter two use independently authored Blender GUI references and match 112 corners by source polygon and vertex identity, including discontinuities. Their maximum normal deviations are 1.8849e-7 and 2.4028e-7 respectively; both retain the 1.1921e-7 m position deviation. The manually marked 56 sharp edge endpoint pairs match exactly. Per-face shading flags, normal-vector editing, weighted-normal controls, broader topology cases, matched studio visuals and full normal-family acceptance remain open. Blender's version-matched primary reference for angle-weighted vertex normals is [mesh_normals.cc](https://github.com/blender/blender/blob/9e2066aef7ef/source/blender/blenkernel/intern/mesh_normals.cc).
