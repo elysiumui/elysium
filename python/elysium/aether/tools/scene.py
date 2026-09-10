@@ -326,6 +326,16 @@ def uv_project(session, id, mode, face_ids=None, yaw=0.0, pitch=0.0):
 
 
 @register_tool(
+    name="mesh.uv_project_cube",
+    description="Cube-project selected source faces (omitted face_ids means all) using each face's dominant geometric normal. Center on selected local vertex bounds. cube_size=0 selects the largest local dimension; positive values set the projection cube size. Opposite faces share axes: X-normal uses -Z/+Y, Y-normal +X/-Z, Z-normal +X/+Y. clip clamps UVs to the unit tile; scale_bounds then normalizes selected UV bounds independently. Both default false. Retain topology, pins, seams, normals, materials and modifier stack. Image aspect correction is not applied.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS,"cube_size":{"type":"number","minimum":0},"clip":{"type":"boolean"},"scale_bounds":{"type":"boolean"}},"required":["id"]},
+)
+def uv_project_cube(session,id,face_ids=None,cube_size=0.0,clip=False,scale_bounds=False):
+    from ...render import mesh_uv
+    return mesh_uv.cube_project(session.lookup(id),face_ids,cube_size=cube_size,clip=clip,scale_bounds=scale_bounds)
+
+
+@register_tool(
     name="mesh.uv_transform",
     description="Scale then rotate UV corners around their arithmetic mean, then translate. Omitted corner_ids means all; positive angle is clockwise degrees (Blender UV convention), offset and scale are UV pairs. Each selected corner must have UVs. Negative scale mirrors the selected UVs. One atomic owned mesh revision.",
     input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "corner_ids": _UV_IDS, "offset": _UV_PAIR, "scale": _UV_PAIR, "angle": {"type": "number"}}, "required": ["id"]},

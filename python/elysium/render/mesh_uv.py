@@ -115,6 +115,50 @@ def project(placement, mode, *, face_ids=None, yaw=0.0, pitch=0.0):
     return {**_publish(placement, doc), "mode": mode, "yaw": yaw, "pitch": pitch}
 
 
+def cube_project(placement, face_ids=None, *, cube_size=0.0, clip=False, scale_bounds=False):
+    """Project each face by its dominant geometric normal, centered on selected bounds.
+
+    Zero size chooses the largest selected local dimension. Opposite faces
+    intentionally share projection axes, matching Blender's cube projection.
+    """
+    cube_size = _number(cube_size)
+    if cube_size < 0 or type(clip) is not bool or type(scale_bounds) is not bool:
+        raise ValueError("Cube size must be nonnegative and bounds options must be boolean")
+    doc = source(placement)
+    faces = _selected(doc["faces"], face_ids, "face")
+    if not faces:
+        raise ValueError("Cube projection needs surface faces")
+    points = {v["id"]: np.array(v["position"], dtype=float) for v in doc["vertices"]}
+    vertices = {c["vertex"] for f in faces for c in f["corners"]}
+    selected = np.array([points[v] for v in vertices])
+    center = (selected.min(axis=0) + selected.max(axis=0)) / 2
+    size = cube_size or float(np.ptp(selected, axis=0).max())
+    if size <= 1e-12:
+        raise ValueError("Cube projection needs a nonzero projection size")
+    corners, coordinates = [], []
+    for face in faces:
+        xyz = np.array([points[c["vertex"]] for c in face["corners"]])
+        n = np.abs(topology.normal(xyz))
+        axis = (0, 2, 1)[int(np.argmax(n[[0, 2, 1]]))]
+        local = xyz - center
+        if axis == 0:
+            uv = np.column_stack((-local[:, 2], local[:, 1]))
+        elif axis == 1:
+            uv = np.column_stack((local[:, 0], -local[:, 2]))
+        else:
+            uv = local[:, [0, 1]]
+        corners.extend(face["corners"])
+        coordinates.extend(uv / size + 0.5)
+    uv = np.array(coordinates)
+    if clip:
+        uv = np.clip(uv, 0, 1)
+    if scale_bounds:
+        uv = (uv - uv.min(axis=0)) / np.maximum(np.ptp(uv, axis=0), 1e-12)
+    for corner, value in zip(corners, uv):
+        corner["uv"] = value.tolist()
+    return {**_publish(placement, doc), "cube_size": size, "clip": clip, "scale_bounds": scale_bounds}
+
+
 def transform(placement, corner_ids=None, *, offset=(0.0, 0.0), scale=(1.0, 1.0), angle=0.0):
     # Blender UV Editor uses clockwise positive numeric rotation.
     offset, scale, angle = _pair(offset), _pair(scale), -np.radians(_number(angle))

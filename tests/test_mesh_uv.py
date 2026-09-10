@@ -20,6 +20,58 @@ def without_uv(doc):
     return result
 
 
+@pytest.mark.parametrize("fixture_index", [0, 1])
+def test_cube_projection_matches_independent_blender_gui_records(fixture_index):
+    import json
+    from pathlib import Path
+    record = json.loads((Path(__file__).parent / "fixtures/blender_cube_projection.json").read_text())["fixtures"][fixture_index]
+    p = placement("Cube")
+    doc = mesh_uv.source(p)
+    for vertex in doc["vertices"]:
+        vertex["position"][0] += record["offset_x"]
+    mesh_document.bind(p, topology.compile(doc)[0])
+    mesh_uv.cube_project(p, cube_size=record["cube_size"])
+    result = mesh_uv.source(p)
+    assert without_uv(result) == without_uv(doc)
+    points = {v["id"]: tuple(v["position"]) for v in result["vertices"]}
+    actual = {}
+    for face in result["faces"]:
+        center = tuple(np.mean([points[c["vertex"]] for c in face["corners"]], axis=0))
+        for c in face["corners"]:
+            actual[(center, points[c["vertex"]])] = c["uv"]
+    b = record["objects"][0]
+    expected = {}
+    for f in b["faces"]:
+        center = tuple(np.mean([b["vertices"][v] for v in f["vertices"]], axis=0))
+        for vertex, uv in zip(f["vertices"], f["uvs"]):
+            expected[(center, tuple(b["vertices"][vertex]))] = uv
+    assert actual == expected
+
+
+def test_cube_projection_selected_faces_and_pins_survive_bounds_options():
+    p = placement("Cube")
+    mesh_uv.cube_project(p)
+    doc = mesh_uv.source(p)
+    face = doc["faces"][0]
+    mesh_uv.pin(p, [face["corners"][0]["id"]])
+    before = mesh_uv.source(p)
+    mesh_uv.cube_project(p, [face["id"]], cube_size=1, clip=True, scale_bounds=True)
+    after = mesh_uv.source(p)
+    assert after["faces"][1:] == before["faces"][1:]
+    assert without_uv(after) == without_uv(before)
+    uv = np.array([c["uv"] for c in after["faces"][0]["corners"]])
+    assert uv.min() == 0 and uv.max() == 1
+
+
+@pytest.mark.parametrize("kwargs", [{"cube_size": -1}, {"cube_size": float("nan")}, {"clip": 1}, {"scale_bounds": "yes"}, {"face_ids": ["missing"]}])
+def test_invalid_cube_projection_is_atomic(kwargs):
+    p = placement("Cube")
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError):
+        mesh_uv.cube_project(p, **kwargs)
+    assert p.__dict__ == before
+
+
 def test_corner_projection_preserves_geometry_attributes_stack_and_roundtrip():
     p = placement("Cube")
     doc = mesh_uv.source(p)
