@@ -677,7 +677,13 @@ def loop_cut(mesh, identities, *, cuts=1):
                 interpolated_corner(c[3], c[2], second, k + 1),
                 interpolated_corner(c[3], c[2], second, k),
             ]
-            faces.append({"id": face["id"] if k == 0 else _id(doc, "f"), "material": face["material"], "corners": corners})
+            faces.append(
+                {
+                    "id": face["id"] if k == 0 else _id(doc, "f"),
+                    "material": face["material"],
+                    "corners": corners,
+                }
+            )
             if k:
                 centers.append(tuple(sorted((first[k], second[k]))))
     loose = loose_edges(doc)
@@ -724,7 +730,10 @@ def slide_edges(mesh, identities, factor):
     if any(len(rails) != 2 for rails in sides.values()):
         raise ValueError("Slide requires two manifold neighboring faces per edge")
     positions = {v["id"]: np.array(v["position"]) for v in doc["vertices"]}
-    seed = min(chosen, key=lambda identity: sorted(tuple(positions[v]) for v in edges[identity]["vertices"]))
+    seed = min(
+        chosen,
+        key=lambda identity: sorted(tuple(positions[v]) for v in edges[identity]["vertices"]),
+    )
     rail_centers = [np.mean([positions[v] for v in rail.values()], axis=0) for rail in sides[seed]]
     axis = int(np.argmax(np.abs(rail_centers[0] - rail_centers[1])))
     positive = 0 if rail_centers[0][axis] > rail_centers[1][axis] else 1
@@ -734,7 +743,11 @@ def slide_edges(mesh, identities, factor):
         identity = pending.pop()
         for vertex in edges[identity]["vertices"]:
             for neighbor in selected_incident[vertex] - visited:
-                choices = [rail for rail in sides[neighbor] if all(v not in targets or targets[v] == target for v, target in rail.items())]
+                choices = [
+                    rail
+                    for rail in sides[neighbor]
+                    if all(v not in targets or targets[v] == target for v, target in rail.items())
+                ]
                 if len(choices) != 1:
                     raise ValueError("Slide rails are ambiguous or inconsistently connected")
                 targets.update(choices[0])
@@ -742,11 +755,14 @@ def slide_edges(mesh, identities, factor):
                 pending.append(neighbor)
     if visited != chosen or set(targets.values()) & set(selected_incident):
         raise ValueError("Slide one connected edge chain or loop at a time")
-    result = np.array([
-        positions[v["id"]] + abs(factor) * (positions[targets[v["id"]]] - positions[v["id"]])
-        if v["id"] in targets else positions[v["id"]]
-        for v in doc["vertices"]
-    ])
+    result = np.array(
+        [
+            positions[v["id"]] + abs(factor) * (positions[targets[v["id"]]] - positions[v["id"]])
+            if v["id"] in targets
+            else positions[v["id"]]
+            for v in doc["vertices"]
+        ]
+    )
     weights = np.array([v["id"] in targets for v in doc["vertices"]], dtype=float)
     return _publish_positions(doc, result, weights)
 
@@ -821,7 +837,10 @@ def dissolve_edges(mesh, identities):
         points = np.array([positions[c["vertex"]] for c in cycle])
         n = normal(points)
         all_points = np.array([positions[c["vertex"]] for f in group for c in f["corners"]])
-        if np.max(np.abs((all_points - points[0]) @ n)) > max(float(np.ptp(all_points, axis=0).max()), 1e-12) * 1e-6:
+        if (
+            np.max(np.abs((all_points - points[0]) @ n))
+            > max(float(np.ptp(all_points, axis=0).max()), 1e-12) * 1e-6
+        ):
             raise ValueError("Dissolve requires coplanar faces")
         triangles(points)
         for corner in cycle:
@@ -899,6 +918,128 @@ def fill_loop(mesh, mode, identities):
     doc["faces"].append(face)
     doc["schema_version"] = 2
     return compile(doc)[0], face["id"]
+
+
+def bridge_edges(mesh, identities):
+    """Join two equal boundary/wire loops or chains with untwisted quads.
+
+    Neighboring faces constrain winding; nearest total endpoint distance chooses
+    alignment. This initial bridge has no subdivisions, twist or merge mode.
+    """
+    doc = document(mesh)
+    chosen = set(identities)
+    edges = [e for e in doc["edges"] if e["id"] in chosen]
+    if not chosen or chosen != {e["id"] for e in edges}:
+        raise ValueError("Select two existing boundary edge loops or chains")
+    uses = edge_usage(doc)
+    vertices = {v["id"]: v for v in doc["vertices"]}
+    graph = {}
+    for edge in edges:
+        a, b = edge["vertices"]
+        if len(uses.get(tuple(sorted((a, b))), [])) > 1:
+            raise ValueError("Bridge requires boundary or wire edges")
+        graph.setdefault(a, []).append(b)
+        graph.setdefault(b, []).append(a)
+    if any(len(n) > 2 for n in graph.values()):
+        raise ValueError("Bridge loops cannot branch")
+    if len({vertices[v]["part"] for v in graph}) != 1:
+        raise ValueError("Bridge within one named part")
+    key = lambda v: tuple(vertices[v]["position"])
+    remaining = set(graph)
+    paths = []
+    while remaining:
+        seed = min(remaining, key=key)
+        group, pending = {seed}, [seed]
+        while pending:
+            for v in graph[pending.pop()]:
+                if v not in group:
+                    group.add(v)
+                    pending.append(v)
+        ends = [v for v in group if len(graph[v]) == 1]
+        if len(ends) not in (0, 2):
+            raise ValueError("Bridge requires simple chains or closed loops")
+        closed = not ends
+        start = min(ends or group, key=key)
+        path, previous, current = [start], None, start
+        while True:
+            options = [v for v in graph[current] if v != previous and v != start]
+            if not options:
+                break
+            following = min(options, key=key)
+            if following in path:
+                raise ValueError("Bridge requires simple edge loops")
+            path.append(following)
+            previous, current = current, following
+        if len(path) != len(group):
+            raise ValueError("Bridge requires simple edge loops")
+        paths.append((path, closed))
+        remaining -= group
+    if len(paths) != 2 or paths[0][1] != paths[1][1] or len(paths[0][0]) != len(paths[1][0]):
+        raise ValueError(
+            "Bridge requires exactly two separate loops or chains with equal vertex counts"
+        )
+    a, closed = paths[0]
+    b = paths[1][0]
+    n = len(a)
+    count = n if closed else n - 1
+    existing = {tuple(sorted(e["vertices"])) for e in doc["edges"]}
+    candidates = []
+    for aa in (a, list(reversed(a))):
+        for bb0 in (b, list(reversed(b))):
+            for shift in range(n if closed else 1):
+                bb = bb0[shift:] + bb0[:shift]
+                if any(tuple(sorted(pair)) in existing for pair in zip(aa, bb)):
+                    continue
+                faces = [[aa[i], aa[(i + 1) % n], bb[(i + 1) % n], bb[i]] for i in range(count)]
+                valid = True
+                for face in faces:
+                    for u, v in zip(face, face[1:] + face[:1]):
+                        neighbors = uses.get(tuple(sorted((u, v))), [])
+                        if neighbors and neighbors[0] != (v, u):
+                            valid = False
+                    try:
+                        triangles([vertices[v]["position"] for v in face])
+                    except ValueError:
+                        valid = False
+                if valid:
+                    distance = sum(
+                        float(
+                            np.linalg.norm(
+                                np.asarray(vertices[u]["position"]) - vertices[v]["position"]
+                            )
+                        )
+                        for u, v in zip(aa, bb)
+                    )
+                    signature = tuple(key(v) for face in faces for v in face)
+                    # Without neighboring faces, choose positive dominant-axis
+                    # winding rather than inheriting arbitrary edge storage order.
+                    wire_only = not any(uses.get(tuple(sorted(e["vertices"]))) for e in edges)
+                    direction = normal([vertices[v]["position"] for v in faces[0]])
+                    winding_rank = int(wire_only and direction[np.argmax(np.abs(direction))] < 0)
+                    candidates.append((distance, winding_rank, signature, faces))
+    if not candidates:
+        raise ValueError("No nondegenerate bridge with consistent boundary winding")
+    faces = min(candidates, key=lambda c: (c[0], c[1], c[2]))[3]
+    preserved = loose_edges(doc)
+    materials = {
+        pair: face["material"] for face in doc["faces"] for pair in edge_usage({"faces": [face]})
+    }
+    added = []
+    for cycle in faces:
+        # New surface gets an explicit unit-square UV per quad. Existing UVs
+        # are untouched; interpolated UV bridging is a separate pending mode.
+        face = {
+            "id": _id(doc, "f"),
+            "corners": [
+                _corner(doc, v, uv) for v, uv in zip(cycle, ([0, 0], [1, 0], [1, 1], [0, 1]))
+            ],
+            "material": materials.get(tuple(sorted(cycle[:2])), 0),
+        }
+        doc["faces"].append(face)
+        added.append(face["id"])
+    _edges(doc, preserved)
+    doc["schema_version"] = 2
+    return compile(doc)[0], added
 
 
 def _coordinates(values):
@@ -1304,6 +1445,11 @@ def edit_selected(
             raise ValueError("Choose edge selection mode first")
         result, edge_ids = extrude_edges(mesh, selected.get("ids", []), offset)
         selected = {"mode": "edges", "ids": edge_ids}
+    elif operation == "bridge_edges":
+        if selected.get("mode") != "edges":
+            raise ValueError("Choose edge selection mode first")
+        result, face_ids = bridge_edges(mesh, selected.get("ids", []))
+        selected = {"mode": "faces", "ids": face_ids}
     elif operation == "dissolve_edges":
         if selected.get("mode") != "edges":
             raise ValueError("Choose edge selection mode first")

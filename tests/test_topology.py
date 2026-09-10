@@ -682,20 +682,20 @@ def test_invalid_proportional_radius_is_atomic(radius):
 def test_merge_cube_edge_preserves_winding_attributes_and_source():
     mesh = cube()
     doc = deepcopy(mesh.topology)
-    for face in doc['faces']:
-        face['material'] = 3
+    for face in doc["faces"]:
+        face["material"] = 3
     mesh = topology.compile(doc)[0]
     before = mesh_document.to_json(mesh)
-    chosen = [v['id'] for v in doc['vertices'] if v['position'][1:] == [1, -1]]
+    chosen = [v["id"] for v in doc["vertices"] if v["position"][1:] == [1, -1]]
     merged, survivor = topology.merge_center(mesh, chosen)
     result = merged.topology
-    assert [len(result[k]) for k in ('vertices', 'edges', 'faces')] == [7, 11, 6]
-    assert sorted(len(f['corners']) for f in result['faces']) == [3, 3, 4, 4, 4, 4]
-    assert next(v['position'] for v in result['vertices'] if v['id'] == survivor) == [0, 1, -1]
-    assert all(f['material'] == 3 for f in result['faces'])
-    assert {f['id'] for f in result['faces']} == {f['id'] for f in doc['faces']}
-    corners = {c['id']: c for f in doc['faces'] for c in f['corners']}
-    assert all(c['uv'] == corners[c['id']]['uv'] for f in result['faces'] for c in f['corners'])
+    assert [len(result[k]) for k in ("vertices", "edges", "faces")] == [7, 11, 6]
+    assert sorted(len(f["corners"]) for f in result["faces"]) == [3, 3, 4, 4, 4, 4]
+    assert next(v["position"] for v in result["vertices"] if v["id"] == survivor) == [0, 1, -1]
+    assert all(f["material"] == 3 for f in result["faces"])
+    assert {f["id"] for f in result["faces"]} == {f["id"] for f in doc["faces"]}
+    corners = {c["id"]: c for f in doc["faces"] for c in f["corners"]}
+    assert all(c["uv"] == corners[c["id"]]["uv"] for f in result["faces"] for c in f["corners"])
     uses = topology.edge_usage(result)
     assert all(len(u) == 2 for u in uses.values())
     assert signed_volume(merged) > 0
@@ -704,10 +704,10 @@ def test_merge_cube_edge_preserves_winding_attributes_and_source():
 
 def test_merge_all_preserves_single_loose_point_and_named_part():
     mesh = cube()
-    merged, survivor = topology.merge_center(mesh, [v['id'] for v in mesh.topology['vertices']])
-    assert merged.topology['schema_version'] == 2
-    assert merged.topology['edges'] == merged.topology['faces'] == []
-    assert merged.topology['vertices'][0]['id'] == survivor
+    merged, survivor = topology.merge_center(mesh, [v["id"] for v in mesh.topology["vertices"]])
+    assert merged.topology["schema_version"] == 2
+    assert merged.topology["edges"] == merged.topology["faces"] == []
+    assert merged.topology["vertices"][0]["id"] == survivor
     np.testing.assert_array_equal(merged.verts, [[0, 0, 0]])
     restored = mesh_document.from_json(mesh_document.to_json(merged))
     assert restored.topology == merged.topology
@@ -715,7 +715,7 @@ def test_merge_all_preserves_single_loose_point_and_named_part():
 
 def test_merge_duplicate_wires_unions_edge_flags():
     mesh = cube()
-    mesh = topology.delete_components(mesh, 'faces', [f['id'] for f in mesh.topology['faces']])
+    mesh = topology.delete_components(mesh, "faces", [f["id"] for f in mesh.topology["faces"]])
     points = []
     for p in ([0, 0, 0], [2, 0, 0], [1, 1, 0]):
         mesh, identity = topology.add_vertex(mesh, p)
@@ -723,279 +723,450 @@ def test_merge_duplicate_wires_unions_edge_flags():
     mesh, first = topology.connect_vertices(mesh, [points[0], points[2]])
     mesh, _second = topology.connect_vertices(mesh, [points[1], points[2]])
     doc = deepcopy(mesh.topology)
-    doc['edges'][0]['seam'] = True
-    doc['edges'][1]['sharp'] = True
+    doc["edges"][0]["seam"] = True
+    doc["edges"][1]["sharp"] = True
     merged, survivor = topology.merge_center(topology.compile(doc)[0], points[:2])
-    assert len(merged.topology['edges']) == 1
-    edge = merged.topology['edges'][0]
-    assert edge['id'] == first and edge['seam'] and edge['sharp']
-    assert set(edge['vertices']) == {survivor, points[2]}
+    assert len(merged.topology["edges"]) == 1
+    edge = merged.topology["edges"][0]
+    assert edge["id"] == first and edge["seam"] and edge["sharp"]
+    assert set(edge["vertices"]) == {survivor, points[2]}
 
 
 def test_merge_pinched_polygon_rejects_atomically():
-    mesh = primitives.build('Plane', {'width': 2, 'depth': 2, 'segments': 1})[0]
-    vertices = mesh.topology['vertices']
-    ids = [v['id'] for v in vertices if v['position'][0] == v['position'][2]]
-    p = SimpleNamespace(kind='Mesh3D', name='Plane', props={}, mesh_kind='')
-    mesh_document.bind(p, mesh, label='Plane')
-    topology.select(p, 'vertices', ids)
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 1})[0]
+    vertices = mesh.topology["vertices"]
+    ids = [v["id"] for v in vertices if v["position"][0] == v["position"][2]]
+    p = SimpleNamespace(kind="Mesh3D", name="Plane", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh, label="Plane")
+    topology.select(p, "vertices", ids)
     before = deepcopy(vars(p))
-    with pytest.raises(ValueError, match='pinch'):
-        topology.edit_selected(p, 'merge_center')
+    with pytest.raises(ValueError, match="pinch"):
+        topology.edit_selected(p, "merge_center")
     assert vars(p) == before
 
 
-@pytest.mark.parametrize('identities', [[], ['v1'], ['v1', 'v99999']])
+@pytest.mark.parametrize("identities", [[], ["v1"], ["v1", "v99999"]])
 def test_merge_rejects_insufficient_or_stale_selection(identities):
-    with pytest.raises(ValueError, match='at least two existing'):
+    with pytest.raises(ValueError, match="at least two existing"):
         topology.merge_center(cube(), identities)
 
 
-@pytest.mark.parametrize('operation,values,expected', [
-    ('rotate', [0, 90, 0], [[-1, 1, -1], [-1, 1, 1], [1, 1, -1], [1, 1, 1]]),
-    ('scale', [.5, 1, 2], [[-.5, 1, -2], [-.5, 1, 2], [.5, 1, -2], [.5, 1, 2]]),
-])
-def test_component_transform_uses_selected_center_and_preserves_other_vertices(operation, values, expected):
+@pytest.mark.parametrize(
+    "operation,values,expected",
+    [
+        ("rotate", [0, 90, 0], [[-1, 1, -1], [-1, 1, 1], [1, 1, -1], [1, 1, 1]]),
+        ("scale", [0.5, 1, 2], [[-0.5, 1, -2], [-0.5, 1, 2], [0.5, 1, -2], [0.5, 1, 2]]),
+    ],
+)
+def test_component_transform_uses_selected_center_and_preserves_other_vertices(
+    operation, values, expected
+):
     mesh = cube()
-    chosen = [v['id'] for v in mesh.topology['vertices'] if v['position'][1] == 1]
+    chosen = [v["id"] for v in mesh.topology["vertices"] if v["position"][1] == 1]
     original = mesh_document.to_json(mesh)
     result = topology.transform_vertices(mesh, chosen, operation, values)
-    selected = sorted(v['position'] for v in result.topology['vertices'] if v['id'] in chosen)
+    selected = sorted(v["position"] for v in result.topology["vertices"] if v["id"] in chosen)
     # Round only for ordering of +/-90 degree trigonometric near-equalities.
     np.testing.assert_allclose(sorted(np.round(selected, 10).tolist()), expected, atol=1e-12)
-    before = {v['id']:v for v in mesh.topology['vertices']}
-    assert all(v == before[v['id']] for v in result.topology['vertices'] if v['id'] not in chosen)
-    assert result.topology['edges'] == mesh.topology['edges']
+    before = {v["id"]: v for v in mesh.topology["vertices"]}
+    assert all(v == before[v["id"]] for v in result.topology["vertices"] if v["id"] not in chosen)
+    assert result.topology["edges"] == mesh.topology["edges"]
     assert mesh_document.to_json(mesh) == original
 
 
 def test_proportional_rotation_weights_angles_and_preserves_radial_distance():
     mesh = cube()
-    mesh = topology.delete_components(mesh, 'faces', [f['id'] for f in mesh.topology['faces']])
+    mesh = topology.delete_components(mesh, "faces", [f["id"] for f in mesh.topology["faces"]])
     chosen = []
-    for position in ([-1,0,0], [1,0,0], [0,1,0]):
+    for position in ([-1, 0, 0], [1, 0, 0], [0, 1, 0]):
         mesh, identity = topology.add_vertex(mesh, position)
         chosen.append(identity)
-    result = topology.transform_vertices(mesh, chosen[:2], 'rotate', [0,0,90], radius=3)
-    probe = result.topology['vertices'][2]['position']
+    result = topology.transform_vertices(mesh, chosen[:2], "rotate", [0, 0, 90], radius=3)
+    probe = result.topology["vertices"][2]["position"]
     t = 1 - np.sqrt(2) / 3
-    theta = np.pi/2 * t*t*(3-2*t)
+    theta = np.pi / 2 * t * t * (3 - 2 * t)
     np.testing.assert_allclose(probe, [-np.sin(theta), np.cos(theta), 0], atol=1e-12)
     assert np.linalg.norm(probe) == pytest.approx(1)
 
 
 def test_zero_scale_collapse_rejects_before_mesh_binding():
-    p = SimpleNamespace(kind='Mesh3D', name='Cube', props={}, mesh_kind='')
+    p = SimpleNamespace(kind="Mesh3D", name="Cube", props={}, mesh_kind="")
     mesh = cube()
-    mesh_document.bind(p, mesh, label='Cube')
-    topology.select(p, 'faces', [f['id'] for f in mesh.topology['faces']])
+    mesh_document.bind(p, mesh, label="Cube")
+    topology.select(p, "faces", [f["id"] for f in mesh.topology["faces"]])
     before = deepcopy(vars(p))
-    with pytest.raises(ValueError, match='zero area|degenerate'):
-        topology.edit_selected(p, 'scale', scale=[0,0,0])
+    with pytest.raises(ValueError, match="zero area|degenerate"):
+        topology.edit_selected(p, "scale", scale=[0, 0, 0])
     assert vars(p) == before
 
 
 def test_dissolve_planar_region_preserves_boundary_ids_and_corner_uvs():
-    mesh = primitives.build('Plane', {'width':2, 'depth':2, 'segments':2})[0]
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
     original = mesh_document.to_json(mesh)
     usage = topology.edge_usage(mesh.topology)
-    ids = [e['id'] for e in mesh.topology['edges'] if len(usage[tuple(sorted(e['vertices']))]) == 2]
+    ids = [e["id"] for e in mesh.topology["edges"] if len(usage[tuple(sorted(e["vertices"]))]) == 2]
     result, joined = topology.dissolve_edges(mesh, ids)
     doc = result.topology
-    assert [len(doc[k]) for k in ('vertices','edges','faces')] == [8,8,1]
-    assert joined == [mesh.topology['faces'][0]['id']]
-    assert len(doc['faces'][0]['corners']) == 8
-    corners = {c['id']:c for f in mesh.topology['faces'] for c in f['corners']}
-    assert all(c['uv'] == corners[c['id']]['uv'] for c in doc['faces'][0]['corners'])
-    assert {e['id'] for e in doc['edges']} == {e['id'] for e in mesh.topology['edges']} - set(ids)
+    assert [len(doc[k]) for k in ("vertices", "edges", "faces")] == [8, 8, 1]
+    assert joined == [mesh.topology["faces"][0]["id"]]
+    assert len(doc["faces"][0]["corners"]) == 8
+    corners = {c["id"]: c for f in mesh.topology["faces"] for c in f["corners"]}
+    assert all(c["uv"] == corners[c["id"]]["uv"] for c in doc["faces"][0]["corners"])
+    assert {e["id"] for e in doc["edges"]} == {e["id"] for e in mesh.topology["edges"]} - set(ids)
     assert mesh_document.to_json(mesh) == original
     assert mesh_document.from_json(mesh_document.to_json(result)).topology == doc
 
 
 def test_dissolve_single_edge_retains_unaffected_polygons_and_orphan_wires():
-    mesh = primitives.build('Plane', {'width':2, 'depth':2, 'segments':2})[0]
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
     usage = topology.edge_usage(mesh.topology)
-    seed = next(e['id'] for e in mesh.topology['edges'] if len(usage[tuple(sorted(e['vertices']))]) == 2)
-    mesh, first = topology.add_vertex(mesh, [5,0,0])
-    mesh, second = topology.add_vertex(mesh, [6,0,0])
+    seed = next(
+        e["id"] for e in mesh.topology["edges"] if len(usage[tuple(sorted(e["vertices"]))]) == 2
+    )
+    mesh, first = topology.add_vertex(mesh, [5, 0, 0])
+    mesh, second = topology.add_vertex(mesh, [6, 0, 0])
     mesh, wire = topology.connect_vertices(mesh, [first, second])
     result, joined = topology.dissolve_edges(mesh, [seed])
-    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [11,12,3]
-    assert sorted(len(f['corners']) for f in result.topology['faces']) == [4,4,6]
-    assert any(e['id'] == wire for e in result.topology['edges'])
-    before = {f['id']:f for f in mesh.topology['faces']}
-    assert all(f == before[f['id']] for f in result.topology['faces'] if f['id'] not in joined)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [11, 12, 3]
+    assert sorted(len(f["corners"]) for f in result.topology["faces"]) == [4, 4, 6]
+    assert any(e["id"] == wire for e in result.topology["edges"])
+    before = {f["id"]: f for f in mesh.topology["faces"]}
+    assert all(f == before[f["id"]] for f in result.topology["faces"] if f["id"] not in joined)
 
 
-@pytest.mark.parametrize('case', ['boundary','nonplanar','material'])
+@pytest.mark.parametrize("case", ["boundary", "nonplanar", "material"])
 def test_dissolve_invalid_regions_reject_atomically(case):
-    mesh = cube() if case == 'nonplanar' else primitives.build('Plane', {'width':2,'depth':2,'segments':2})[0]
+    mesh = (
+        cube()
+        if case == "nonplanar"
+        else primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
+    )
     doc = deepcopy(mesh.topology)
-    if case == 'material':
-        for i,f in enumerate(doc['faces']):
-            f['material'] = i
+    if case == "material":
+        for i, f in enumerate(doc["faces"]):
+            f["material"] = i
     mesh = topology.compile(doc)[0]
     usage = topology.edge_usage(doc)
-    seed = next(e['id'] for e in doc['edges'] if len(usage[tuple(sorted(e['vertices']))]) == (1 if case == 'boundary' else 2))
-    p = SimpleNamespace(kind='Mesh3D', name='Dissolve', props={}, mesh_kind='')
-    mesh_document.bind(p, mesh, label='Dissolve')
-    topology.select(p, 'edges', [seed])
+    seed = next(
+        e["id"]
+        for e in doc["edges"]
+        if len(usage[tuple(sorted(e["vertices"]))]) == (1 if case == "boundary" else 2)
+    )
+    p = SimpleNamespace(kind="Mesh3D", name="Dissolve", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh, label="Dissolve")
+    topology.select(p, "edges", [seed])
     before = deepcopy(vars(p))
     with pytest.raises(ValueError):
-        topology.edit_selected(p, 'dissolve_edges')
+        topology.edit_selected(p, "dissolve_edges")
     assert vars(p) == before
 
 
 def test_center_loop_cut_cube_preserves_volume_and_watertight_winding():
     mesh = cube()
     doc = mesh.topology
-    points = {v['id']:v['position'] for v in doc['vertices']}
-    seed = next(e['id'] for e in doc['edges'] if all(points[v][0] == -1 and points[v][2] == -1 for v in e['vertices']))
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    seed = next(
+        e["id"]
+        for e in doc["edges"]
+        if all(points[v][0] == -1 and points[v][2] == -1 for v in e["vertices"])
+    )
     original = mesh_document.to_json(mesh)
     result, selected = topology.loop_cut(mesh, [seed])
-    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [12,20,10]
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [12, 20, 10]
     assert len(selected) == 4
-    points = {v['id']:v['position'] for v in result.topology['vertices']}
-    assert all(points[v][1] == 0 for e in result.topology['edges'] if e['id'] in selected for v in e['vertices'])
-    assert all(len(f['corners']) == 4 for f in result.topology['faces'])
+    points = {v["id"]: v["position"] for v in result.topology["vertices"]}
+    assert all(
+        points[v][1] == 0
+        for e in result.topology["edges"]
+        if e["id"] in selected
+        for v in e["vertices"]
+    )
+    assert all(len(f["corners"]) == 4 for f in result.topology["faces"])
     assert signed_volume(result) == pytest.approx(8)
-    assert all(len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values())
+    assert all(
+        len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values()
+    )
     assert mesh_document.to_json(mesh) == original
     assert mesh_document.from_json(mesh_document.to_json(result)).topology == result.topology
 
 
 def test_loop_cut_interpolates_uvs_and_inherits_edge_flags():
-    mesh = primitives.build('Plane', {'width':2,'depth':2,'segments':1})[0]
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 1})[0]
     doc = deepcopy(mesh.topology)
-    doc['edges'][0]['seam'] = doc['edges'][0]['sharp'] = True
-    doc['faces'][0]['material'] = 3
-    for corner, uv in zip(doc['faces'][0]['corners'], [[0,0],[1,0],[1,1],[0,1]]):
-        corner['uv'] = uv
-        corner['normal'] = [0,1,0]
+    doc["edges"][0]["seam"] = doc["edges"][0]["sharp"] = True
+    doc["faces"][0]["material"] = 3
+    for corner, uv in zip(doc["faces"][0]["corners"], [[0, 0], [1, 0], [1, 1], [0, 1]]):
+        corner["uv"] = uv
+        corner["normal"] = [0, 1, 0]
     mesh = topology.compile(doc)[0]
-    result, selected = topology.loop_cut(mesh, [doc['edges'][0]['id']])
-    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [6,7,2]
+    result, selected = topology.loop_cut(mesh, [doc["edges"][0]["id"]])
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [6, 7, 2]
     assert len(selected) == 1
-    assert sum(e['seam'] and e['sharp'] for e in result.topology['edges']) == 2
-    assert all(f['material'] == 3 for f in result.topology['faces'])
-    old = {c['id']:c for c in doc['faces'][0]['corners']}
-    corners = [c for f in result.topology['faces'] for c in f['corners']]
-    assert all(c == old[c['id']] for c in corners if c['id'] in old)
-    assert len([c for c in corners if c['id'] not in old]) == 4
-    assert all(.5 in c['uv'] for c in corners if c['id'] not in old)
+    assert sum(e["seam"] and e["sharp"] for e in result.topology["edges"]) == 2
+    assert all(f["material"] == 3 for f in result.topology["faces"])
+    old = {c["id"]: c for c in doc["faces"][0]["corners"]}
+    corners = [c for f in result.topology["faces"] for c in f["corners"]]
+    assert all(c == old[c["id"]] for c in corners if c["id"] in old)
+    assert len([c for c in corners if c["id"] not in old]) == 4
+    assert all(0.5 in c["uv"] for c in corners if c["id"] not in old)
 
 
 def test_loop_cut_crosses_bounded_quad_strip_without_t_junctions():
-    mesh = primitives.build('Plane', {'width':2,'depth':2,'segments':2})[0]
-    points = {v['id']:v['position'] for v in mesh.topology['vertices']}
-    seed = next(e['id'] for e in mesh.topology['edges'] if all(points[v] in [[0,0,-1],[0,0,0]] for v in e['vertices']))
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
+    points = {v["id"]: v["position"] for v in mesh.topology["vertices"]}
+    seed = next(
+        e["id"]
+        for e in mesh.topology["edges"]
+        if all(points[v] in [[0, 0, -1], [0, 0, 0]] for v in e["vertices"])
+    )
     result, selected = topology.loop_cut(mesh, [seed])
-    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [12,17,6]
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [12, 17, 6]
     assert len(selected) == 2
-    assert all(len(f['corners']) == 4 for f in result.topology['faces'])
+    assert all(len(f["corners"]) == 4 for f in result.topology["faces"])
     assert len(topology.loose_edges(result.topology)) == 0
 
 
 def test_loop_cut_rejects_triangle_strip_without_mutation():
-    mesh = primitives.build('Cone', {'radius':1,'height':2,'segments':8})[0]
-    p = SimpleNamespace(kind='Mesh3D', name='Cone', props={}, mesh_kind='')
-    mesh_document.bind(p, mesh, label='Cone')
-    topology.select(p, 'edges', [mesh.topology['edges'][0]['id']])
+    mesh = primitives.build("Cone", {"radius": 1, "height": 2, "segments": 8})[0]
+    p = SimpleNamespace(kind="Mesh3D", name="Cone", props={}, mesh_kind="")
+    mesh_document.bind(p, mesh, label="Cone")
+    topology.select(p, "edges", [mesh.topology["edges"][0]["id"]])
     before = deepcopy(vars(p))
-    with pytest.raises(ValueError, match='quad'):
-        topology.edit_selected(p, 'loop_cut')
+    with pytest.raises(ValueError, match="quad"):
+        topology.edit_selected(p, "loop_cut")
     assert vars(p) == before
 
 
-@pytest.mark.parametrize('cuts', [2,3,8,64])
+@pytest.mark.parametrize("cuts", [2, 3, 8, 64])
 def test_multiple_loop_cuts_are_even_and_keep_cube_watertight(cuts):
     mesh = cube()
-    points = {v['id']:v['position'] for v in mesh.topology['vertices']}
-    seed = next(e['id'] for e in mesh.topology['edges'] if all(points[v][0] == -1 and points[v][2] == -1 for v in e['vertices']))
+    points = {v["id"]: v["position"] for v in mesh.topology["vertices"]}
+    seed = next(
+        e["id"]
+        for e in mesh.topology["edges"]
+        if all(points[v][0] == -1 and points[v][2] == -1 for v in e["vertices"])
+    )
     result, selected = topology.loop_cut(mesh, [seed], cuts=cuts)
-    assert [len(result.topology[k]) for k in ('vertices','edges','faces')] == [8+4*cuts,12+8*cuts,6+4*cuts]
-    assert len(selected) == 4*cuts
-    points = {v['id']:v['position'] for v in result.topology['vertices']}
-    levels = sorted({points[v][1] for e in result.topology['edges'] if e['id'] in selected for v in e['vertices']})
-    np.testing.assert_allclose(levels, np.linspace(-1,1,cuts+2)[1:-1], atol=1e-14)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [
+        8 + 4 * cuts,
+        12 + 8 * cuts,
+        6 + 4 * cuts,
+    ]
+    assert len(selected) == 4 * cuts
+    points = {v["id"]: v["position"] for v in result.topology["vertices"]}
+    levels = sorted(
+        {
+            points[v][1]
+            for e in result.topology["edges"]
+            if e["id"] in selected
+            for v in e["vertices"]
+        }
+    )
+    np.testing.assert_allclose(levels, np.linspace(-1, 1, cuts + 2)[1:-1], atol=1e-14)
     assert signed_volume(result) == pytest.approx(8)
-    assert all(len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values())
+    assert all(
+        len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values()
+    )
 
 
-@pytest.mark.parametrize('cuts', [0,65,-1,True,1.5,'2'])
+@pytest.mark.parametrize("cuts", [0, 65, -1, True, 1.5, "2"])
 def test_loop_cut_rejects_invalid_counts(cuts):
     mesh = cube()
-    with pytest.raises(ValueError, match='integer'):
-        topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']], cuts=cuts)
+    with pytest.raises(ValueError, match="integer"):
+        topology.loop_cut(mesh, [mesh.topology["edges"][0]["id"]], cuts=cuts)
 
 
 def test_edge_slide_moves_quad_loop_along_rails_without_changing_connectivity():
     mesh = cube()
-    points = {v['id']:v['position'] for v in mesh.topology['vertices']}
-    seed = next(e['id'] for e in mesh.topology['edges'] if all(points[v][0] == -1 and points[v][2] == -1 for v in e['vertices']))
+    points = {v["id"]: v["position"] for v in mesh.topology["vertices"]}
+    seed = next(
+        e["id"]
+        for e in mesh.topology["edges"]
+        if all(points[v][0] == -1 and points[v][2] == -1 for v in e["vertices"])
+    )
     cut, selected = topology.loop_cut(mesh, [seed])
     original = mesh_document.to_json(cut)
-    up = topology.slide_edges(cut, selected, .5)
-    down = topology.slide_edges(cut, selected, -.5)
-    old_ids = {v['id'] for v in mesh.topology['vertices']}
-    upper = [v['position'][1] for v in up.topology['vertices'] if v['id'] not in old_ids]
-    lower = [v['position'][1] for v in down.topology['vertices'] if v['id'] not in old_ids]
+    up = topology.slide_edges(cut, selected, 0.5)
+    down = topology.slide_edges(cut, selected, -0.5)
+    old_ids = {v["id"] for v in mesh.topology["vertices"]}
+    upper = [v["position"][1] for v in up.topology["vertices"] if v["id"] not in old_ids]
+    lower = [v["position"][1] for v in down.topology["vertices"] if v["id"] not in old_ids]
     assert len(set(upper)) == len(set(lower)) == 1
-    assert abs(upper[0]) == pytest.approx(.5)
+    assert abs(upper[0]) == pytest.approx(0.5)
     assert upper[0] == -lower[0]
-    assert up.topology['edges'] == cut.topology['edges']
-    assert [[c['vertex'] for c in f['corners']] for f in up.topology['faces']] == [[c['vertex'] for c in f['corners']] for f in cut.topology['faces']]
+    assert up.topology["edges"] == cut.topology["edges"]
+    assert [[c["vertex"] for c in f["corners"]] for f in up.topology["faces"]] == [
+        [c["vertex"] for c in f["corners"]] for f in cut.topology["faces"]
+    ]
     assert signed_volume(up) == pytest.approx(8)
     assert mesh_document.to_json(cut) == original
-    restored = topology.slide_edges(up, selected, -1/3)
-    np.testing.assert_allclose([v['position'] for v in restored.topology['vertices']], [v['position'] for v in cut.topology['vertices']], atol=1e-12)
+    restored = topology.slide_edges(up, selected, -1 / 3)
+    np.testing.assert_allclose(
+        [v["position"] for v in restored.topology["vertices"]],
+        [v["position"] for v in cut.topology["vertices"]],
+        atol=1e-12,
+    )
 
 
 def test_edge_slide_preserves_uvs_and_unselected_vertices_on_open_strip():
-    mesh = primitives.build('Plane', {'width':2,'depth':2,'segments':2})[0]
+    mesh = primitives.build("Plane", {"width": 2, "depth": 2, "segments": 2})[0]
     doc = deepcopy(mesh.topology)
-    points = {v['id']:v['position'] for v in doc['vertices']}
-    for f in doc['faces']:
-        for c in f['corners']:
-            c['uv'] = [points[c['vertex']][0], points[c['vertex']][2]]
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    for f in doc["faces"]:
+        for c in f["corners"]:
+            c["uv"] = [points[c["vertex"]][0], points[c["vertex"]][2]]
     mesh = topology.compile(doc)[0]
-    seed = next(e['id'] for e in doc['edges'] if all(points[v] in [[0,0,-1],[0,0,0]] for v in e['vertices']))
+    seed = next(
+        e["id"]
+        for e in doc["edges"]
+        if all(points[v] in [[0, 0, -1], [0, 0, 0]] for v in e["vertices"])
+    )
     cut, selected = topology.loop_cut(mesh, [seed])
-    result = topology.slide_edges(cut, selected, .5)
-    chosen = {v for e in cut.topology['edges'] if e['id'] in selected for v in e['vertices']}
-    old = {v['id']:v for v in cut.topology['vertices']}
-    assert all(v == old[v['id']] for v in result.topology['vertices'] if v['id'] not in chosen)
-    assert [c['uv'] for f in result.topology['faces'] for c in f['corners']] == [c['uv'] for f in cut.topology['faces'] for c in f['corners']]
+    result = topology.slide_edges(cut, selected, 0.5)
+    chosen = {v for e in cut.topology["edges"] if e["id"] in selected for v in e["vertices"]}
+    old = {v["id"]: v for v in cut.topology["vertices"]}
+    assert all(v == old[v["id"]] for v in result.topology["vertices"] if v["id"] not in chosen)
+    assert [c["uv"] for f in result.topology["faces"] for c in f["corners"]] == [
+        c["uv"] for f in cut.topology["faces"] for c in f["corners"]
+    ]
     assert mesh_document.from_json(mesh_document.to_json(result)).topology == result.topology
 
 
-@pytest.mark.parametrize('factor', [-1,1,True,float('nan'),float('inf')])
+@pytest.mark.parametrize("factor", [-1, 1, True, float("nan"), float("inf")])
 def test_edge_slide_invalid_factor_rejects(factor):
     mesh = cube()
-    with pytest.raises(ValueError, match='strictly between'):
-        topology.slide_edges(mesh, [mesh.topology['edges'][0]['id']], factor)
+    with pytest.raises(ValueError, match="strictly between"):
+        topology.slide_edges(mesh, [mesh.topology["edges"][0]["id"]], factor)
 
 
 def test_edge_slide_disconnected_selected_loops_reject_atomically():
     mesh = cube()
-    cut, selected = topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']], cuts=2)
-    p = SimpleNamespace(kind='Mesh3D', name='Cut cube', props={}, mesh_kind='')
-    mesh_document.bind(p, cut, label='Cut cube')
-    topology.select(p, 'edges', selected)
+    cut, selected = topology.loop_cut(mesh, [mesh.topology["edges"][0]["id"]], cuts=2)
+    p = SimpleNamespace(kind="Mesh3D", name="Cut cube", props={}, mesh_kind="")
+    mesh_document.bind(p, cut, label="Cut cube")
+    topology.select(p, "edges", selected)
     before = deepcopy(vars(p))
-    with pytest.raises(ValueError, match='one connected'):
-        topology.edit_selected(p, 'slide_edges', factor=.5)
+    with pytest.raises(ValueError, match="one connected"):
+        topology.edit_selected(p, "slide_edges", factor=0.5)
     assert vars(p) == before
 
 
 def test_edge_slide_direction_is_independent_of_source_face_and_edge_order():
     mesh = cube()
-    cut, selected = topology.loop_cut(mesh, [mesh.topology['edges'][0]['id']])
+    cut, selected = topology.loop_cut(mesh, [mesh.topology["edges"][0]["id"]])
     shuffled = deepcopy(cut.topology)
-    shuffled['faces'].reverse()
-    shuffled['edges'].reverse()
-    for f in shuffled['faces']:
-        f['corners'] = f['corners'][1:] + f['corners'][:1]
-    a = topology.slide_edges(cut, selected, .5)
-    b = topology.slide_edges(topology.compile(shuffled)[0], selected[::-1], .5)
-    assert a.topology['vertices'] == b.topology['vertices']
+    shuffled["faces"].reverse()
+    shuffled["edges"].reverse()
+    for f in shuffled["faces"]:
+        f["corners"] = f["corners"][1:] + f["corners"][:1]
+    a = topology.slide_edges(cut, selected, 0.5)
+    b = topology.slide_edges(topology.compile(shuffled)[0], selected[::-1], 0.5)
+    assert a.topology["vertices"] == b.topology["vertices"]
+
+
+def bridge_caps():
+    mesh = cube()
+    doc = mesh.topology
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    sides = [
+        f["id"] for f in doc["faces"] if len({points[c["vertex"]][1] for c in f["corners"]}) > 1
+    ]
+    return topology.delete_components(mesh, "faces", sides)
+
+
+def test_bridge_caps_restores_watertight_cube_and_preserves_source_attributes():
+    mesh = bridge_caps()
+    doc = deepcopy(mesh.topology)
+    for f in doc["faces"]:
+        f["material"] = 3
+    doc["edges"][0]["seam"] = True
+    doc["edges"][0]["sharp"] = True
+    mesh = topology.compile(doc)[0]
+    before = mesh_document.to_json(mesh)
+    result, faces = topology.bridge_edges(mesh, [e["id"] for e in doc["edges"]])
+    assert len(faces) == 4
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [8, 12, 6]
+    assert signed_volume(result) == pytest.approx(8)
+    assert all(
+        len(v) == 2 and v[0] == v[1][::-1] for v in topology.edge_usage(result.topology).values()
+    )
+    assert result.topology["vertices"] == doc["vertices"]
+    assert result.topology["faces"][:2] == doc["faces"]
+    after_edges = {e["id"]: e for e in result.topology["edges"]}
+    assert all(after_edges[e["id"]] == e for e in doc["edges"])
+    assert all(f["material"] == 3 for f in result.topology["faces"])
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_bridge_two_open_wire_chains_creates_one_quad_without_moving_points():
+    mesh = topology.delete_components(cube(), "faces", [f["id"] for f in cube().topology["faces"]])
+    points = []
+    for position in ([0, 0, 0], [1, 0, 0]):
+        mesh, v = topology.add_vertex(mesh, position)
+        points.append(v)
+    mesh, base = topology.connect_vertices(mesh, points)
+    mesh, _ = topology.extrude_vertices(mesh, points, [0, 1, 0])
+    mesh = topology.delete_components(mesh, "edges", [base])
+    doc = mesh.topology
+    result, faces = topology.bridge_edges(mesh, [e["id"] for e in doc["edges"]])
+    assert len(faces) == 1
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [4, 4, 1]
+    points = {v["id"]: v["position"] for v in result.topology["vertices"]}
+    np.testing.assert_allclose(
+        topology.normal([points[c["vertex"]] for c in result.topology["faces"][0]["corners"]]),
+        [0, 0, 1],
+    )
+    assert result.topology["vertices"] == doc["vertices"]
+    assert sum(
+        np.linalg.norm(
+            np.cross(result.verts[b] - result.verts[a], result.verts[c] - result.verts[a])
+        )
+        / 2
+        for a, b, c in result.faces
+    ) == pytest.approx(1)
+
+
+@pytest.mark.parametrize(
+    "case", ["empty", "stale", "single_loop", "partial", "interior", "unequal"]
+)
+def test_bridge_invalid_input_rejects_atomically(case):
+    mesh = bridge_caps()
+    edges = [e["id"] for e in mesh.topology["edges"]]
+    if case == "empty":
+        edges = []
+    elif case == "stale":
+        edges.append("e999999")
+    elif case == "single_loop":
+        edges = edges[:4]
+    elif case == "partial":
+        edges = edges[:-1]
+    elif case == "interior":
+        mesh = cube()
+        edges = [e["id"] for e in mesh.topology["edges"]]
+    elif case == "unequal":
+        edges = edges[:-2]
+    before = mesh_document.to_json(mesh)
+    with pytest.raises(ValueError):
+        topology.bridge_edges(mesh, edges)
+    assert mesh_document.to_json(mesh) == before
+
+
+def test_bridge_source_reordering_does_not_change_geometric_alignment():
+    mesh = bridge_caps()
+    reference, _ = topology.bridge_edges(mesh, [e["id"] for e in mesh.topology["edges"]])
+    doc = deepcopy(mesh.topology)
+    doc["edges"].reverse()
+    doc["faces"].reverse()
+    for e in doc["edges"]:
+        e["vertices"].reverse()
+    reordered, _ = topology.bridge_edges(topology.compile(doc)[0], [e["id"] for e in doc["edges"]])
+
+    def polygons(mesh):
+        points = {v["id"]: tuple(v["position"]) for v in mesh.topology["vertices"]}
+        return sorted(
+            min(tuple(seq[i:] + seq[:i]) for i in range(len(seq)))
+            for f in mesh.topology["faces"]
+            for seq in [[points[c["vertex"]] for c in f["corners"]]]
+        )
+
+    assert polygons(reference) == polygons(reordered)
