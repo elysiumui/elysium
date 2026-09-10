@@ -10,6 +10,8 @@ Native UI: select a mesh, open Modifiers → Add Edge Split; edit angle and Yes/
 
 All three produce 82 vertices, 96 edges and 32 polygons. Comparison identifies coincident vertices by their incident source-face groups, verifies bijective vertex correspondence and exact edge/polygon connectivity, and compares 112 corners. Position error is at most 1.1920928955078125e-7 m (gate 1e-6); normal error is at most 1.9314112360500873e-7 (gate 1e-5). Source geometry/attributes, Undo restoration and clean reopening match exactly.
 
+Actual native Apply exposes all 82 generated vertices as editable source; selecting them and opening numeric Move confirms component access. Cancelling Move makes no geometry change. Undo of selection followed by Undo of Apply restores the original source and modifier exactly. Redo, Save and clean-process reopening preserve the applied source. Independent public Apply matches exactly.
+
 This accepts one manifold sphere modifier fixture. Full normal-family acceptance, broader modifier ordering, nonmanifold/wire/custom-normal variants and matched studio visuals remain open. Nothing was pushed or merged.
 
 Primary semantics reference: [installed Blender commit 9e2066aef7ef Edge Split implementation](https://github.com/blender/blender/blob/9e2066aef7ef/source/blender/modifiers/intern/MOD_edgesplit.cc).
