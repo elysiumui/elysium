@@ -343,3 +343,34 @@ def uv_transform(session, id, corner_ids=None, offset=(0., 0.), scale=(1., 1.), 
 def uv_seams_set(session, id, edge_ids, enabled=True):
     from ...render import mesh_uv
     return mesh_uv.seams(session.lookup(id), edge_ids, enabled)
+
+
+@register_tool(
+    name="mesh.uv_islands_get",
+    description="Read projected UV islands: faces joined across mesh edges with identical endpoint UVs, independent of seam flags alone. Returns stable face/corner IDs and UV bounds. Faces lacking any corner UV are excluded.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def uv_islands_get(session,id):
+    from ...render import mesh_uv_islands
+    return {"islands":mesh_uv_islands.read(session.lookup(id))}
+
+
+@register_tool(
+    name="mesh.uv_pack",
+    description="Pack whole UV islands touched by corner_ids (omitted means all projected islands) into the 0–1 tile. Deterministic height-sorted shelf layout, uniform common scale, no rotation. Margin is UV padding around each island (twice the margin between boxes; one margin at the tile border), 0 <= margin < 0.5, default 0.02. Preserves relative scale, island shape, winding and source geometry. Unselected islands stay unchanged and may overlap packed islands.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"margin":{"type":"number","minimum":0,"exclusiveMaximum":0.5}},"required":["id"]},
+)
+def uv_pack(session,id,corner_ids=None,margin=.02):
+    from ...render import mesh_uv_islands
+    return mesh_uv_islands.pack(session.lookup(id),corner_ids,margin=margin)
+
+
+@register_tool(
+    name="mesh.uv_normalize_scale",
+    description="Equalize UV area per local source surface area across whole islands touched by corner_ids (omitted means all projected islands). Preserve total selected UV area; scale each island uniformly about its corner mean. Unselected islands, source geometry and corner identities remain unchanged. Degenerate UV or surface areas reject atomically.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS},"required":["id"]},
+)
+def uv_normalize_scale(session,id,corner_ids=None):
+    from ...render import mesh_uv_islands
+    return mesh_uv_islands.normalize(session.lookup(id),corner_ids)
