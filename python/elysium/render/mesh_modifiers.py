@@ -7,6 +7,7 @@ import numpy as np
 from . import mesh_document, topology
 
 DEFAULTS = {
+    "EdgeSplit": {"angle": 30.0, "use_angle": True, "use_sharp": True},
     "WeightedNormals": {"mode": "face_area", "weight": 50, "threshold": 0.01, "keep_sharp": False},
     "Mirror": {"axis": "x", "offset": 0.0, "merge": False, "threshold": 1e-6},
     "Array": {"count": 2, "offset": [3.0, 0.0, 0.0]},
@@ -45,6 +46,15 @@ def parameters(kind, values):
             raise ValueError("Solidify needs nonzero thickness and offset from -1 to 1")
         if type(result["rim"]) is not bool:
             raise ValueError("Solidify rim must be boolean")
+    elif kind == "EdgeSplit":
+        if (
+            type(result["angle"]) not in (int, float)
+            or not np.isfinite(result["angle"])
+            or not 0 <= result["angle"] <= 180
+        ):
+            raise ValueError("Split angle must be between 0 and 180 degrees")
+        if type(result["use_angle"]) is not bool or type(result["use_sharp"]) is not bool:
+            raise ValueError("Edge Split angle/sharp switches must be boolean")
     elif kind == "WeightedNormals":
         if result["mode"] not in ("face_area", "corner_angle", "face_angle"):
             raise ValueError("Weighted normals mode must be face_area, corner_angle or face_angle")
@@ -265,6 +275,11 @@ def evaluate_stack(mesh, stack):
     result = mesh
     for item in stack["items"]:
         if item["enabled"]:
+            if item["kind"] == "EdgeSplit":
+                from . import mesh_edge_split
+
+                result = mesh_edge_split.evaluate(result, item["parameters"])
+                continue
             if item["kind"] == "WeightedNormals":
                 from . import mesh_normals
 
