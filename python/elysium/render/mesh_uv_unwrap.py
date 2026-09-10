@@ -5,8 +5,9 @@ from collections import defaultdict
 import numpy as np
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import lsqr
+from scipy.spatial import ConvexHull
 
-from . import mesh_uv, topology
+from . import mesh_uv, mesh_uv_islands, topology
 
 
 def _charts(doc, face_ids):
@@ -181,12 +182,33 @@ def _solve(faces, roots, points):
     return corners, node_for, uv, pin_count
 
 
-def unwrap(placement, face_ids=None):
+def _align(uv):
+    """Rotate an unpinned chart to its minimum-area bounding rectangle."""
+    hull = uv[ConvexHull(uv).vertices]
+    edges = np.roll(hull, -1, axis=0) - hull
+    angles = np.unique(np.round(np.arctan2(edges[:, 1], edges[:, 0]) % (np.pi / 2), 12))
+    best, best_area = uv, float("inf")
+    for angle in angles:
+        cosine, sine = np.cos(angle), np.sin(angle)
+        rotated = uv @ np.array([[cosine, -sine], [sine, cosine]])
+        area = float(np.prod(np.ptp(rotated, axis=0)))
+        if area < best_area - max(area, 1e-24) * 1e-10:
+            best, best_area = rotated, area
+    return best
+
+
+def unwrap(placement, face_ids=None, *, fit_tile=True, margin=0.02):
     """Solve manifold disk charts cut at marked edges; preserve authored pins.
 
-    Unpinned charts use deterministic world-length anchors and are translated
-    beside pinned charts. Packing into the unit tile is a separate UI command.
+    Entirely unpinned selections align and fit the unit tile by default. If any
+    chart has pins, their authored coordinates remain fixed and free charts
+    are placed alongside. Turning fit_tile off retains the raw solved layout.
     """
+    if type(fit_tile) is not bool:
+        raise ValueError("UV tile fitting must be a boolean")
+    margin = mesh_uv._number(margin)
+    if not 0 <= margin < 0.5:
+        raise ValueError("UV packing margin must be at least 0 and less than 0.5")
     doc = mesh_uv.source(placement)
     charts, roots = _charts(doc, face_ids)
     points = {v["id"]: np.array(v["position"], dtype=float) for v in doc["vertices"]}
@@ -197,6 +219,8 @@ def unwrap(placement, face_ids=None):
     for corners, nodes, uv, pins in solved:
         total_pins += pins
         if not pins:
+            if fit_tile:
+                uv = _align(uv)
             low = uv.min(axis=0)
             span = np.ptp(uv, axis=0)
             if cursor:
@@ -206,9 +230,13 @@ def unwrap(placement, face_ids=None):
         for c in corners:
             if not c.get("pin", False):
                 c["uv"] = uv[nodes[c["id"]]].tolist()
+    fitted = fit_tile and not total_pins
+    if fitted:
+        mesh_uv_islands.pack_charts(charts, margin)
     return {
         **mesh_uv._publish(placement, doc),
         "charts": len(charts),
         "pinned_corners": total_pins,
         "method": "conformal",
+        "fitted_to_tile": fitted,
     }

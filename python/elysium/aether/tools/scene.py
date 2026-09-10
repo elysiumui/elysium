@@ -388,9 +388,9 @@ def uv_pins_set(session,id,corner_ids,enabled=True):
 
 @register_tool(
     name="mesh.uv_unwrap_seams",
-    description="Least-squares conformal unwrap of selected source faces (omitted face_ids means all), cut along marked seam edges. Supports consistently oriented manifold disk charts with one boundary and no holes; mark seams to open closed surfaces. Persistent corner pins stay exactly fixed; conflicting pins across an uncut edge reject. Unpinned charts use deterministic world-length anchors and are translated beside one another; Pack is a separate command. Folded/collapsed solutions reject atomically. Current limits: 50,000 selected corners, 2,048 boundary edges per chart.",
-    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS},"required":["id"]},
+    description="Least-squares conformal unwrap of selected source faces (omitted face_ids means all), cut along marked seam edges. Supports consistently oriented manifold disk charts with one boundary and no holes; mark seams to open closed surfaces. Persistent corner pins stay exactly fixed; conflicting pins across an uncut edge reject. With fit_tile=true (default), entirely unpinned selections align to minimum-area chart bounds and pack into the unit tile with per-island UV margin (default 0.02). Any pinned chart disables tile fitting for the selection; unpinned charts are placed alongside without moving pins. fit_tile=false keeps the raw solved layout. Folded/collapsed solutions and impossible margins reject atomically. Current limits: 50,000 selected corners, 2,048 boundary edges per chart.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS,"fit_tile":{"type":"boolean"},"margin":{"type":"number","minimum":0,"exclusiveMaximum":0.5}},"required":["id"]},
 )
-def uv_unwrap_seams(session,id,face_ids=None):
+def uv_unwrap_seams(session,id,face_ids=None,fit_tile=True,margin=.02):
     from ...render import mesh_uv_unwrap
-    return mesh_uv_unwrap.unwrap(session.lookup(id),face_ids)
+    return mesh_uv_unwrap.unwrap(session.lookup(id),face_ids,fit_tile=fit_tile,margin=margin)

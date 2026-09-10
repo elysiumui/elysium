@@ -89,6 +89,32 @@ def test_closed_cube_requires_seams_then_unwraps_six_face_charts():
     assert result["charts"] == 6
     assert [len(mesh_uv.source(p)[k]) for k in ("vertices", "edges", "faces")] == [8, 12, 6]
     assert all(c["uv"] is not None for f in mesh_uv.source(p)["faces"] for c in f["corners"])
+    assert result["fitted_to_tile"]
+    uv = np.array([c["uv"] for f in mesh_uv.source(p)["faces"] for c in f["corners"]])
+    assert uv.min() >= 0.02 - 1e-10 and uv.max() <= 0.98 + 1e-10
+    for f in mesh_uv.source(p)["faces"]:
+        points = np.array([c["uv"] for c in f["corners"]])
+        edges = np.roll(points, -1, axis=0) - points
+        assert np.all(np.min(np.abs(edges), axis=1) < 1e-10)
+        np.testing.assert_allclose(np.ptp(points, axis=0)[0], np.ptp(points, axis=0)[1])
+
+
+def test_raw_unwrap_layout_remains_available_without_tile_fitting():
+    p = placement("Cube")
+    mesh_uv.seams(p, [e["id"] for e in mesh_uv.source(p)["edges"]])
+    result = mesh_uv_unwrap.unwrap(p, fit_tile=False)
+    assert not result["fitted_to_tile"]
+    assert max(c["uv"][0] for f in mesh_uv.source(p)["faces"] for c in f["corners"]) > 1
+
+
+@pytest.mark.parametrize("options", [{"margin": 0.49}, {"margin": -1}, {"fit_tile": "yes"}])
+def test_invalid_or_impossible_unwrap_layout_rejects_atomically(options):
+    p = placement("Cube")
+    mesh_uv.seams(p, [e["id"] for e in mesh_uv.source(p)["edges"]])
+    before = deepcopy(p.__dict__)
+    with pytest.raises(ValueError):
+        mesh_uv_unwrap.unwrap(p, **options)
+    assert p.__dict__ == before
 
 
 def test_open_cylinder_needs_longitudinal_seam_to_make_one_disk_chart():

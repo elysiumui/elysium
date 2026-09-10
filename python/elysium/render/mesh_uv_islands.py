@@ -79,6 +79,17 @@ def pack(placement, corner_ids=None, *, margin=0.02):
         raise ValueError("UV packing margin must be at least 0 and less than 0.5")
     doc = mesh_uv.source(placement)
     islands = selected(doc, corner_ids)
+    scale = pack_charts(islands, margin)
+    return {
+        **mesh_uv._publish(placement, doc),
+        "islands": len(islands),
+        "scale": scale,
+        "margin": margin,
+    }
+
+
+def pack_charts(islands, margin):
+    """Arrange known charts in an unpublished document for atomic compound edits."""
     boxes = []
     for island in islands:
         corners = [c for f in island for c in f["corners"]]
@@ -123,12 +134,7 @@ def pack(placement, corner_ids=None, *, margin=0.02):
         result = (uv - low) * lower + offset
         for corner, value in zip(corners, result):
             corner["uv"] = value.tolist()
-    return {
-        **mesh_uv._publish(placement, doc),
-        "islands": len(islands),
-        "scale": lower,
-        "margin": margin,
-    }
+    return lower
 
 
 def normalize(placement, corner_ids=None):
