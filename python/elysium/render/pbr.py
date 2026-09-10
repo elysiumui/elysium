@@ -612,7 +612,7 @@ class Mesh:
     verts:     np.ndarray
     faces:     np.ndarray
     face_mats: np.ndarray | None = None
-    # Per-vertex normals are computed on demand from face normals if absent.
+    # Authored per-vertex normals; absent/zero normals use flat face shading.
     vert_normals: np.ndarray | None = None
     # Per-vertex UVs for texture sampling (None ⇒ no UV channel).
     vert_uvs: np.ndarray | None = None
@@ -787,6 +787,31 @@ def _world_transform(obj: MeshObject) -> tuple[np.ndarray, np.ndarray, np.ndarra
     n = n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-8)
     centers = (v0 + v1 + v2) / 3.0
     return verts, n.astype(np.float32), centers.astype(np.float32)
+
+
+def _transform_normals(normals: np.ndarray, linear: np.ndarray) -> np.ndarray:
+    """Transform row-vector normals by inverse transpose, preserving zero fallbacks."""
+    try:
+        transformed = np.asarray(normals) @ np.linalg.inv(linear)
+    except np.linalg.LinAlgError:
+        return np.zeros_like(normals)
+    lengths = np.linalg.norm(transformed, axis=-1, keepdims=True)
+    valid = np.isfinite(transformed).all(axis=-1, keepdims=True) & (lengths > 1e-12)
+    return np.divide(transformed, lengths, out=np.zeros_like(transformed), where=valid)
+
+
+def _shading_normals(obj: MeshObject, face_indices: np.ndarray,
+                     u: np.ndarray, v: np.ndarray, fallback: np.ndarray) -> np.ndarray:
+    """Interpolate authored normals; keep geometric/polygon normals for flat surfaces."""
+    if obj.mesh.vert_normals is None:
+        return fallback
+    linear = _euler_rot(*obj.rotation) @ np.diag(obj.scale)
+    normals = _transform_normals(obj.mesh.vert_normals, linear)
+    corners = normals[obj.mesh.faces[face_indices]]
+    interpolated = (corners[:, 0] * (1 - u - v)[:, None]
+                    + corners[:, 1] * u[:, None] + corners[:, 2] * v[:, None])
+    lengths = np.linalg.norm(interpolated, axis=1, keepdims=True)
+    return np.divide(interpolated, lengths, out=fallback.copy(), where=lengths > 1e-12)
 
 
 # --- Möller–Trumbore ray–triangle (vectorised over triangles) ------------
@@ -971,7 +996,7 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
 
     if hit_mask.any():
         fidx = face_idx[hit_mask]
-        N = face_normals[fidx]
+        N = _shading_normals(obj, fidx, bary_u[hit_mask], bary_v[hit_mask], face_normals[fidx])
         # Flip normals if back-facing (front-facing only).
         V = -rd_flat[hit_mask]
         n_dot_v = np.sum(N * V, axis=-1, keepdims=True)

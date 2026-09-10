@@ -93,6 +93,8 @@ def matrix(placement):
 def compose(placements, *, materials=False, polygon_normals=None, uv_status=None):
     """Flatten only for rendering; authored geometry/attributes stay independent."""
     verts, faces, face_objects, uvs, face_materials, mats = [], [], [], [], [], []
+    vertex_normals = []
+    has_normals = False
     count = 0
     matrices = world_matrices(placements)
     for i, p in enumerate(placements):
@@ -104,6 +106,11 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
             uv_status.extend(face_uv_status(mesh))
         m = matrices[i]
         verts.append(mesh.verts @ m[:3, :3].T + m[:3, 3])
+        has_normals |= mesh.vert_normals is not None
+        vertex_normals.append(
+            pbr._transform_normals(mesh.vert_normals, m[:3, :3])
+            if mesh.vert_normals is not None else np.zeros_like(mesh.verts)
+        )
         face_indices = mesh.faces[:, ::-1] if np.linalg.det(m[:3, :3]) < 0 else mesh.faces
         if polygon_normals is not None:
             if mesh.topology is not None:
@@ -134,6 +141,7 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
         np.concatenate(faces),
         face_mats=np.asarray(face_materials, dtype=np.int32) if materials else None,
         vert_uvs=np.concatenate(uvs).astype(np.float32),
+        vert_normals=np.concatenate(vertex_normals).astype(np.float32) if has_normals else None,
     )
     return pbr.MeshObject(
         mesh,
@@ -230,11 +238,14 @@ def render(
     if mask.any() and shading == "solid" and polygon_normals:
         # Render triangles belonging to one authored polygon share its flat
         # normal. This avoids diagonal seams on nonplanar subdivided quads.
-        normals = np.asarray(polygon_normals)
+        normals = pbr._shading_normals(
+            obj, faces[mask], hits["barycentric_u"][mask], hits["barycentric_v"][mask],
+            np.asarray(polygon_normals)[faces[mask]],
+        )
         light = np.array([0.2, 0.8, 1.0])
         light /= np.linalg.norm(light)
         gray = np.clip(
-            145 * (0.65 + 0.35 * np.maximum(normals[faces[mask]] @ light, 0)), 0, 255
+            145 * (0.65 + 0.35 * np.maximum(normals @ light, 0)), 0, 255
         ).astype(np.uint8)
         pixels[mask, :3] = gray[:, None]
     if mask.any() and shading == "checker":
