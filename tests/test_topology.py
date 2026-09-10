@@ -18,7 +18,7 @@ def top_face(mesh):
 
 
 def signed_volume(mesh):
-    tri = mesh.verts[mesh.faces]
+    tri = mesh.verts[mesh.faces].astype(np.float64)
     return np.einsum("ij,ij->i", tri[:, 0], np.cross(tri[:, 1], tri[:, 2])).sum() / 6
 
 
@@ -1362,3 +1362,42 @@ def test_edge_bevel_retains_face_materials_and_existing_uv_corner_data():
             if c["id"] in originals:
                 assert c == originals[c["id"]]
     assert caps
+
+
+@pytest.mark.parametrize("segments", [2, 3, 8, 16, 64])
+def test_segmented_edge_bevel_matches_circular_arc_volume_and_surface(segments):
+    mesh = cube()
+    doc = mesh.topology
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    edge = next(
+        e["id"]
+        for e in doc["edges"]
+        if all(points[v] in [[1, -1, 1], [1, 1, 1]] for v in e["vertices"])
+    )
+    result, caps = topology.bevel_edges(mesh, [edge], 0.25, segments=segments)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [
+        8 + 2 * segments,
+        12 + 3 * segments,
+        6 + segments,
+    ]
+    assert len(caps) == segments
+    assert signed_volume(result) == pytest.approx(
+        8 - 2 * (0.25**2 - segments * 0.5 * 0.25**2 * np.sin(np.pi / (2 * segments))), abs=1e-6
+    )
+    assert all(
+        len(u) == 2 and u[0] == u[1][::-1] for u in topology.edge_usage(result.topology).values()
+    )
+    for v in result.topology["vertices"]:
+        x, y, z = v["position"]
+        if x >= 0.75 - 1e-8 and z >= 0.75 - 1e-8:
+            assert np.hypot(x - 0.75, z - 0.75) == pytest.approx(0.25)
+            assert abs(y) == pytest.approx(1)
+
+
+@pytest.mark.parametrize("segments", [0, -1, 65, 1.5, True])
+def test_segmented_bevel_rejects_invalid_count(segments):
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    with pytest.raises(ValueError):
+        topology.bevel_edges(mesh, [mesh.topology["edges"][0]["id"]], 0.25, segments=segments)
+    assert mesh_document.to_json(mesh) == before

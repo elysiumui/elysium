@@ -1050,8 +1050,10 @@ def bisect(mesh, plane_point, plane_normal, *, keep="both", fill=False):
     return result, "edges", cut_ids
 
 
-def bevel_edges(mesh, identities, distance):
-    """Chamfer one edge of a closed convex solid by offset distance."""
+def bevel_edges(mesh, identities, distance, *, segments=1):
+    """Bevel one convex-solid edge with a circular profile and 1–64 segments."""
+    if type(segments) is not int or not 1 <= segments <= 64:
+        raise ValueError("Bevel segments must be a whole number from 1 to 64")
     if type(distance) not in (int, float) or not np.isfinite(distance) or distance <= 0:
         raise ValueError("Bevel distance must be positive and finite")
     doc = document(mesh)
@@ -1101,16 +1103,34 @@ def bevel_edges(mesh, identities, distance):
         if v not in pair
     ):
         raise ValueError("Bevel distance reaches neighboring vertices")
-    result, mode, faces = bisect(
-        mesh, plane_point.tolist(), plane_normal.tolist(), keep="negative", fill=True
-    )
-    if mode != "faces" or len(faces) != 1:
-        raise ValueError("Bevel did not produce one closed chamfer surface")
+    cutting_planes = [(plane_point, plane_normal)]
+    if segments > 1:
+        inward0, inward1 = neighbors[0][2], neighbors[1][2]
+        center = midpoint + distance * (inward0 + inward1) / (1 + float(inward0 @ inward1))
+        radius = float(np.linalg.norm(plane_point - center))
+        angle = float(np.arccos(np.clip(n0 @ n1, -1, 1)))
+        vectors = [
+            (np.sin((1 - t) * angle) * n0 + np.sin(t * angle) * n1) / np.sin(angle)
+            for t in np.linspace(0, 1, segments + 1)
+        ]
+        cutting_planes = [
+            (center + radius * vectors[i], vectors[i] + vectors[i + 1]) for i in range(segments)
+        ]
+    result, cap_ids = mesh, []
+    for cut_point, cut_normal in cutting_planes:
+        result, mode, faces = bisect(
+            result, cut_point.tolist(), cut_normal.tolist(), keep="negative", fill=True
+        )
+        if mode != "faces" or len(faces) != 1:
+            raise ValueError("Bevel did not produce one closed surface per segment")
+        cap_ids.extend(faces)
     result_doc = document(result)
-    next(f for f in result_doc["faces"] if f["id"] == faces[0])["material"] = neighbors[0][0][
-        "material"
-    ]
-    return compile(result_doc)[0], faces
+    for face in result_doc["faces"]:
+        if face["id"] in cap_ids:
+            face["material"] = neighbors[0][0]["material"]
+    if len(set(cap_ids).intersection(f["id"] for f in result_doc["faces"])) != segments:
+        raise ValueError("Bevel segments intersected each other")
+    return compile(result_doc)[0], cap_ids
 
 
 def bevel_vertices(mesh, identities, distance):
@@ -1722,6 +1742,7 @@ def edit_selected(
     scale=(1.0, 1.0, 1.0),
     cuts=1,
     factor=0.0,
+    segments=1,
     plane_point=(0.0, 0.0, 0.0),
     plane_normal=(1.0, 0.0, 0.0),
     keep="both",
@@ -1763,7 +1784,7 @@ def edit_selected(
     elif operation == "bevel_edges":
         if selected.get("mode") != "edges":
             raise ValueError("Choose edge selection mode first")
-        result, face_ids = bevel_edges(mesh, selected.get("ids", []), distance)
+        result, face_ids = bevel_edges(mesh, selected.get("ids", []), distance, segments=segments)
         selected = {"mode": "faces", "ids": face_ids}
     elif operation == "bevel_vertices":
         if selected.get("mode") != "vertices":
