@@ -1230,3 +1230,81 @@ def test_vertex_bevel_rejects_boundary_and_stale_selections_without_mutation():
         with pytest.raises(ValueError):
             topology.bevel_vertices(plane, ids, 0.25)
         assert mesh_document.to_json(plane) == before
+
+
+def test_bisect_cube_keeps_both_sides_with_shared_cut_vertices_and_winding():
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    result, mode, ids = topology.bisect(mesh, [0.25, 0, 0], [1, 0, 0])
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [12, 20, 10]
+    assert mode == "edges" and len(ids) == 4
+    assert signed_volume(result) == pytest.approx(8)
+    assert all(
+        len(v) == 2 and v[0] == v[1][::-1] for v in topology.edge_usage(result.topology).values()
+    )
+    assert mesh_document.to_json(mesh) == before
+
+
+@pytest.mark.parametrize("keep,volume", [("negative", 5), ("positive", 3)])
+def test_bisect_clear_and_fill_cube_keeps_requested_half_and_closes_cut(keep, volume):
+    result, mode, ids = topology.bisect(cube(), [0.25, 0, 0], [10, 0, 0], keep=keep, fill=True)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [8, 12, 6]
+    assert mode == "faces" and len(ids) == 1
+    assert signed_volume(result) == pytest.approx(volume)
+    assert all(
+        len(v) == 2 and v[0] == v[1][::-1] for v in topology.edge_usage(result.topology).values()
+    )
+
+
+def test_bisect_through_existing_vertices_fills_without_duplicate_points():
+    result, mode, ids = topology.bisect(cube(), [0, 0, 0], [1, 1, 0], keep="negative", fill=True)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [6, 9, 5]
+    assert signed_volume(result) == pytest.approx(4)
+    assert mode == "faces" and len(ids) == 1
+    assert len({tuple(v["position"]) for v in result.topology["vertices"]}) == 6
+
+
+def test_bisect_preserves_uv_seams_materials_and_split_edge_flags():
+    doc = deepcopy(cube().topology)
+    for i, f in enumerate(doc["faces"]):
+        f["material"] = i
+        for j, c in enumerate(f["corners"]):
+            c["uv"] = [i, j]
+    for e in doc["edges"]:
+        e["seam"] = True
+    mesh = topology.compile(doc)[0]
+    result, _, cut_ids = topology.bisect(mesh, [0, 0, 0], [1, 0, 0])
+    assert all(e["seam"] for e in result.topology["edges"] if e["id"] not in cut_ids)
+    oldcorners = {c["id"]: c for f in doc["faces"] for c in f["corners"]}
+    for f in result.topology["faces"]:
+        for c in f["corners"]:
+            if c["id"] in oldcorners:
+                assert c == oldcorners[c["id"]]
+            assert c["uv"][0] == f["material"]
+    assert {f["id"] for f in doc["faces"]} <= {f["id"] for f in result.topology["faces"]}
+
+
+def test_bisect_outside_clear_can_retain_empty_mesh():
+    result, _, ids = topology.bisect(cube(), [-2, 0, 0], [1, 0, 0], keep="negative", fill=True)
+    assert [len(result.topology[k]) for k in ("vertices", "edges", "faces")] == [0, 0, 0]
+    assert ids == []
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"plane_normal": [0, 0, 0]},
+        {"plane_point": [float("nan"), 0, 0]},
+        {"keep": "invalid"},
+        {"fill": True},
+        {"fill": 1},
+    ],
+)
+def test_invalid_bisect_parameters_are_atomic(kwargs):
+    mesh = cube()
+    before = mesh_document.to_json(mesh)
+    args = {"plane_point": [0, 0, 0], "plane_normal": [1, 0, 0]}
+    args.update(kwargs)
+    with pytest.raises(ValueError):
+        topology.bisect(mesh, **args)
+    assert mesh_document.to_json(mesh) == before

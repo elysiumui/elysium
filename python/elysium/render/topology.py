@@ -920,6 +920,136 @@ def fill_loop(mesh, mode, identities):
     return compile(doc)[0], face["id"]
 
 
+def bisect(mesh, plane_point, plane_normal, *, keep="both", fill=False):
+    """Split an entire mesh at a local plane, optionally removing one side."""
+    point, direction = _coordinates(plane_point), _coordinates(plane_normal)
+    length = float(np.linalg.norm(direction))
+    if length <= 1e-12 or not np.isfinite(length):
+        raise ValueError("Bisect normal must be nonzero and finite")
+    if keep not in ("both", "negative", "positive") or type(fill) is not bool:
+        raise ValueError("Choose both, negative or positive side and a boolean fill")
+    if fill and keep == "both":
+        raise ValueError("Choose one side to retain before filling the cut")
+    direction /= length
+    doc = document(mesh)
+    vertices = {v["id"]: v for v in doc["vertices"]}
+    points = {v: np.asarray(record["position"], dtype=float) for v, record in vertices.items()}
+    distances = {v: float((p - point) @ direction) for v, p in points.items()}
+    tolerance = max(max((abs(d) for d in distances.values()), default=1), 1) * 1e-8
+    signs = {v: 0 if abs(d) <= tolerance else (1 if d > 0 else -1) for v, d in distances.items()}
+    original_uses = edge_usage(doc)
+    if fill and any(
+        len(original_uses.get(tuple(sorted(e["vertices"])), [])) != 2 for e in doc["edges"]
+    ):
+        raise ValueError("Fill bisect requires a closed surface")
+    loose_ids = {e["id"] for e in doc["edges"] if tuple(sorted(e["vertices"])) not in original_uses}
+    crossings = {}
+    for edge in list(doc["edges"]):
+        a, b = edge["vertices"]
+        if signs[a] * signs[b] != -1:
+            continue
+        if vertices[a]["part"] != vertices[b]["part"]:
+            raise ValueError("Bisect cannot interpolate across named parts")
+        ratio = distances[a] / (distances[a] - distances[b])
+        vertex = {
+            "id": _id(doc, "v"),
+            "position": (points[a] + ratio * (points[b] - points[a])).tolist(),
+            "part": vertices[a]["part"],
+        }
+        doc["vertices"].append(vertex)
+        crossings[tuple(sorted((a, b)))] = vertex["id"]
+        signs[vertex["id"]] = 0
+        split = deepcopy(edge)
+        split["id"] = _id(doc, "e")
+        if edge["id"] in loose_ids:
+            loose_ids.add(split["id"])
+        edge["vertices"] = sorted((a, vertex["id"]))
+        split["vertices"] = sorted((vertex["id"], b))
+        doc["edges"].append(split)
+    new_faces = []
+    used_corners = set()
+    sides = (-1, 1) if keep == "both" else ((-1,) if keep == "negative" else (1,))
+    for face in doc["faces"]:
+        old = face["corners"]
+        face_signs = {signs[c["vertex"]] for c in old}
+        split_face = -1 in face_signs and 1 in face_signs
+        if split_face:
+            n_crossings = sum(
+                signs[a["vertex"]] * signs[b["vertex"]] == -1
+                for a, b in zip(old, old[1:] + old[:1])
+            )
+            if n_crossings > 2:
+                raise ValueError(
+                    "Bisect of a disconnected concave face requires splitting it first"
+                )
+        emitted = 0
+        for side in sides:
+            if not split_face and keep == "both" and emitted:
+                continue
+            corners = []
+            for current, following in zip(old, old[1:] + old[:1]):
+                a, b = current["vertex"], following["vertex"]
+                if signs[a] * side >= 0:
+                    corners.append(deepcopy(current))
+                if signs[a] * signs[b] == -1:
+                    identity = crossings[tuple(sorted((a, b)))]
+                    ratio = distances[a] / (distances[a] - distances[b])
+                    uv = (
+                        None
+                        if current["uv"] is None or following["uv"] is None
+                        else (
+                            (1 - ratio) * np.asarray(current["uv"])
+                            + ratio * np.asarray(following["uv"])
+                        ).tolist()
+                    )
+                    n = None
+                    if current["normal"] is not None and following["normal"] is not None:
+                        weighted = (1 - ratio) * np.asarray(current["normal"]) + ratio * np.asarray(
+                            following["normal"]
+                        )
+                        if np.linalg.norm(weighted) > 1e-12:
+                            n = (weighted / np.linalg.norm(weighted)).tolist()
+                    corners.append(_corner(doc, identity, uv, n))
+            if len(corners) < 3:
+                continue
+            for corner in corners:
+                if corner["id"] in used_corners:
+                    corner["id"] = _id(doc, "c")
+                used_corners.add(corner["id"])
+            result = {
+                "id": face["id"] if emitted == 0 else _id(doc, "f"),
+                "corners": corners,
+                "material": face["material"],
+            }
+            new_faces.append(result)
+            emitted += 1
+    doc["faces"] = new_faces
+    # Retain source wire segments and surviving isolated points, including an
+    # entirely empty result when a clear side removes the whole object.
+    allowed = {
+        v
+        for v, sign in signs.items()
+        if keep == "both" or sign == 0 or sign == (-1 if keep == "negative" else 1)
+    }
+    wire = [e for e in doc["edges"] if e["id"] in loose_ids and set(e["vertices"]) <= allowed]
+    doc["vertices"] = [v for v in doc["vertices"] if v["id"] in allowed]
+    _edges(doc, wire)
+    doc["schema_version"] = 2
+    result = compile(doc)[0]
+    cut_ids = [e["id"] for e in doc["edges"] if all(signs[v] == 0 for v in e["vertices"])]
+    if fill and cut_ids:
+        boundary = edge_usage(doc)
+        cut_ids = [
+            e["id"]
+            for e in doc["edges"]
+            if e["id"] in cut_ids and len(boundary.get(tuple(sorted(e["vertices"])), [])) == 1
+        ]
+        if cut_ids:
+            result, face_id = fill_loop(result, "edges", cut_ids)
+            return result, "faces", [face_id]
+    return result, "edges", cut_ids
+
+
 def bevel_vertices(mesh, identities, distance):
     """Truncate closed convex three-edge corners by distance along each edge."""
     if type(distance) not in (int, float) or not np.isfinite(distance) or distance <= 0:
@@ -1529,6 +1659,10 @@ def edit_selected(
     scale=(1.0, 1.0, 1.0),
     cuts=1,
     factor=0.0,
+    plane_point=(0.0, 0.0, 0.0),
+    plane_normal=(1.0, 0.0, 0.0),
+    keep="both",
+    fill=False,
 ):
     from . import mesh_document
 
@@ -1556,6 +1690,13 @@ def edit_selected(
             raise ValueError("Choose edge selection mode first")
         result, edge_ids = extrude_edges(mesh, selected.get("ids", []), offset)
         selected = {"mode": "edges", "ids": edge_ids}
+    elif operation == "bisect":
+        if selected.get("mode") != "faces" or set(selected.get("ids", [])) != {
+            f["id"] for f in document(mesh)["faces"]
+        }:
+            raise ValueError("Select all mesh faces for Bisect")
+        result, mode, ids = bisect(mesh, plane_point, plane_normal, keep=keep, fill=fill)
+        selected = {"mode": mode, "ids": ids}
     elif operation == "bevel_vertices":
         if selected.get("mode") != "vertices":
             raise ValueError("Choose vertex selection mode first")
