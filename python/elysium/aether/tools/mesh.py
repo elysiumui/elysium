@@ -129,7 +129,7 @@ def mesh_register_from_file(session, path: str, name: str) -> dict:
                 "  - 'planar_xy'   : project along +Z onto XY plane.\n"
                 "  - 'cylindrical' : wrap around the Y axis (u=angle, v=height).\n"
                 "  - 'spherical'   : wrap around origin (u=longitude, v=latitude).\n"
-                "Mutates the cached mesh object's `vert_uvs` in place. Does NOT "
+                "Writes an owned mesh revision with retained per-corner UVs. Does NOT "
                 "alter vertices, faces, normals, rigging, or part ids: the "
                 "model's geometry stays identical. Returns the new per-part UV "
                 "bbox so callers can re-render or rebuild atlases against it.",
@@ -147,57 +147,13 @@ def mesh_register_from_file(session, path: str, name: str) -> dict:
 def mesh_uv_unwrap(session, id: str, mode: str,
                     yaw: float = 0.0, pitch: float = 0.0) -> dict:
     """Re-compute mesh UVs from a projection. Geometry untouched."""
-    import math
-    import numpy as _np
-    from elysium.render import pbr as _pbr
+    from elysium.render import mesh_uv, mesh_document
     p = session.lookup(id)
-    if p.kind != "Mesh3D":
-        raise ValueError(f"mesh.uv_unwrap: kind={p.kind!r} (need Mesh3D)")
-    # Pull the mesh the same way the renderer does.
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
-    v = mesh.verts.astype(_np.float32)
-    n = v.shape[0]
-    mode = mode.lower()
-    if mode in ("planar", "planar_xy", "camera"):
-        if mode == "planar_xy":
-            ax_u = _np.array([1.0, 0.0, 0.0], dtype=_np.float32)
-            ax_v = _np.array([0.0, 1.0, 0.0], dtype=_np.float32)
-        else:
-            cy, sy = math.cos(yaw), math.sin(yaw)
-            cp, sp = math.cos(pitch), math.sin(pitch)
-            # Camera-look direction.
-            look = _np.array([-cp * sy, -sp, -cp * cy], dtype=_np.float32)
-            up   = _np.array([0.0, 1.0, 0.0], dtype=_np.float32)
-            right = _np.cross(look, up); right /= max(_np.linalg.norm(right), 1e-8)
-            up_real = _np.cross(right, look)
-            ax_u, ax_v = right, up_real
-        u = v @ ax_u
-        w = v @ ax_v
-        u = (u - u.min()) / max(u.max() - u.min(), 1e-6)
-        w = (w - w.min()) / max(w.max() - w.min(), 1e-6)
-        uvs = _np.stack([u, w], axis=-1)
-    elif mode == "cylindrical":
-        # u = atan2(z, x) / 2π; v = (y - ymin) / (ymax - ymin)
-        u = (_np.arctan2(v[:, 2], v[:, 0]) + math.pi) / (2.0 * math.pi)
-        h = v[:, 1]
-        w = (h - h.min()) / max(h.max() - h.min(), 1e-6)
-        uvs = _np.stack([u, w], axis=-1)
-    elif mode == "spherical":
-        L = _np.linalg.norm(v, axis=-1) + 1e-8
-        u = (_np.arctan2(v[:, 2], v[:, 0]) + math.pi) / (2.0 * math.pi)
-        w = _np.arccos(_np.clip(v[:, 1] / L, -1.0, 1.0)) / math.pi
-        uvs = _np.stack([u, w], axis=-1)
-    else:
-        raise ValueError(f"unknown uv_unwrap mode: {mode!r}")
-    from dataclasses import replace
-    mesh = replace(mesh, vert_uvs=uvs.astype(_np.float32))
-    # Persist an owned revision for BOTH imported and preset meshes. Never
-    # overwrite a shared preset or discard edits when the next render reloads.
-    from elysium.render.mesh_document import bind
-    bind(p, mesh)
+    result = mesh_uv.project(p, mode, yaw=yaw, pitch=pitch)
+    mesh = mesh_document.resolve(p.mesh_kind)
+    uvs = mesh.vert_uvs
+    n = len(mesh.verts)
+    mode = result["mode"]
     # Flush mesh caches so the next paint re-renders with the new UVs.
     designer = session.designer
     for ca in ("_mesh_cache", "_mesh_bytes_cache", "_pbr_cache"):

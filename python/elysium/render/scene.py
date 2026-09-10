@@ -168,7 +168,8 @@ def render(
     polygon_normals = [] if shading == "solid" else None
     obj, face_objects = compose(placements, materials=shading == "material", polygon_normals=polygon_normals)
     ids = np.full((height, width), -1, dtype=np.int32)
-    if obj is None or len(obj.mesh.faces) == 0:
+    empty_geometry = obj is None or len(obj.mesh.faces) == 0
+    if empty_geometry:
         # Empty geometry still needs camera rays for the world grid.
         obj = pbr.MeshObject(
             pbr.Mesh(
@@ -193,6 +194,12 @@ def render(
         ortho_scale=ortho_scale if projection == "orthographic" else None,
     )
     faces = hits["face_index"]
+    if empty_geometry:
+        # The camera-ray sentinel is not authored geometry. An orthographic
+        # camera can see it even a million meters away; suppress every hit.
+        faces.fill(-1)
+        hits["depth"].fill(np.inf)
+        rgba = bytes(width * height * 4)
     mask = faces >= 0
     ids[mask] = face_objects[faces[mask]]
     if component_output is not None:
@@ -207,8 +214,8 @@ def render(
         # Camera-axis depth works for perspective and orthographic rays. Keep
         # this geometric buffer independent of shading and selection colors.
         component_output['depth'] = hits['depth'] * (hits['ray_direction'] @ look)
-        component_output['occlusion_mesh'] = obj.mesh
-        component_output['occlusion_bvh'] = pbr._cached_bvh_for(obj, obj.mesh.verts)
+        component_output['occlusion_mesh'] = None if empty_geometry else obj.mesh
+        component_output['occlusion_bvh'] = None if empty_geometry else pbr._cached_bvh_for(obj, obj.mesh.verts)
     pixels = np.frombuffer(rgba, dtype=np.uint8).reshape(height, width, 4).copy()
     background = pixels[:, :, 3] == 0
     if grid:

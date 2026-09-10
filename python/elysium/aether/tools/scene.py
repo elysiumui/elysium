@@ -298,3 +298,48 @@ def modifier_update(session,id,modifier_id,parameters=None,enabled=None,index=No
 def modifiers_apply(session,id):
     from ...render import mesh_modifiers
     return mesh_modifiers.apply_all(session.lookup(id))
+
+
+_UV_PAIR = {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+_UV_IDS = {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": True}
+
+
+@register_tool(
+    name="mesh.uv_get",
+    description="Read editable face-corner UV identities, coordinates and marked seam edge identities.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}}, "required": ["id"]},
+    side_effect=SideEffect.READ,
+)
+def uv_get(session, id):
+    from ...render import mesh_uv
+    return mesh_uv.read(session.lookup(id))
+
+
+@register_tool(
+    name="mesh.uv_project",
+    description="Project selected source faces (omitted face_ids means all) into independent corner UVs. planar_xy uses +X/+Y, planar_xz +X/-Z, planar_yz -Z/+Y; planar/camera uses yaw/pitch radians. Planar bounds normalize independently to 0..1. Cylindrical and spherical wrap the local Y axis with per-face seam discontinuities. Geometry, custom normals, materials and modifier stack remain unchanged.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "mode": {"enum": ["planar", "camera", "planar_xy", "planar_xz", "planar_yz", "cylindrical", "spherical"]}, "face_ids": _UV_IDS, "yaw": {"type": "number"}, "pitch": {"type": "number"}}, "required": ["id", "mode"]},
+)
+def uv_project(session, id, mode, face_ids=None, yaw=0.0, pitch=0.0):
+    from ...render import mesh_uv
+    return mesh_uv.project(session.lookup(id), mode, face_ids=face_ids, yaw=yaw, pitch=pitch)
+
+
+@register_tool(
+    name="mesh.uv_transform",
+    description="Scale then rotate UV corners around their arithmetic mean, then translate. Omitted corner_ids means all; positive angle is clockwise degrees (Blender UV convention), offset and scale are UV pairs. Each selected corner must have UVs. Negative scale mirrors the selected UVs. One atomic owned mesh revision.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "corner_ids": _UV_IDS, "offset": _UV_PAIR, "scale": _UV_PAIR, "angle": {"type": "number"}}, "required": ["id"]},
+)
+def uv_transform(session, id, corner_ids=None, offset=(0., 0.), scale=(1., 1.), angle=0.):
+    from ...render import mesh_uv
+    return mesh_uv.transform(session.lookup(id), corner_ids, offset=offset, scale=scale, angle=angle)
+
+
+@register_tool(
+    name="mesh.uv_seams_set",
+    description="Mark or clear seams on specified editable source edge identities. Does not unwrap or move UVs.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "edge_ids": _UV_IDS, "enabled": {"type": "boolean"}}, "required": ["id", "edge_ids"]},
+)
+def uv_seams_set(session, id, edge_ids, enabled=True):
+    from ...render import mesh_uv
+    return mesh_uv.seams(session.lookup(id), edge_ids, enabled)

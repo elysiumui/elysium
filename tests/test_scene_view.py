@@ -150,3 +150,19 @@ def test_empty_and_wire_mesh_render_grid_and_frame_without_false_object_hits():
         assert (ids == -1).all()
         assert len(rgba) == 40 * 40 * 4
         assert np.isfinite(scene.frame([p])[1])
+
+
+@pytest.mark.parametrize('yaw,pitch', [(0, 0), (np.pi/2, 0), (0, np.pi/2), (0, -np.pi/2), (.65, .4)])
+@pytest.mark.parametrize('projection', ['orthographic', 'perspective'])
+def test_empty_scene_never_renders_or_picks_camera_ray_sentinel(yaw, pitch, projection):
+    output = {}
+    pixels, ids = scene.render([], 80, 80, yaw=yaw, pitch=pitch, projection=projection, grid=False, component_output=output)
+    assert not np.frombuffer(pixels, dtype=np.uint8).any()
+    assert (ids == -1).all() and (output['face_index'] == -1).all()
+    assert np.isinf(output['depth']).all()
+    assert output['occlusion_mesh'] is None and output['occlusion_bvh'] is None
+    grid, _ = scene.render([], 80, 80, yaw=yaw, pitch=pitch, projection=projection)
+    image = np.frombuffer(grid, dtype=np.uint8).reshape(80, 80, 4)
+    assert (image[:, :, 3] == 255).all()
+    # Grid and axes are muted; no sentinel material surface is visible.
+    assert image[:, :, :3].max() <= 170
