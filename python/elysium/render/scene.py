@@ -90,7 +90,7 @@ def matrix(placement):
     return result
 
 
-def compose(placements, *, materials=False, polygon_normals=None):
+def compose(placements, *, materials=False, polygon_normals=None, uv_status=None):
     """Flatten only for rendering; authored geometry/attributes stay independent."""
     verts, faces, face_objects, uvs, face_materials, mats = [], [], [], [], [], []
     count = 0
@@ -99,6 +99,9 @@ def compose(placements, *, materials=False, polygon_normals=None):
         if p.kind != "Mesh3D" or not getattr(p, "visible", True):
             continue
         mesh = mesh_edit.evaluate(p)
+        if uv_status is not None:
+            from .mesh_uv_diagnostics import face_uv_status
+            uv_status.extend(face_uv_status(mesh))
         m = matrices[i]
         verts.append(mesh.verts @ m[:3, :3].T + m[:3, 3])
         face_indices = mesh.faces[:, ::-1] if np.linalg.det(m[:3, :3]) < 0 else mesh.faces
@@ -165,8 +168,11 @@ def render(
     grid=True,
     component_output=None,
 ):
+    if shading not in ("solid", "material", "checker"):
+        raise ValueError("Shading must be solid, material or checker")
+    uv_status = [] if shading == "checker" else None
     polygon_normals = [] if shading == "solid" else None
-    obj, face_objects = compose(placements, materials=shading == "material", polygon_normals=polygon_normals)
+    obj, face_objects = compose(placements, materials=shading == "material", polygon_normals=polygon_normals, uv_status=uv_status)
     ids = np.full((height, width), -1, dtype=np.int32)
     empty_geometry = obj is None or len(obj.mesh.faces) == 0
     if empty_geometry:
@@ -231,6 +237,19 @@ def render(
             145 * (0.65 + 0.35 * np.maximum(normals[faces[mask]] @ light, 0)), 0, 255
         ).astype(np.uint8)
         pixels[mask, :3] = gray[:, None]
+    if mask.any() and shading == "checker":
+        triangles = obj.mesh.vert_uvs[obj.mesh.faces[faces[mask]]]
+        u, v = hits["barycentric_u"][mask], hits["barycentric_v"][mask]
+        uv = triangles[:, 0] * (1 - u - v)[:, None] + triangles[:, 1] * u[:, None] + triangles[:, 2] * v[:, None]
+        # Repeat an unlit 8-by-8 UV checker; reduce before multiplication to
+        # keep very large authored coordinates from overflowing integer casts.
+        cells = np.floor(np.mod(uv, 1.0) * 8).astype(np.int32)
+        gray = np.where((cells[:, 0] + cells[:, 1]) % 2, 68, 208).astype(np.uint8)
+        colors = np.repeat(gray[:, None], 3, axis=1)
+        status = np.asarray(uv_status)[faces[mask]]
+        colors[status == "missing"] = (170, 65, 190)
+        colors[status == "collapsed"] = (230, 90, 45)
+        pixels[mask, :3] = colors
     if not grid:
         return pixels.tobytes(), ids
     ro, rd = hits["ray_origin"], hits["ray_direction"]

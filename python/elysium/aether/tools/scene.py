@@ -414,3 +414,14 @@ def uv_unwrap_seams(session,id,face_ids=None,fit_tile=True,margin=.02):
 def uv_stitch(session,id,corner_ids=None,static_corner_id=None):
     from ...render import mesh_uv_stitch
     return mesh_uv_stitch.stitch(session.lookup(id),corner_ids,static_corner_id=static_corner_id)
+
+
+@register_tool(
+    name="mesh.uv_distortion_get",
+    description="Read local editable-source UV triangle stretch (largest/smallest singular value; 1 is undistorted similarity), area ratios and UV winding. Missing/collapsed UV faces have null stretch. Does not measure object scale, evaluated modifiers, overlap or Blender's color scale. No mutation.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def uv_distortion_get(session,id):
+    from ...render import mesh_uv_diagnostics
+    return mesh_uv_diagnostics.inspect(session.lookup(id))

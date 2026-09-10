@@ -954,6 +954,8 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     if hit_output is not None:
         hit_output["face_index"] = face_idx.reshape(h, w).copy()
         hit_output["depth"] = t_min.reshape(h, w).copy()
+        hit_output["barycentric_u"] = bary_u.reshape(h, w)
+        hit_output["barycentric_v"] = bary_v.reshape(h, w)
         hit_output["ray_origin"] = ro_flat.reshape(h, w, 3)
         hit_output["ray_direction"] = rd_flat.reshape(h, w, 3)
     hit_mask = face_idx >= 0
