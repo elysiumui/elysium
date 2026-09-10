@@ -425,3 +425,34 @@ def uv_stitch(session,id,corner_ids=None,static_corner_id=None,clear_seams=True)
 def uv_distortion_get(session,id):
     from ...render import mesh_uv_diagnostics
     return mesh_uv_diagnostics.inspect(session.lookup(id))
+
+
+@register_tool(
+    name="mesh.normals_get",
+    description="Read source normal policy, sharp edge identities and compiled local source vertex normals. Geometry modifiers and object transforms are not evaluated by this inspection.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def normals_get(session, id):
+    from ...render import mesh_normals
+    return mesh_normals.read(session.lookup(id))
+
+
+@register_tool(
+    name="mesh.normals_set",
+    description="Set a retained whole-mesh normal policy: flat polygon normals; smooth angle-weighted connected fans; or authored to restore the source corner normals. Smooth angle is 0–180 degrees (default 180); respect_sharp defaults true. Boundaries, nonmanifold edges and inconsistent winding split fans. Policy recomputes after geometry edits; positions, UVs, pins and component identities do not change. No per-face subset or custom-vector editing.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"mode":{"type":"string","enum":["authored","flat","smooth"]},"angle":{"type":"number","minimum":0,"maximum":180},"respect_sharp":{"type":"boolean"}},"required":["id","mode"]},
+)
+def normals_set(session, id, mode, angle=180.0, respect_sharp=True):
+    from ...render import mesh_normals
+    return mesh_normals.set_policy(session.lookup(id), mode, angle=angle, respect_sharp=respect_sharp)
+
+
+@register_tool(
+    name="mesh.edges_sharp_set",
+    description="Mark or clear sharp flags on distinct source edge identities. Does not change UV seams or geometry. A retained smooth normal policy with respect_sharp=true uses these flags to split smooth fans.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"edge_ids":_UV_IDS,"sharp":{"type":"boolean"}},"required":["id","edge_ids"]},
+)
+def edges_sharp_set(session, id, edge_ids, sharp=True):
+    from ...render import mesh_normals
+    return mesh_normals.set_sharp(session.lookup(id), edge_ids, sharp)

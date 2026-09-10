@@ -171,14 +171,20 @@ def validate(doc):
         "faces",
         "part_names",
         "part_pivots",
+        "shading",
     }
     if (
         not isinstance(doc, dict)
         or set(doc) - fields
         or type(doc.get("schema_version")) is not int
-        or doc["schema_version"] not in (1, 2, 3)
+        or doc["schema_version"] not in (1, 2, 3, 4)
     ):
         raise ValueError("Unsupported editable topology version or fields")
+    if "shading" in doc:
+        from .mesh_normals import validate_settings
+        if doc["schema_version"] < 4:
+            raise ValueError("Normal policy requires topology version 4")
+        validate_settings(doc["shading"])
     if type(doc.get("next_id")) is not int or doc["next_id"] < 1:
         raise ValueError("Invalid topology identity counter")
     for kind in ("vertices", "edges", "faces"):
@@ -304,6 +310,11 @@ def compile(doc):
     lookup = {}
     has_uv = any(c.get("uv") is not None for f in doc["faces"] for c in f["corners"])
     has_normals = any(c.get("normal") is not None for f in doc["faces"] for c in f["corners"])
+    generated_normals = None
+    if "shading" in doc:
+        from .mesh_normals import corner_normals
+        generated_normals = corner_normals(doc)
+        has_normals = True
     has_parts = any(v.get("part") is not None for v in doc["vertices"])
     for face in doc["faces"]:
         corners = face["corners"]
@@ -314,6 +325,8 @@ def compile(doc):
         compiled = []
         for c in corners:
             uv, n = c.get("uv") or [0.0, 0.0], c.get("normal") or fallback
+            if generated_normals is not None:
+                n = generated_normals[c["id"]]
             key = (c["vertex"], tuple(uv) if has_uv else None, tuple(n) if has_normals else None)
             if key not in lookup:
                 lookup[key] = len(positions)
