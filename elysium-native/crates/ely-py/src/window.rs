@@ -338,12 +338,10 @@ impl PyWindow {
         root_id: u64,
         nodes: Vec<pyo3::Bound<'_, pyo3::types::PyDict>>,
     ) -> PyResult<()> {
-        let mut by_id: std::collections::HashMap<u64, ely_platform::a11y::A11yNode> =
-            Default::default();
-        let mut parents: std::collections::HashMap<u64, Vec<u64>> = Default::default();
+        let mut entries = Vec::new();
         for d in nodes {
-            let id: u64 = d.get_item("id")?.unwrap().extract()?;
-            let role: String = d.get_item("role")?.unwrap().extract()?;
+            let id: u64 = d.get_item("id")?.ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Accessibility node requires id"))?.extract()?;
+            let role: String = d.get_item("role")?.ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Accessibility node requires role"))?.extract()?;
             let label = d
                 .get_item("label")
                 .ok()
@@ -361,15 +359,13 @@ impl PyWindow {
                 .and_then(|v| v.extract::<String>().ok());
             let bounds: (f32, f32, f32, f32) = d
                 .get_item("bounds")?
-                .map(|v| v.extract().unwrap_or((0.0, 0.0, 0.0, 0.0)))
+                .map(|v| v.extract()).transpose()?
                 .unwrap_or((0.0, 0.0, 0.0, 0.0));
             let kids: Vec<u64> = d
                 .get_item("children")?
-                .map(|v| v.extract().unwrap_or_default())
+                .map(|v| v.extract()).transpose()?
                 .unwrap_or_default();
-            parents.insert(id, kids);
-            by_id.insert(
-                id,
+            entries.push((
                 ely_platform::a11y::A11yNode {
                     id,
                     role,
@@ -382,39 +378,12 @@ impl PyWindow {
                     read_only: d.get_item("read_only")?.and_then(|v| v.extract::<bool>().ok()).unwrap_or(false),
                     bounds,
                     children: Vec::new(),
-                },
-            );
+                }, kids,
+            ));
         }
-        fn build(
-            id: u64,
-            by_id: &std::collections::HashMap<u64, ely_platform::a11y::A11yNode>,
-            parents: &std::collections::HashMap<u64, Vec<u64>>,
-        ) -> ely_platform::a11y::A11yNode {
-            let mut node = by_id
-                .get(&id)
-                .cloned()
-                .unwrap_or(ely_platform::a11y::A11yNode {
-                    id,
-                    role: "group".into(),
-                    label: None,
-                    description: None,
-                    shortcut: None,
-                    value: None,
-                    disabled: false,
-                    selected: None,
-                    read_only: false,
-                    bounds: (0.0, 0.0, 0.0, 0.0),
-                    children: Vec::new(),
-                });
-            if let Some(kids) = parents.get(&id) {
-                node.children = kids.iter().map(|k| build(*k, by_id, parents)).collect();
-            }
-            node
-        }
-        let tree = ely_platform::a11y::A11yTree {
-            root: Some(build(root_id, &by_id, &parents)),
-        };
-        self.handle.a11y().publish(tree);
+        let tree = ely_platform::a11y::A11yTree::from_flat(root_id, entries)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        self.handle.a11y().publish(tree).map_err(pyo3::exceptions::PyValueError::new_err)?;
         Ok(())
     }
 

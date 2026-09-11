@@ -84,3 +84,14 @@ def test_missing_parent_fails_before_restoring_mesh_assets():
     p.props["parent3d"] = {"id": "entity:missing"}
     with pytest.raises(ValueError, match="Missing parent"):
         mesh_document.capture([p])
+
+
+def test_persisted_hidden_property_excludes_render_geometry_without_losing_parent_transform():
+    parent,child=cube('Parent'),cube('Child')
+    scene.update(parent,{'location':[5,0,0]})
+    scene.set_parent([parent,child],child,parent,keep_world=False)
+    parent.props['hidden']=True
+    mesh,face_ids=scene.compose([parent,child])
+    assert set(face_ids)=={1}
+    assert mesh.mesh.verts[:,0].mean()==pytest.approx(5)
+    assert scene.is_visible(child) and not scene.is_visible(parent)

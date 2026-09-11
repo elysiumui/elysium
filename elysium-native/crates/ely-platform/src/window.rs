@@ -718,6 +718,7 @@ impl WindowHandle {
         self.inner
             .scale_milli
             .store((s * 1000.0).round() as u32, Ordering::Release);
+        self.a11y().set_scale_factor(s);
     }
     /// The display this window is currently on, in logical pixels, or `None`
     /// before the first frame (or when the platform reports no monitors —
@@ -767,6 +768,26 @@ impl WindowHandle {
     }
     pub fn keyboard(&self) -> &KeyboardState {
         &self.inner.keyboard
+    }
+    /// End held input on deactivation, including releases delivered to another
+    /// application. Consumers receive cancellation before synthetic key-ups.
+    pub fn release_input_on_blur(&self) {
+        self.mouse().pressed_left.store(false, Ordering::Release);
+        self.mouse().pressed_right.store(false, Ordering::Release);
+        self.keyboard().modifiers.store(0, Ordering::Release);
+        self.keyboard().preedit.lock().clear();
+        let held: Vec<String> = self.keyboard().held.lock().drain().collect();
+        let mut events = self.keyboard().events.lock();
+        events.push_back(KeyEvent {
+            code: "WindowFocusLost".to_string(), pressed: true,
+            modifiers: 0, text: String::new(),
+        });
+        for code in held {
+            events.push_back(KeyEvent { code, pressed: false, modifiers: 0, text: String::new() });
+        }
+        drop(events);
+        self.request_set_cursor(CursorKind::Default);
+        self.notify_input();
     }
     #[allow(clippy::type_complexity)] // queue of (path, x, y) file drops
     pub fn file_drops(&self) -> &Arc<Mutex<std::collections::VecDeque<(String, f64, f64)>>> {
@@ -925,6 +946,24 @@ pub mod ely_core_hook_stub {
 #[cfg(test)]
 mod tier2_tests {
     use super::*;
+
+    #[test]
+    fn focus_loss_releases_input_and_reports_cancellation_first() {
+        let h = WindowHandle::stub(WindowConfig::default());
+        h.mouse().pressed_left.store(true, Ordering::Release);
+        h.mouse().pressed_right.store(true, Ordering::Release);
+        h.keyboard().held.lock().insert("Space".to_string());
+        h.keyboard().modifiers.store(5, Ordering::Release);
+        h.release_input_on_blur();
+        assert!(!h.mouse().pressed_left.load(Ordering::Acquire));
+        assert!(!h.mouse().pressed_right.load(Ordering::Acquire));
+        assert!(h.keyboard().held.lock().is_empty());
+        assert_eq!(h.keyboard().modifiers.load(Ordering::Acquire), 0);
+        let events = h.keyboard().events.lock();
+        assert_eq!(events[0].code, "WindowFocusLost");
+        assert_eq!(events[1].code, "Space");
+        assert!(!events[1].pressed);
+    }
 
     #[test]
     fn press_origin_survives_motion_and_release_between_frames() {

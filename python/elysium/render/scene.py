@@ -96,6 +96,13 @@ def matrix(placement):
     return result
 
 
+def is_visible(placement):
+    """Retain authored visibility in the persisted placement properties."""
+    return bool(getattr(placement, "visible", True)) and not bool(
+        (getattr(placement, "props", None) or {}).get("hidden", False)
+    )
+
+
 def compose(placements, *, materials=False, polygon_normals=None, uv_status=None):
     """Flatten only for rendering; authored geometry/attributes stay independent."""
     verts, faces, face_objects, uvs, face_materials, mats = [], [], [], [], [], []
@@ -106,7 +113,7 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
     count = 0
     matrices = world_matrices(placements)
     for i, p in enumerate(placements):
-        if p.kind != "Mesh3D" or not getattr(p, "visible", True):
+        if p.kind != "Mesh3D" or not is_visible(p):
             continue
         mesh = mesh_edit.evaluate(p)
         if uv_status is not None:

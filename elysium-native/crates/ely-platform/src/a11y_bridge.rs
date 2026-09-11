@@ -118,12 +118,13 @@ impl A11yBridge {
         #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         if let Some(adapter) = self.adapter.as_mut() {
             let lock = self.state.tree.lock();
-            let mut update = build_tree_update(&lock);
+            let mut update = build_tree_update(&lock, self.state.scale_factor());
             if let Some(id) = *self.state.focused.lock() {
                 if update.nodes.iter().any(|(node_id, _)| node_id.0 == id.saturating_add(1)) {
                     update.focus = NodeId(id.saturating_add(1));
                 }
             }
+            drop(lock);
             #[cfg(target_os = "macos")]
             if let Some(events) = adapter.update_if_active(|| update) { events.raise(); }
             #[cfg(not(target_os = "macos"))]
@@ -133,11 +134,11 @@ impl A11yBridge {
 }
 
 /// Translate a framework `A11yTree` into an accesskit `TreeUpdate`.
-fn build_tree_update(tree: &A11yTree) -> TreeUpdate {
+fn build_tree_update(tree: &A11yTree, scale: f64) -> TreeUpdate {
     let mut nodes: Vec<(NodeId, Node)> = Vec::new();
     let root_id: NodeId = tree.root.as_ref().map(node_id_for).unwrap_or(NodeId(1));
     if let Some(root) = &tree.root {
-        push_node(&mut nodes, root);
+        push_node(&mut nodes, root, scale);
     } else {
         let b = NodeBuilder::new(Role::Window);
         nodes.push((root_id, b.build()));
@@ -150,7 +151,7 @@ fn build_tree_update(tree: &A11yTree) -> TreeUpdate {
     }
 }
 
-fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
+fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode, scale: f64) {
     let mut b = NodeBuilder::new(role_for(&n.role));
     if let Some(label) = &n.label {
         b.set_name(label.as_str());
@@ -169,10 +170,10 @@ fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
     if let Some(selected) = n.selected { b.set_selected(selected); }
     let (x, y, w, h) = n.bounds;
     b.set_bounds(Rect {
-        x0: x as f64,
-        y0: y as f64,
-        x1: (x + w) as f64,
-        y1: (y + h) as f64,
+        x0: x as f64 * scale,
+        y0: y as f64 * scale,
+        x1: (x + w) as f64 * scale,
+        y1: (y + h) as f64 * scale,
     });
     if !n.children.is_empty() {
         let kids: Vec<NodeId> = n.children.iter().map(node_id_for).collect();
@@ -190,7 +191,7 @@ fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
     }
     out.push((node_id_for(n), b.build()));
     for c in &n.children {
-        push_node(out, c);
+        push_node(out, c, scale);
     }
 }
 
@@ -275,18 +276,34 @@ mod tests {
     #[test]
     fn preserves_values_states_and_limits_actions_to_controls() {
         let mut out = vec![];
-        push_node(&mut out, &node("button", true));
+        push_node(&mut out, &node("button", true), 1.0);
         let n = &out[0].1;
         assert_eq!(n.value(), Some("12.5"));
         assert_eq!(n.is_selected(), Some(true));
         assert!(n.is_disabled() && n.is_read_only());
         assert!(!n.supports_action(Action::Default));
         out.clear();
-        push_node(&mut out, &node("label", false));
+        push_node(&mut out, &node("label", false), 1.0);
         assert!(!out[0].1.supports_action(Action::Default));
         out.clear();
-        push_node(&mut out, &node("textfield", false));
+        push_node(&mut out, &node("textfield", false), 1.0);
         assert!(out[0].1.supports_action(Action::Focus));
+    }
+
+    #[test]
+    fn scales_accesskit_bounds_without_changing_logical_hit_testing() {
+        use std::sync::atomic::Ordering;
+        let state = A11yState::new();
+        state.publish(A11yTree { root: Some(node("button", false)) }).unwrap();
+        for scale in [1.0, 1.5, 2.0] {
+            state.tree_dirty.store(false, Ordering::Release);
+            state.set_scale_factor(scale);
+            assert!(state.tree_dirty.load(Ordering::Acquire));
+            let update = build_tree_update(&state.tree.lock(), state.scale_factor());
+            assert_eq!(update.nodes[0].1.bounds(), Some(Rect::new(scale, 2.0*scale, 31.0*scale, 26.0*scale)));
+            assert_eq!(state.hit(30.0, 25.0).unwrap().id, 7);
+            assert!(state.hit(35.0, 25.0).is_none());
+        }
     }
 }
 
@@ -295,6 +312,6 @@ struct MacActivationHandler { state: Arc<A11yState> }
 #[cfg(target_os = "macos")]
 impl accesskit::ActivationHandler for MacActivationHandler {
     fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
-        Some(build_tree_update(&self.state.tree.lock()))
+        Some(build_tree_update(&self.state.tree.lock(), self.state.scale_factor()))
     }
 }

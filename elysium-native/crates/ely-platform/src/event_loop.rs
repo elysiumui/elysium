@@ -726,6 +726,9 @@ impl ApplicationHandler for AppHandler {
 
         match event {
             WindowEvent::Focused(focused) => {
+                if !focused {
+                    self.live[idx].handle.release_input_on_blur();
+                }
                 if let Some(bridge) = self.live[idx].a11y_bridge.as_mut() {
                     bridge.set_view_focus(focused);
                 }
