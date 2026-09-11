@@ -1,5 +1,6 @@
 """Application playback must pause flight and authored poses together."""
 
+import pytest
 from types import SimpleNamespace
 
 import elysium
@@ -23,7 +24,8 @@ def test_clock_uses_paused_application_time(monkeypatch):
     assert abs(tween.value - 0.3) < 1e-8
 
 
-def test_flight_cycles_wings_and_same_time_freezes_position_and_pose(monkeypatch, tmp_path):
+@pytest.mark.parametrize("loop", [True,False])
+def test_flight_cycles_wings_and_same_time_freezes_position_and_pose(monkeypatch, tmp_path, loop):
     from elysium._native import _native
 
     records, callbacks = [], []
@@ -56,7 +58,7 @@ def test_flight_cycles_wings_and_same_time_freezes_position_and_pose(monkeypatch
         deploy_count=73,
         path=tmp_path,
         skin=SimpleNamespace(name="Flight"),
-        data={"idle_frames": 60},
+        data={"idle_frames": 60, "loop":loop},
         frames=[{"src": str(i), "hit_path": ""} for i in range(133)],
     )
     monkeypatch.setattr(scene_player, "SceneAnimation", lambda _: asset)
@@ -70,7 +72,7 @@ def test_flight_cycles_wings_and_same_time_freezes_position_and_pose(monkeypatch
 
     monkeypatch.setattr(_native, "DisplayList", Display)
     scene_player.run(tmp_path)
-    assert [r[1] for r in records] == [0, 36, 73, 109, 36, 0, 0, 0, 36]
+    assert [r[1] for r in records] == ([0, 36, 73, 109, 36, 0, 0, 0, 36] if loop else [0,36,73,109,36,0,0,0,0])
     assert records[5] == records[6] == records[7]
     assert records[0][0] != records[1][0]
     assert records[7][0] != records[8][0]

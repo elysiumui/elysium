@@ -12,8 +12,11 @@ class SceneAnimation:
     def __init__(self, path):
         self.path = Path(path).resolve()
         self.data = json.loads((self.path / "scene-animation.json").read_text())
-        if self.data.get("schema_version") != 1 or self.data.get("fps") != 60:
+        fps = self.data.get('fps')
+        if self.data.get("schema_version") != 1 or isinstance(fps,bool) or not isinstance(fps,int) or not 1 <= fps <= 240:
             raise ValueError("Unsupported scene animation schema or fps")
+        from .render import scene_animation
+        scene_animation.settings({'fps':fps,'flight_seconds':self.data.get('flight_seconds',3.0),'loop':self.data.get('loop',True)})
         self.size = self.data["size"]
         self.scale = self.data["asset_scale"]
         self.frames = self.data["frames"]
@@ -74,6 +77,8 @@ def run(path):
     from elysium._native import _native as native
 
     asset = SceneAnimation(path)
+    fps = asset.data.get('fps',60)
+    flight_seconds = asset.data.get('flight_seconds',3.0)
     app = ely.App(title=asset.skin.name, identifier="dev.elysium.authored-scene")
     win = app.window(
         transparent=True, title_bar=False, resizable=False, initial_size=(asset.size, asset.size)
@@ -112,10 +117,11 @@ def run(path):
             state["position"] = (wx - size, wy + (wh - size) * 0.45)
         # Ping-pong the authored deployment poses continuously during flight.
         # A body click reverses direction without jumping to another pose.
-        duration = max((asset.deploy_count - 1) / 60, 0.001)
-        hold = asset.data["idle_frames"] / 60
+        duration = max((asset.deploy_count - 1) / fps, 0.001)
+        hold = asset.data["idle_frames"] / fps
         period = 2 * duration + hold
-        phase = (elapsed + state["wing_offset"]) % period
+        phase = ((elapsed + state["wing_offset"]) % period if asset.data.get('loop',True)
+                 else max(0.0,min(period,elapsed + state["wing_offset"])))
         if phase < duration:
             state["pose"] = phase / duration
         elif phase < duration + hold:
@@ -125,7 +131,7 @@ def run(path):
         index = round(state["pose"] * (asset.deploy_count - 1))
         if duration <= phase < duration + hold:
             index = asset.deploy_count + min(
-                asset.data["idle_frames"] - 1, int((phase - duration) * 60)
+                asset.data["idle_frames"] - 1, int((phase - duration) * fps)
             )
         cursor, press, held = win.cursor_position, win.press_count, win.mouse_pressed
         if press != state["last_press"]:
@@ -162,10 +168,10 @@ def run(path):
                         else state["pose"] * duration
                     )
                     state["wing_offset"] = reverse_phase - elapsed
-                state["flight_offset"] = state["position"][0] - (wx - size + elapsed / 3 * travel)
+                state["flight_offset"] = state["position"][0] - (wx - size + elapsed / flight_seconds * travel)
                 state["drag"] = None
         else:
-            x = wx - size + (elapsed / 3 * travel + state["flight_offset"]) % travel
+            x = wx - size + (elapsed / flight_seconds * travel + state["flight_offset"]) % travel
             y = state["position"][1]
             state["position"] = (x, y)
         win.set_outer_position(*(round(v) for v in state["position"]))

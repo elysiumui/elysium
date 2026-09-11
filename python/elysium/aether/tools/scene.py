@@ -1,6 +1,6 @@
 """Public model-space transforms; independent from canvas coordinates."""
 
-from ...render import scene
+from ...render import scene, scene_animation
 from ..types import SideEffect
 from . import register_tool
 
@@ -188,13 +188,15 @@ def taper_set(session, id, taper):
 
 @register_tool(
     name="scene.key_set",
-    description="Set or replace a persistent local-transform key at an integer frame (60 fps). Explicit transform values are optional; otherwise capture current pose.",
+    description="Set or replace a persistent local-transform key at an integer frame. Optional channels edit only those axes; otherwise capture the complete pose.",
     input_schema={
         "type": "object",
         "additionalProperties": False,
         "properties": {
             "id": {"type": "string"},
             "frame": {"type": "integer", "minimum": 0, "maximum": 360000},
+            "channels": {"type":"array","items":{"enum":list(scene_animation.CHANNELS)},"minItems":1,"uniqueItems":True},
+            "mode": {"enum":["LINEAR","CONSTANT"]},
             "transform": {
                 "type": "object",
                 "additionalProperties": False,
@@ -204,15 +206,15 @@ def taper_set(session, id, taper):
         "required": ["id", "frame"],
     },
 )
-def key_set(session, id, frame, transform=None):
+def key_set(session, id, frame, transform=None, channels=None, mode=None):
     from ...render import scene_animation
 
-    return scene_animation.set_key(session.lookup(id), frame, transform)
+    return scene_animation.set_key(session.lookup(id), frame, transform, channels=channels, mode=mode)
 
 
 @register_tool(
     name="scene.frame_set",
-    description="Seek the shared 3D scene to a frame at 60 fps. Evaluates keys and parented objects.",
+    description="Seek the shared 3D scene to an integer frame. Evaluates keys and parented objects.",
     input_schema={
         "type": "object",
         "additionalProperties": False,
@@ -574,3 +576,55 @@ def render_status(session):
 def render_cancel(session):
     from ...render import scene_render_job
     return {"job": scene_render_job.cancel(session.designer)}
+
+
+@register_tool(
+    name='scene.keys_get',
+    description='Read persistent local transform keys and channel interpolation without modifying the pose.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+    side_effect=SideEffect.READ,
+)
+def keys_get(session,id):
+    return {'keys':scene_animation.tracks(session.lookup(id))}
+
+
+@register_tool(
+    name='scene.key_edit',
+    description='Atomically move, duplicate, delete or change interpolation on selected key channels. Occupied destination channels are rejected.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},'source_frame':{'type':'integer','minimum':0,'maximum':360000},
+        'channels':{'type':'array','items':{'enum':list(scene_animation.CHANNELS)},'minItems':1,'uniqueItems':True},
+        'target_frame':{'type':'integer','minimum':0,'maximum':360000},
+        'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},'mode':{'enum':['LINEAR','CONSTANT']},
+    },'required':['id','source_frame','channels']},
+)
+def key_edit(session,id,source_frame,channels,target_frame=None,duplicate=False,delete=False,mode=None):
+    return {'keys':scene_animation.edit_key(session.lookup(id),source_frame,channels=channels,target_frame=target_frame,duplicate=duplicate,delete=delete,mode=mode)}
+
+
+@register_tool(
+    name='scene.timeline_get',
+    description='Read saved model playback range, FPS, loop and desktop-flight duration.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{}},
+    side_effect=SideEffect.READ,
+)
+def timeline_get(session):
+    return scene_animation.settings(getattr(session.designer.window_doc,'scene_timeline',None))
+
+
+@register_tool(
+    name='scene.timeline_set',
+    description='Set persistent model range, frame rate, looping and desktop flight duration; these are separate from object transform keys.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'settings':{'type':'object','additionalProperties':False,'properties':{
+            'start':{'type':'integer','minimum':0,'maximum':360000},
+            'end':{'type':'integer','minimum':0,'maximum':360000},
+            'fps':{'type':'integer','minimum':1,'maximum':240},
+            'loop':{'type':'boolean'},'flight_seconds':{'type':'number','minimum':.1,'maximum':3600},
+        }},
+    },'required':['settings']},
+)
+def timeline_set(session,settings):
+    data=scene_animation.settings({**timeline_get(session),**settings})
+    session.designer.window_doc.scene_timeline=data
+    return data

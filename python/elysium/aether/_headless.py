@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import scene_identity
-from ..render import mesh_document, scene, scene_lighting
+from ..render import mesh_document, scene, scene_lighting, scene_animation
 
 
 # Mirror the Designer's Placement + AnimState shapes — the tools import
@@ -183,6 +183,7 @@ class AppWindow:
     scene_shading: str = "solid"
     scene_camera: dict = field(default_factory=scene.camera)
     scene_frame: int = 0
+    scene_timeline: dict = field(default_factory=scene_animation.settings)
     scene_lighting: dict = field(default_factory=scene_lighting.settings)
 
     def to_json(self) -> dict:
@@ -196,6 +197,7 @@ class AppWindow:
         obj.scene_camera = scene.camera(obj.scene_camera)
         obj.scene_shading = scene.shading_mode(obj.scene_shading)
         obj.scene_lighting = scene_lighting.settings(obj.scene_lighting)
+        obj.scene_timeline = scene_animation.settings(obj.scene_timeline)
         return obj
 
 

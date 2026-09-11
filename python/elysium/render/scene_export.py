@@ -50,13 +50,20 @@ def export_bundle(
     idle_frames=60,
     close_object="Dome",
     progress=None,
+    start_frame=0,
+    fps=None,
+    flight_seconds=None,
 ):
+    playback = scene_animation.settings(getattr(window, 'scene_timeline', None))
+    playback = scene_animation.settings({**playback,
+        'fps': playback['fps'] if fps is None else fps,
+        'flight_seconds': playback['flight_seconds'] if flight_seconds is None else flight_seconds})
     if isinstance(size, bool) or not isinstance(size, int) or not 64 <= size <= 1024:
         raise ValueError("Export size must be 64–1024 logical pixels")
     if scale not in (1, 2):
         raise ValueError("Export scale must be 1 or 2")
-    if not isinstance(end_frame, int) or not 0 <= end_frame <= 3600:
-        raise ValueError("End frame must be 0–3600")
+    if any(isinstance(f,bool) or not isinstance(f,int) for f in (start_frame,end_frame)) or not 0 <= start_frame <= end_frame <= 360000 or end_frame-start_frame > 3600:
+        raise ValueError("Export range must be ordered within 0–360000 and contain at most 3601 frames")
     if not isinstance(idle_frames, int) or not 0 <= idle_frames <= 600:
         raise ValueError("Idle frame count must be 0–600")
     destination = Path(destination).resolve()
@@ -103,10 +110,10 @@ def export_bundle(
                     # Keep an absolute staging path while rendering; rewrite for persistence below.
                     setattr(p, field, str(assets / name))
         entries = []
-        total = end_frame + 1 + idle_frames
+        total = end_frame - start_frame + 1 + idle_frames
         pixels = size * scale
         for index in range(total):
-            frame = min(index, end_frame)
+            frame = start_frame + min(index, end_frame-start_frame)
             posed = scene_animation.pose(placements, frame)
             rgba, ids = scene.render(
                 posed, pixels, pixels, **camera, shading="material", grid=False,
@@ -165,10 +172,13 @@ def export_bundle(
         }
         animation = {
             "schema_version": 1,
-            "fps": 60,
+            "fps": playback['fps'],
+            "flight_seconds": playback['flight_seconds'],
+            "loop": playback['loop'],
+            "source_start": start_frame,
             "size": size,
             "asset_scale": scale,
-            "deploy_frames": end_frame + 1,
+            "deploy_frames": end_frame - start_frame + 1,
             "idle_frames": idle_frames,
             "close_object": close_object,
             "camera": camera,
@@ -206,7 +216,7 @@ def export_bundle(
         return {
             "path": str(destination),
             "frames": total,
-            "fps": 60,
+            "fps": playback['fps'],
             "size": size,
             "asset_scale": scale,
         }
