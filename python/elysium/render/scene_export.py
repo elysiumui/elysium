@@ -225,7 +225,7 @@ def export_bundle(
         raise
 
 
-def package_app(bundle, destination, *, name=None):
+def package_app(bundle, destination, *, name=None, cancel=None, progress=None):
     """Package an exported scene with Python and Elysium; no Designer dependency.
 
     PyInstaller is the optional, standard build dependency. The returned macOS
@@ -248,7 +248,8 @@ def package_app(bundle, destination, *, name=None):
     if app_path.exists():
         raise FileExistsError(f"Application already exists: {app_path}")
     destination.mkdir(parents=True, exist_ok=True)
-    work = Path(tempfile.mkdtemp(prefix="elysium-app-build-"))
+    work = Path(tempfile.mkdtemp(prefix=".elysium-app-build-", dir=destination))
+    staging = work / "dist"
     launcher = work / "main.py"
     launcher.write_text(
         'from pathlib import Path\nfrom elysium.scene_player import run\n\nif __name__ == "__main__":\n    run(Path(__file__).resolve().parent / "scene")\n'
@@ -263,7 +264,7 @@ def package_app(bundle, destination, *, name=None):
         "--name",
         name,
         "--distpath",
-        str(destination),
+        str(staging),
         "--workpath",
         str(work / "work"),
         "--specpath",
@@ -277,13 +278,42 @@ def package_app(bundle, destination, *, name=None):
             "dev.elysium.scene." + hashlib.sha256(name.encode()).hexdigest()[:12],
         ]
     args.append(str(launcher))
-    log_path = destination / (name + "-build.log")
-    with log_path.open("w") as log:
-        build_env = os.environ.copy()
-        build_env.pop("PYTHONPATH", None)
-        result = subprocess.run(
-            args, stdout=log, stderr=subprocess.STDOUT, env=build_env, check=False
-        )
-    if result.returncode:
-        raise RuntimeError(f"Application packaging failed; details: {log_path}")
-    return {"path": str(app_path), "log": str(log_path)}
+    log_path = destination / (name + "-build-" + work.name.rsplit("-",1)[-1] + ".log")
+    try:
+        if cancel and cancel():
+            raise InterruptedError("Application build cancelled")
+        with log_path.open("x") as log:
+            build_env = os.environ.copy()
+            build_env.pop("PYTHONPATH", None)
+            process = subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, env=build_env)
+            try:
+                import time
+                if progress: progress(str(log_path))
+                while process.poll() is None:
+                    if cancel and cancel():
+                        process.terminate()
+                        try: process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill(); process.wait()
+                        raise InterruptedError("Application build cancelled")
+                    if progress: progress(str(log_path))
+                    time.sleep(0.1)
+                if process.returncode:
+                    raise RuntimeError(f"Application packaging failed; details: {log_path}")
+                if cancel and cancel():
+                    raise InterruptedError("Application build cancelled")
+                # Publish only a completed app. Cancellation/failure leaves no
+                # partial application that could be mistaken for a success.
+                ready = staging / app_path.name
+                if app_path.exists():
+                    raise FileExistsError(f"Application already exists: {app_path}")
+                os.rename(ready, app_path)
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try: process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill(); process.wait()
+        return {"path": str(app_path), "log": str(log_path)}
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
