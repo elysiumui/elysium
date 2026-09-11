@@ -165,7 +165,7 @@ def test_multiple_owned_channels_preserve_each_other_and_invalidate_preview(tmp_
     for channel in mesh_materials.IMAGE_CHANNELS:
         mesh_materials.set_image(p,slot,str(path),channel)
         keys.append(mesh_materials.preview_key(p))
-    assert len(set(keys))==3
+    assert len(set(keys))==4
     before=mesh_materials.table(p)['slots'][-1]
     mesh_materials.set_image(p,slot,'','roughness')
     after=mesh_materials.table(p)['slots'][-1]

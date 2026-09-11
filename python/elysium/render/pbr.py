@@ -54,6 +54,7 @@ class Material:
     albedo_sampling: str = "legacy"
     # Owned scalar maps: linear red-channel data, Closest / Repeat.
     data_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    normal_sampling: str = "legacy"
 
 
 def material_with_albedo(path) -> Material:
@@ -825,6 +826,41 @@ def _shading_normals(obj: MeshObject, face_indices: np.ndarray,
     return np.divide(interpolated, lengths, out=fallback.copy(), where=lengths > 1e-12)
 
 
+def _mapped_normals(obj, mat, face_indices, uvs, normals, verts_w):
+    """Apply linear RGB tangent-space normals using each triangle's UV derivatives.
+
+    Degenerate/unmapped UVs keep the original shading normal. Tangents are
+    orthogonalized to interpolated authored normals and retain UV handedness.
+    """
+    if mat.normal_map is None or uvs is None or obj.mesh.vert_uvs is None:
+        return normals
+    triangles = obj.mesh.faces[face_indices]
+    positions = verts_w[triangles]
+    coords = obj.mesh.vert_uvs[triangles]
+    e1, e2 = positions[:, 1] - positions[:, 0], positions[:, 2] - positions[:, 0]
+    d1, d2 = coords[:, 1] - coords[:, 0], coords[:, 2] - coords[:, 0]
+    determinant = d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]
+    valid = np.isfinite(determinant) & (np.abs(determinant) > 1e-12)
+    divisor = np.where(valid, determinant, 1)[:, None]
+    tangent = (e1 * d2[:, 1, None] - e2 * d1[:, 1, None]) / divisor
+    bitangent = (e2 * d1[:, 0, None] - e1 * d2[:, 0, None]) / divisor
+    tangent -= normals * np.sum(tangent * normals, axis=1, keepdims=True)
+    lengths = np.linalg.norm(tangent, axis=1, keepdims=True)
+    valid &= np.isfinite(lengths[:, 0]) & (lengths[:, 0] > 1e-12)
+    tangent = tangent / np.maximum(lengths, 1e-12)
+    cross = np.cross(normals, tangent)
+    handedness = np.where(np.sum(cross * bitangent, axis=1) < 0, -1, 1)
+    bitangent = cross * handedness[:, None]
+    uv = uvs * np.asarray(mat.uv_scale) + np.asarray(mat.uv_offset)
+    tex = _sample_texture(mat.normal_map, uv, closest_repeat=mat.normal_sampling == "closest_repeat")
+    direction = tex[:, :3].astype(np.float32) / 255.0 * 2 - 1
+    mapped = (tangent * direction[:, 0, None] + bitangent * direction[:, 1, None]
+              + normals * direction[:, 2, None])
+    lengths = np.linalg.norm(mapped, axis=1, keepdims=True)
+    valid &= np.isfinite(mapped).all(axis=1) & (lengths[:, 0] > 1e-12)
+    return np.divide(mapped, lengths, out=normals.copy(), where=valid[:, None])
+
+
 # --- Möller–Trumbore ray–triangle (vectorised over triangles) ------------
 
 def _intersect_rays_mesh_brute(ray_o: np.ndarray, ray_d: np.ndarray,
@@ -1008,10 +1044,7 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     if hit_mask.any():
         fidx = face_idx[hit_mask]
         N = _shading_normals(obj, fidx, bary_u[hit_mask], bary_v[hit_mask], face_normals[fidx])
-        # Flip normals if back-facing (front-facing only).
         V = -rd_flat[hit_mask]
-        n_dot_v = np.sum(N * V, axis=-1, keepdims=True)
-        N = np.where(n_dot_v < 0, -N, N)
 
         # Material per-face.
         if obj.mesh.face_mats is not None:
@@ -1043,7 +1076,11 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
             # Sample texture maps at the hit UVs (where available).
             tex_override = _sample_material_textures(
                 mat, uvs_hit[mask] if uvs_hit is not None else None)
-            Nm, Vm = N[mask], V[mask]
+            Nm = _mapped_normals(obj, mat, fidx[mask],
+                                 uvs_hit[mask] if uvs_hit is not None else None,
+                                 N[mask], verts_w)
+            Vm = V[mask]
+            Nm = np.where(np.sum(Nm * Vm, axis=1, keepdims=True) < 0, -Nm, Nm)
             dk = _shade_pixels(Nm, Vm,
                                np.broadcast_to(L_key, Nm.shape),
                                np.array(env.sun_color, dtype=np.float32) * 0.5,
@@ -2076,10 +2113,8 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
 
             hit_global = alive_idx[hit]
             fi = fidx[hit]
-            N = face_normals[fi]
+            N = _shading_normals(obj, fi, bu[hit], bv[hit], face_normals[fi])
             V = -rd_a[hit]
-            nv = np.sum(N * V, axis=-1, keepdims=True)
-            N = np.where(nv < 0, -N, N)
             hit_p = ro[hit] + rd_a[hit] * t_min[hit][:, None]
 
             # Material lookup (per-face).
@@ -2103,6 +2138,9 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
             for m in np.unique(mat_idx):
                 mask = mat_idx == m
                 mat = obj.materials[m] if m < len(obj.materials) else obj.materials[0]
+                N[mask] = _mapped_normals(obj, mat, fi[mask],
+                                          uvs_hit[mask] if uvs_hit is not None else None,
+                                          N[mask], verts_w)
                 ov = _sample_material_textures(
                     mat, uvs_hit[mask] if uvs_hit is not None else None)
                 b_arr = _resolve("base_color", np.array(mat.base_color, dtype=np.float32), ov)
@@ -2122,6 +2160,8 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
                     emiss[mask] = e_v[None, :]
                 else:
                     emiss[mask] = e_v
+
+            N = np.where(np.sum(N * V, axis=1, keepdims=True) < 0, -N, N)
 
             # Emission contributes once per path step.
             radiance[hit_global] += throughput[hit_global] * emiss

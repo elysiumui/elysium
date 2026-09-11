@@ -17,7 +17,7 @@ DEFAULTS = {
     "emissive": [0.0, 0.0, 0.0],
 }
 MAX_SLOTS = 64
-IMAGE_CHANNELS = {"base_color": "albedo_image", "roughness": "roughness_image", "metallic": "metallic_image"}
+IMAGE_CHANNELS = {"base_color": "albedo_image", "roughness": "roughness_image", "metallic": "metallic_image", "normal": "normal_image"}
 
 
 def parameters(values):
@@ -168,6 +168,9 @@ def render_materials(p, mesh):
         if "albedo_image" in slot:
             surface.albedo_map = material_image.pixels(slot["albedo_image"])
             surface.albedo_sampling = "closest_repeat"
+        if "normal_image" in slot:
+            surface.normal_map = material_image.pixels(slot["normal_image"])
+            surface.normal_sampling = "closest_repeat"
         for channel in ("roughness", "metallic"):
             key = IMAGE_CHANNELS[channel]
             if key in slot:
@@ -294,7 +297,7 @@ def preview_key(p):
 def set_image(p, slot_id, path, channel="base_color"):
     """Own a decoded image in the project; empty path clears this slot's override."""
     if not isinstance(channel, str) or channel not in IMAGE_CHANNELS:
-        raise ValueError("Choose base_color, roughness or metallic image channel")
+        raise ValueError("Choose base_color, roughness, metallic or normal image channel")
     key = IMAGE_CHANNELS[channel]
     slots = table(p)
     _, slot = _slot(slots, slot_id)
