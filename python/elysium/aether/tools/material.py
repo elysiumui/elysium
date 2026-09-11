@@ -118,7 +118,7 @@ def material_set_part_texture(session, id: str, part: str, path: str) -> dict:
                 "texture slots (albedo / metallic_rough / normal / ao / "
                 "emissive), all per-part textures, the texture-layer "
                 "stack, the painted PaintMask, and resets PBR knobs to "
-                "neutral. Use to revert before restarting a texturing "
+                "neutral. Removes authored material slots and their owned images. Use to revert before restarting a texturing "
                 "workflow from scratch.",
     input_schema={"type": "object",
                    "properties": {"id": {"type": "string"}},
@@ -129,6 +129,9 @@ def material_clear(session, id: str) -> dict:
     p = session.lookup(id)
     designer = session.designer
     cleared: list = []
+    if "materials3d" in getattr(p, "props", {}):
+        p.props.pop("materials3d")
+        cleared.append("materials3d")
     # PBR texture slots: empty path = no binding.
     for slot in ("albedo", "metallic_rough", "normal", "ao", "emissive"):
         field = "pbr_" + slot + "_map"
@@ -234,3 +237,9 @@ def faces_assign(session, id, slot_id, face_ids):
 def slot_remove(session, id, slot_id):
     from ...render import mesh_materials
     return mesh_materials.remove(session.lookup(id), slot_id)
+
+
+@register_tool(name="material.slot_image_set", description="Import a single PNG/JPEG (at most 2048x2048, 16 MiB) as this material slot's owned base-color image. Stored in the editable project and native export; sRGB color, closest sampling, repeat UVs, opaque surface. Multiplies the slot base color. Empty path clears the image override. Other surfaces and source attributes remain unchanged.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"path":{"type":"string"}},"required":["id","slot_id","path"]})
+def slot_image_set(session, id, slot_id, path):
+    from ...render import mesh_materials
+    return mesh_materials.set_image(session.lookup(id), slot_id, path)

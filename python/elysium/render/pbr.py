@@ -51,6 +51,7 @@ class Material:
     # UV tiling on the maps (the mesh's own UVs are pre-multiplied by this).
     uv_scale: Tuple[float, float] = (1.0, 1.0)
     uv_offset: Tuple[float, float] = (0.0, 0.0)
+    albedo_sampling: str = "legacy"
 
 
 def material_with_albedo(path) -> Material:
@@ -83,7 +84,7 @@ def _load_texture(src) -> np.ndarray | None:
     return arr
 
 
-def _sample_texture(tex, uv: np.ndarray) -> np.ndarray:
+def _sample_texture(tex, uv: np.ndarray, *, closest_repeat=False) -> np.ndarray:
     """Bilinear-ish (nearest for speed) wrap-mode lookup. `uv` is (..., 2)
     float32 in [0, 1] tile-space (already scaled/offset). Returns (..., 4)
     uint8. ``tex`` may be a numpy array or a path — strings are loaded
@@ -94,6 +95,10 @@ def _sample_texture(tex, uv: np.ndarray) -> np.ndarray:
             return np.zeros(uv.shape[:-1] + (4,), dtype=np.uint8)
         tex = loaded
     H, W = tex.shape[:2]
+    if closest_repeat:
+        u = np.minimum((np.mod(uv[..., 0], 1.0) * W).astype(np.int32), W - 1)
+        v = H - 1 - np.minimum((np.mod(uv[..., 1], 1.0) * H).astype(np.int32), H - 1)
+        return tex[v, u]
     u = (np.mod(uv[..., 0], 1.0) * (W - 1)).astype(np.int32)
     v = (np.mod(1.0 - uv[..., 1], 1.0) * (H - 1)).astype(np.int32)
     return tex[v, u]
@@ -331,7 +336,7 @@ def _sample_material_textures(mat: Material, uvs: np.ndarray | None) -> dict:
     out: dict = {}
     uv = uvs * np.array(mat.uv_scale, dtype=np.float32) + np.array(mat.uv_offset, dtype=np.float32)
     if mat.albedo_map is not None:
-        tex = _sample_texture(mat.albedo_map, uv)
+        tex = _sample_texture(mat.albedo_map, uv, closest_repeat=mat.albedo_sampling == "closest_repeat")
         # Albedo textures are stored sRGB-encoded (standard PNG convention).
         # Linearise before PBR math — otherwise we apply the gamma curve
         # twice (once on read, once in _linear_to_srgb at output), which

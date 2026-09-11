@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import numpy as np
 
-from . import mesh_document, mesh_edit, pbr, topology
+from . import material_image, mesh_document, mesh_edit, pbr, topology
 
 DEFAULTS = {
     "base_color": [0.55, 0.55, 0.55],
@@ -64,8 +64,14 @@ def _validate(table):
         raise ValueError("Invalid material slot table")
     seen = set()
     for slot in table["slots"]:
-        if not isinstance(slot, dict) or set(slot) != {"id", "name", "parameters"}:
+        if (
+            not isinstance(slot, dict)
+            or set(slot) - {"id", "name", "parameters", "albedo_image"}
+            or not {"id", "name", "parameters"} <= set(slot)
+        ):
             raise ValueError("Invalid material slot fields")
+        if "albedo_image" in slot:
+            material_image.pixels(slot["albedo_image"])
         identity = slot["id"]
         if (
             not isinstance(identity, str)
@@ -150,6 +156,10 @@ def render_materials(p, mesh):
         else pbr.Material(**parameters(s["parameters"]))
         for s in slots
     ]
+    for slot, surface in zip(slots, materials):
+        if "albedo_image" in slot:
+            surface.albedo_map = material_image.pixels(slot["albedo_image"])
+            surface.albedo_sampling = "closest_repeat"
     return materials, indices
 
 
@@ -262,8 +272,33 @@ def preview_key(p):
     if "materials3d" not in getattr(p, "props", {}):
         return None
     return (
-        json.dumps(p.props["materials3d"], sort_keys=True),
+        json.dumps(signature(p), sort_keys=True),
         repr(scene.material(p)),
         repr(p.props.get("modifiers3d")),
         repr(p.props.get("taper3d")),
     )
+
+
+def set_image(p, slot_id, path):
+    """Own a decoded image in the project; empty path clears this slot's override."""
+    slots = table(p)
+    _, slot = _slot(slots, slot_id)
+    if not isinstance(path, str):
+        raise ValueError("Material image path must be text")  # noqa: TRY004
+    if path.strip():
+        slot["albedo_image"] = material_image.import_image(path)
+    else:
+        slot.pop("albedo_image", None)
+    return _publish(p, slots)
+
+
+def signature(p):
+    """Avoid serializing embedded image bytes on every viewport frame."""
+    value = deepcopy(getattr(p, "props", {}).get("materials3d"))
+    if isinstance(value, dict) and isinstance(value.get("slots"), list):
+        for slot in value["slots"]:
+            if isinstance(slot, dict) and isinstance(slot.get("albedo_image"), dict):
+                image = slot["albedo_image"]
+                if isinstance(image.get("png_base64"), str):
+                    image["png_base64"] = hash(image["png_base64"])
+    return value

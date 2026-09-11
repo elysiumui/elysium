@@ -2,7 +2,7 @@
 
 A Mesh3D object can retain a version-1 `props.materials3d` table: `schema_version`, monotonic `next_id`, and 1–64 ordered slots. Each slot has a stable `m<number>` id, a 1–100-character name, and `parameters`. Source faces retain integer material indices; the public inspection maps them back to stable slot ids. Slot removal reindexes integer indices without changing surviving stable assignments. Material ids are local to the object; shared material datablocks and node graphs remain separate work.
 
-Null parameters retain the live existing object material, including its textures. An object with no authored table renders exactly as before. On first authoring, existing source indices receive inherited object-material slots so adding a slot does not change existing faces. Creating explicit parameters on an inherited slot replaces that slot's object binding; other slots remain unchanged. This initial explicit surface supports linear RGB base color, metallic, roughness, specular, coat weight, coat roughness, and linear RGB emission. Surface/base values are 0–1; emission components are 0–64. All numbers must be finite and not boolean. Unknown fields reject. Image maps, transmission and graph inputs on explicit slots are not yet supported.
+Null parameters retain the live existing object material, including its textures. An object with no authored table renders exactly as before. On first authoring, existing source indices receive inherited object-material slots so adding a slot does not change existing faces. Creating explicit parameters on an inherited slot replaces that slot's object binding; other slots remain unchanged. This initial explicit surface supports linear RGB base color, metallic, roughness, specular, coat weight, coat roughness, and linear RGB emission. Surface/base values are 0–1; emission components are 0–64. All numbers must be finite and not boolean. Unknown fields reject. Owned base-color images are now supported as specified in the companion material-image specification; transmission and graph inputs remain open.
 
 Public operations:
 
@@ -32,7 +32,7 @@ Actual native GUI Export App was also exercised on the independently API-authore
 
 480 relevant framework tests and 263 Designer tests pass; the wheel builds and installs. Tests include actual rendered pixels, multi-object slot offsets, unused-slot removal/reindexing, stable ids, modifier propagation, atomic failure, native control actions, Undo/Redo and persistence. Evidence is archived in Designer plan `evidence/material-slots-20260910/`.
 
-Full material graphs, textures on explicit slots, shared datablocks, lighting/transmission, color-management/image parity, broader GUI variants and complete S4 acceptance remain open. The accepted X-wing is unchanged.
+Full material graphs, additional texture channels on explicit slots, shared datablocks, lighting/transmission, color-management/image parity, broader GUI variants and complete S4 acceptance remain open. The accepted X-wing is unchanged.
 
 ## Layout and snapshot follow-up
 
