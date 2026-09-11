@@ -243,3 +243,45 @@ def slot_remove(session, id, slot_id):
 def slot_image_set(session, id, slot_id, path):
     from ...render import mesh_materials
     return mesh_materials.set_image(session.lookup(id), slot_id, path)
+
+
+_GRAPH_TARGET = {"id":{"type":"string"},"slot_id":{"type":"string"}}
+_GRAPH_NODE = {**_GRAPH_TARGET,"node_id":{"type":"string"}}
+
+def _graph_change(session,id,slot_id,operation,*args,**kwargs):
+    from ...render import material_graph,mesh_materials
+    p=session.lookup(id)
+    graph=mesh_materials.graph_read(p,slot_id)['graph']
+    graph=getattr(material_graph,operation)(graph,*args,**kwargs)
+    node_id=None
+    if isinstance(graph,tuple):graph,node_id=graph
+    mesh_materials.graph_set(p,slot_id,graph)
+    result=mesh_materials.graph_read(p,slot_id)
+    if node_id:result['node_id']=node_id
+    return result
+
+
+@register_tool(name="material.color_graph_get",description="Read the retained color graph and evaluated linear RGB output for a material slot. Null output keeps surface fields.",input_schema={"type":"object","additionalProperties":False,"properties":_GRAPH_TARGET,"required":["id","slot_id"]},side_effect=SideEffect.READ,undoable=False)
+def color_graph_get(session,id,slot_id):
+    from ...render import mesh_materials
+    return mesh_materials.graph_read(session.lookup(id),slot_id)
+
+
+@register_tool(name="material.color_node_add",description="Add a persistent Color, Value, Add, Multiply or Mix node (maximum 64). Values must be from 0 to 1; computed results are clamped to that range. Missing A/B inputs default to zero/one. New nodes do not change the surface until an output is chosen.",input_schema={"type":"object","additionalProperties":False,"properties":{**_GRAPH_TARGET,"kind":{"enum":["Color","Value","Add","Multiply","Mix"]}},"required":["id","slot_id","kind"]})
+def color_node_add(session,id,slot_id,kind):
+    return _graph_change(session,id,slot_id,'add',kind)
+
+
+@register_tool(name="material.color_node_update",description="Edit a color node's name/value or replace its input links. Color value is linear RGB; Value and Mix factor are scalars from 0 to 1. Inputs map a/b to current node IDs. Missing nodes, cycles, invalid kinds and values reject atomically, including disconnected nodes.",input_schema={"type":"object","additionalProperties":False,"properties":{**_GRAPH_NODE,"name":{"type":"string"},"value":{"anyOf":[{"type":"number"},{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3}]},"inputs":{"type":"object","additionalProperties":False,"properties":{"a":{"type":"string"},"b":{"type":"string"}}}},"required":["id","slot_id","node_id"]})
+def color_node_update(session,id,slot_id,node_id,name=None,value=None,inputs=None):
+    return _graph_change(session,id,slot_id,'update',node_id,name=name,value=value,inputs=inputs)
+
+
+@register_tool(name="material.color_output_set",description="Use a node's evaluated linear RGB as this slot's base color, before its image multiplier. A Value output broadcasts to RGB. Null node_id clears the graph output and restores surface fields.",input_schema={"type":"object","additionalProperties":False,"properties":{**_GRAPH_TARGET,"node_id":{"type":["string","null"]}},"required":["id","slot_id","node_id"]})
+def color_output_set(session,id,slot_id,node_id):
+    return _graph_change(session,id,slot_id,'output',node_id)
+
+
+@register_tool(name="material.color_node_remove",description="Remove a node and its referencing links. Missing inputs revert to zero/one; removing the output restores surface fields. Other source geometry and material data stay unchanged.",input_schema={"type":"object","additionalProperties":False,"properties":_GRAPH_NODE,"required":["id","slot_id","node_id"]})
+def color_node_remove(session,id,slot_id,node_id):
+    return _graph_change(session,id,slot_id,'remove',node_id)

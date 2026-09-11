@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import numpy as np
 
-from . import material_image, mesh_document, mesh_edit, pbr, topology
+from . import material_graph, material_image, mesh_document, mesh_edit, pbr, topology
 
 DEFAULTS = {
     "base_color": [0.55, 0.55, 0.55],
@@ -66,10 +66,12 @@ def _validate(table):
     for slot in table["slots"]:
         if (
             not isinstance(slot, dict)
-            or set(slot) - {"id", "name", "parameters", "albedo_image"}
+            or set(slot) - {"id", "name", "parameters", "albedo_image", "color_graph"}
             or not {"id", "name", "parameters"} <= set(slot)
         ):
             raise ValueError("Invalid material slot fields")
+        if "color_graph" in slot:
+            material_graph.evaluate(slot["color_graph"])
         if "albedo_image" in slot:
             material_image.pixels(slot["albedo_image"])
         identity = slot["id"]
@@ -157,6 +159,10 @@ def render_materials(p, mesh):
         for s in slots
     ]
     for slot, surface in zip(slots, materials):
+        if "color_graph" in slot:
+            color = material_graph.evaluate(slot["color_graph"])
+            if color is not None:
+                surface.base_color = tuple(color)
         if "albedo_image" in slot:
             surface.albedo_map = material_image.pixels(slot["albedo_image"])
             surface.albedo_sampling = "closest_repeat"
@@ -302,3 +308,18 @@ def signature(p):
                 if isinstance(image.get("png_base64"), str):
                     image["png_base64"] = hash(image["png_base64"])
     return value
+
+
+def graph_read(p, slot_id):
+    slots = table(p)
+    _, slot = _slot(slots, slot_id)
+    graph = deepcopy(slot.get("color_graph", material_graph.empty()))
+    return {"graph": graph, "base_color": material_graph.evaluate(graph)}
+
+
+def graph_set(p, slot_id, graph):
+    material_graph.evaluate(graph)
+    slots = table(p)
+    _, slot = _slot(slots, slot_id)
+    slot["color_graph"] = deepcopy(graph)
+    return _publish(p, slots)
