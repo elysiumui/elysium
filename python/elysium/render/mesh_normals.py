@@ -1,4 +1,4 @@
-"""Retained whole-mesh normal policy and source sharp-edge authoring."""
+"""Retained mesh/face normal policies and source sharp-edge authoring."""
 
 import math
 from copy import deepcopy
@@ -41,8 +41,7 @@ def corner_normals(doc, weighted=None):
             weights[cid] = math.acos(float(np.clip(cosine, -1, 1)))
             pair = tuple(sorted((vertex, nxt["vertex"])))
             edge_faces.setdefault(pair, []).append((fi, vertex, nxt["vertex"], cid, nxt["id"]))
-    if policy["mode"] == "flat":
-        return {c["id"]: normals[i].tolist() for i, f in enumerate(faces) for c in f["corners"]}
+    smooth = [f.get("smooth", policy["mode"] == "smooth") for f in faces]
 
     def find(cid):
         while parent[cid] != cid:
@@ -57,12 +56,14 @@ def corner_normals(doc, weighted=None):
         if len(adjacent) != 2 or (policy["respect_sharp"] and pair in sharp):
             continue
         a, b = adjacent
+        if not (smooth[a[0]] and smooth[b[0]]):
+            continue
         if a[1:3] != b[1:3][::-1] or np.dot(normals[a[0]], normals[b[0]]) < threshold - 1e-12:
             continue
         for ca, cb in ((a[3], b[4]), (a[4], b[3])):
             parent[find(ca)] = find(cb)
     if weighted is not None:
-        return _weighted_corners(faces, points, normals, weights, find, weighted)
+        return _weighted_corners(faces, points, normals, weights, find, weighted, smooth)
     sums = {}
     for fi, face in enumerate(faces):
         for c in face["corners"]:
@@ -77,10 +78,13 @@ def corner_normals(doc, weighted=None):
     return result
 
 
-def _weighted_corners(faces, points, normals, angles, find, settings):
+def _weighted_corners(faces, points, normals, angles, find, settings, smooth):
     """Descending value bands and exponential bias, matching Blender's modifier."""
-    groups = {}
+    groups, result = {}, {}
     for fi, face in enumerate(faces):
+        if not smooth[fi]:
+            result.update({c["id"]: normals[fi].tolist() for c in face["corners"]})
+            continue
         corners = face["corners"]
         coords = np.asarray([points[c["vertex"]] for c in corners])
         area = np.linalg.norm(np.cross(coords, np.roll(coords, -1, axis=0)).sum(axis=0)) / 2
@@ -97,7 +101,6 @@ def _weighted_corners(faces, points, normals, angles, find, settings):
         bias = 1 / 32767.0
     elif (bias - 1) * 25 > 1:
         bias = (bias - 1) * 25
-    result = {}
     for items in groups.values():
         items.sort(key=lambda item: -item[0])
         band, previous, contributions = 0, 0.0, []
@@ -138,7 +141,7 @@ def weighted_mesh(mesh, settings):
             for c in f["corners"]
         )
         policy = {"mode": "flat" if flat else "smooth", "angle": 180.0, "respect_sharp": True}
-    if policy["mode"] == "flat":
+    if not any(f.get("smooth", policy["mode"] == "smooth") for f in doc["faces"]):
         return mesh
     doc["shading"] = policy
     normals = corner_normals(doc, weighted=settings)
@@ -163,6 +166,7 @@ def read(placement):
             doc.get("shading", {"mode": "authored", "angle": 180.0, "respect_sharp": True})
         ),
         "sharp_edge_ids": [e["id"] for e in doc["edges"] if e["sharp"]],
+        "face_smooth_overrides": {f["id"]: f["smooth"] for f in doc["faces"] if "smooth" in f},
         "render_vertex_ids": ids,
         "triangles": mesh.faces.tolist(),
         "triangle_face_ids": face_ids,
@@ -186,6 +190,26 @@ def set_policy(placement, mode, *, angle=180.0, respect_sharp=True):
     else:
         doc["schema_version"] = max(4, doc["schema_version"])
         doc["shading"] = policy
+    for face in doc["faces"]:
+        face.pop("smooth", None)
+    return _publish(placement, doc)
+
+
+def set_faces_smooth(placement, face_ids, smooth=True):
+    """Override selected computed face shading; authored custom normals stay explicit."""
+    if type(smooth) is not bool:
+        raise ValueError("Face smooth value must be boolean")
+    doc = _source(placement)
+    if "shading" not in doc:
+        raise ValueError("Choose whole-mesh Smooth or Flat before editing face shading")
+    if (not isinstance(face_ids, list) or not face_ids
+            or any(not isinstance(i, str) for i in face_ids)
+            or len(set(face_ids)) != len(face_ids)):
+        raise ValueError("Select distinct source face identities")
+    selected = topology._selected(doc, face_ids)
+    doc["schema_version"] = max(5, doc["schema_version"])
+    for face in selected:
+        face["smooth"] = smooth
     return _publish(placement, doc)
 
 

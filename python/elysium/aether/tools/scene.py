@@ -483,3 +483,13 @@ def normals_transfer(session, id, source_id, space="world"):
 def normals_direction_set(session, id, face_ids, normal):
     from ...render import mesh_normals
     return mesh_normals.set_direction(session.lookup(id), face_ids, normal)
+
+
+@register_tool(
+    name="mesh.faces_smooth_set",
+    description="Set selected source face Smooth/Flat flags under an existing computed whole-mesh normal policy. Choose mesh.normals_set flat or smooth first; authored custom-normal mode rejects. Smooth fans exclude flat faces and split at sharp/angle boundaries. Geometry, UVs, pins, materials and unselected face flags stay unchanged. Whole-mesh normals_set clears all face overrides. New child faces inherit parent flags.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS,"smooth":{"type":"boolean"}},"required":["id","face_ids"]},
+)
+def faces_smooth_set(session, id, face_ids, smooth=True):
+    from ...render import mesh_normals
+    return mesh_normals.set_faces_smooth(session.lookup(id), face_ids, smooth)

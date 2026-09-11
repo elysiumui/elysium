@@ -248,7 +248,7 @@ def _solidify(mesh, values):
             doc["faces"].append(
                 {
                     "id": topology._id(doc, "f"),
-                    "material": face["material"],
+                    **topology.face_attributes(face),
                     "corners": [
                         topology._corner(doc, identity, corner["uv"])
                         for identity, corner in (

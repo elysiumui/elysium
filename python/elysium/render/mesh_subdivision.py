@@ -135,7 +135,7 @@ def step(mesh, method, boundary):
             doc["faces"].append(
                 {
                     "id": face["id"] if i == 0 else topology._id(doc, "f"),
-                    "material": face["material"],
+                    **topology.face_attributes(face),
                     "corners": new_corners,
                 }
             )

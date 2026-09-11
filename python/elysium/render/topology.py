@@ -177,7 +177,7 @@ def validate(doc):
         not isinstance(doc, dict)
         or set(doc) - fields
         or type(doc.get("schema_version")) is not int
-        or doc["schema_version"] not in (1, 2, 3, 4)
+        or doc["schema_version"] not in (1, 2, 3, 4, 5)
     ):
         raise ValueError("Unsupported editable topology version or fields")
     if "shading" in doc:
@@ -246,7 +246,12 @@ def validate(doc):
         verts[vertex["id"]] = vertex["position"]
     needed = set()
     for face in doc["faces"]:
-        record(face, {"id", "corners", "material"}, {"id", "corners", "material"})
+        allowed = {"id", "corners", "material"}
+        if doc["schema_version"] >= 5:
+            allowed.add("smooth")
+        record(face, allowed, {"id", "corners", "material"})
+        if "smooth" in face and type(face["smooth"]) is not bool:
+            raise ValueError("Polygon smooth flag must be boolean")
         identity(face, "f")
         if type(face["material"]) is not int or not 0 <= face["material"] < 2**31:
             raise ValueError("Invalid polygon material slot")
@@ -379,6 +384,11 @@ def document(mesh):
     return deepcopy(mesh.topology) if mesh.topology is not None else from_mesh(mesh)
 
 
+def face_attributes(face):
+    """Attributes inherited by generated child faces; absent flags stay absent."""
+    return {k: deepcopy(face[k]) for k in ("material", "smooth") if k in face}
+
+
 def _selected(doc, face_ids):
     if not face_ids or len(set(face_ids)) != len(face_ids):
         raise ValueError("Select one or more distinct polygon faces")
@@ -413,7 +423,7 @@ def _extrude_region(doc, selected, distance):
         cs = face["corners"]
         for a, b in zip(cs, cs[1:] + cs[:1]):
             pair = tuple(sorted((a["vertex"], b["vertex"])))
-            usage.setdefault(pair, []).append((a, b, face["material"]))
+            usage.setdefault(pair, []).append((a, b, face_attributes(face)))
     if any(len(v) > 2 for v in usage.values()):
         raise ValueError("Cannot extrude a non-manifold face region")
     if any(len(v) == 2 and v[0][0]["vertex"] == v[1][0]["vertex"] for v in usage.values()):
@@ -430,13 +440,13 @@ def _extrude_region(doc, selected, distance):
         moved[old] = v["id"]
         doc["vertices"].append(v)
     sides = []
-    for a, b, material in boundary:
+    for a, b, attributes in boundary:
         va, vb = a["vertex"], b["vertex"]
         corners = [
             _corner(doc, v, c.get("uv"))
             for v, c in zip((va, vb, moved[vb], moved[va]), (a, b, b, a))
         ]
-        sides.append({"id": _id(doc, "f"), "corners": corners, "material": material})
+        sides.append({"id": _id(doc, "f"), "corners": corners, **attributes})
     for face in selected:
         for c in face["corners"]:
             c["vertex"] = moved[c["vertex"]]
@@ -528,7 +538,7 @@ def inset(mesh, face_ids, thickness):
             borders.append(
                 {
                     "id": _id(doc, "f"),
-                    "material": face["material"],
+                    **face_attributes(face),
                     "corners": [_corner(doc, c["vertex"], c.get("uv")) for c in corners],
                 }
             )
@@ -701,7 +711,7 @@ def loop_cut(mesh, identities, *, cuts=1):
             faces.append(
                 {
                     "id": face["id"] if k == 0 else _id(doc, "f"),
-                    "material": face["material"],
+                    **face_attributes(face),
                     "corners": corners,
                 }
             )
@@ -830,6 +840,9 @@ def dissolve_edges(mesh, identities):
     for group in groups:
         if len({f["material"] for f in group}) != 1:
             raise ValueError("Dissolve faces with one material at a time")
+        default_smooth = doc.get("shading", {}).get("mode") == "smooth"
+        if len({f.get("smooth", default_smooth) for f in group}) != 1:
+            raise ValueError("Dissolve faces with one shading mode at a time")
         uses = edge_usage({"faces": group})
         if any(len(u) > 2 or (len(u) == 2 and u[0] != u[1][::-1]) for u in uses.values()):
             raise ValueError("Dissolve region has inconsistent or nonmanifold winding")
@@ -866,7 +879,7 @@ def dissolve_edges(mesh, identities):
         triangles(points)
         for corner in cycle:
             corner["normal"] = None
-        joined.append({"id": group[0]["id"], "material": group[0]["material"], "corners": cycle})
+        joined.append({"id": group[0]["id"], **face_attributes(group[0]), "corners": cycle})
         removed.update(f["id"] for f in group)
     loose = loose_edges(doc)
     doc["faces"] = [f for f in doc["faces"] if f["id"] not in removed] + joined
@@ -1040,7 +1053,7 @@ def bisect(mesh, plane_point, plane_normal, *, keep="both", fill=False):
             result = {
                 "id": face["id"] if emitted == 0 else _id(doc, "f"),
                 "corners": corners,
-                "material": face["material"],
+                **face_attributes(face),
             }
             new_faces.append(result)
             emitted += 1
@@ -1148,7 +1161,7 @@ def bevel_edges(mesh, identities, distance, *, segments=1):
     result_doc = document(result)
     for face in result_doc["faces"]:
         if face["id"] in cap_ids:
-            face["material"] = neighbors[0][0]["material"]
+            face.update(face_attributes(neighbors[0][0]))
     if len(set(cap_ids).intersection(f["id"] for f in result_doc["faces"])) != segments:
         raise ValueError("Bevel segments intersected each other")
     return compile(result_doc)[0], cap_ids
@@ -1257,7 +1270,7 @@ def bevel_vertices(mesh, identities, distance):
         face = {
             "id": _id(doc, "f"),
             "corners": [_corner(doc, c, coord.tolist()) for c, coord in zip(cycle, uv)],
-            "material": incident[v][0]["material"],
+            **face_attributes(incident[v][0]),
         }
         doc["faces"].append(face)
         faces.append(face["id"])
@@ -1367,7 +1380,7 @@ def bridge_edges(mesh, identities):
     faces = min(candidates, key=lambda c: (c[0], c[1], c[2]))[3]
     preserved = loose_edges(doc)
     materials = {
-        pair: face["material"] for face in doc["faces"] for pair in edge_usage({"faces": [face]})
+        pair: face_attributes(face) for face in doc["faces"] for pair in edge_usage({"faces": [face]})
     }
     added = []
     for cycle in faces:
@@ -1378,7 +1391,7 @@ def bridge_edges(mesh, identities):
             "corners": [
                 _corner(doc, v, uv) for v, uv in zip(cycle, ([0, 0], [1, 0], [1, 1], [0, 1]))
             ],
-            "material": materials.get(tuple(sorted(cycle[:2])), 0),
+            **materials.get(tuple(sorted(cycle[:2])), {"material": 0}),
         }
         doc["faces"].append(face)
         added.append(face["id"])
@@ -1516,7 +1529,7 @@ def extrude_edges(mesh, identities, offset):
             duplicates[vertex["id"]] = added["id"]
             doc["vertices"].append(added)
     materials = {
-        pair: face["material"] for face in doc["faces"] for pair in edge_usage({"faces": [face]})
+        pair: face_attributes(face) for face in doc["faces"] for pair in edge_usage({"faces": [face]})
     }
     preserved = loose_edges(doc)
     cap_ids = []
@@ -1534,7 +1547,7 @@ def extrude_edges(mesh, identities, offset):
             {
                 "id": _id(doc, "f"),
                 "corners": [_corner(doc, v, coord) for v, coord in zip(cycle, uv)],
-                "material": materials.get(pair, 0),
+                **materials.get(pair, {"material": 0}),
             }
         )
         cap = deepcopy(by_pair[pair])
