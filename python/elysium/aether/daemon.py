@@ -147,16 +147,22 @@ class Daemon:
             self._broadcast(StepEvent("tool_result", _serialize_event(res)))
             return res
 
-        # Auto-snapshot before write/destructive.
+        # Headless CLI edits must be durable before acknowledgement. Native
+        # window commands continue through their existing owner-thread path.
+        persist = getattr(self.session.designer, "dispatch_persistent_tool", None)
         snap_id = None
-        if tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE):
-            try:
-                snap = self.session.snapshots.capture(
-                    self.session, action=call.name)
-                snap_id = snap.id
-            except Exception: pass
-
-        res = REGISTRY.dispatch(call, self.session)
+        if persist is not None and tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE):
+            res = persist(call, self.session, REGISTRY)
+            snap_id = res.snapshot_id
+        else:
+            # Auto-snapshot before write/destructive.
+            if tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE):
+                try:
+                    snap = self.session.snapshots.capture(self.session, action=call.name)
+                    snap_id = snap.id
+                except Exception:
+                    pass
+            res = REGISTRY.dispatch(call, self.session)
         if snap_id: res.snapshot_id = snap_id
         self._broadcast(StepEvent("tool_result", _serialize_event(res)))
         self.session.audit({"kind": "tool_call", "tool": call.name,

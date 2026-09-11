@@ -264,38 +264,51 @@ def _aether_chat_repl(args) -> int:
     session  = aether.Session(designer=designer, designer_models=MODELS)
     daemon   = aether.Daemon(session, provider=args.provider)
 
-    async def go() -> None:
+    async def go() -> int:
         if args.message:
-            await _drive_one(daemon, args.message)
-            return
+            return 0 if await _drive_one(daemon, args.message) else 1
         # Interactive REPL.
         print("aether REPL — Ctrl-D to exit")
+        successful = True
         while True:
             try: line = input("you> ")
             except EOFError: break
             if not line.strip(): continue
-            await _drive_one(daemon, line)
+            successful = await _drive_one(daemon, line) and successful
+        return 0 if successful else 1
 
-    asyncio.run(go())
-    return 0
+    return asyncio.run(go())
 
 
-async def _drive_one(daemon, user_text: str) -> None:
+async def _drive_one(daemon, user_text: str) -> bool:
+    import asyncio
     q = daemon.subscribe()
-    task = __import__("asyncio").create_task(daemon.turn(user_text))
+    task = asyncio.create_task(daemon.turn(user_text))
+    successful = True
     try:
         while True:
-            ev = await __import__("asyncio").wait_for(q.get(), timeout=0.5)
+            try:
+                ev = await asyncio.wait_for(q.get(), timeout=0.5)
+            except asyncio.TimeoutError:
+                if task.done():
+                    break
+                continue
             _print_event(ev)
-            if ev.kind == "done": break
-            if ev.kind == "error": break
-    except __import__("asyncio").TimeoutError:
-        if task.done(): return
+            if ev.kind == "tool_result" and not ev.payload.get("ok"):
+                successful = False
+            if ev.kind == "done":
+                break
+            if ev.kind == "error":
+                successful = False
+                break
     finally:
         daemon.unsubscribe(q)
-        if not task.done():
-            try: await task
-            except Exception: pass
+        try:
+            await task
+        except Exception as exc:
+            print(f"\n[err] {exc}", flush=True)
+            successful = False
+    return successful
 
 
 def _print_event(ev) -> None:
