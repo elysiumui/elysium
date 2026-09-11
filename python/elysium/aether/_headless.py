@@ -184,6 +184,7 @@ class AppWindow:
     scene_camera: dict = field(default_factory=scene.camera)
     scene_frame: int = 0
     scene_timeline: dict = field(default_factory=scene_animation.settings)
+    scene_actions: dict | None = None
     scene_lighting: dict = field(default_factory=scene_lighting.settings)
 
     def to_json(self) -> dict:
@@ -198,6 +199,8 @@ class AppWindow:
         obj.scene_shading = scene.shading_mode(obj.scene_shading)
         obj.scene_lighting = scene_lighting.settings(obj.scene_lighting)
         obj.scene_timeline = scene_animation.settings(obj.scene_timeline)
+        from ..render import scene_actions
+        obj.scene_actions = scene_actions.settings(obj.scene_actions)
         return obj
 
 

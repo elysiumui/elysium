@@ -660,3 +660,58 @@ def timeline_set(session,settings):
 )
 def key_handles_set(session,id,frame,channel,left,right):
     return {'keys':scene_animation.set_handles(session.lookup(id),frame,channel,left,right)}
+
+
+@register_tool(
+    name='scene.actions_get',
+    description='Read named animation actions with the active action reflecting current object keys and timing.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{}},
+    side_effect=SideEffect.READ,
+)
+def actions_get(session):
+    from ...render import scene_actions
+    return scene_actions.read(session.designer.window_doc,session.designer.placements)
+
+
+@register_tool(
+    name='scene.action_create',
+    description='Create and activate an empty or duplicated named action. Actions share objects and geometry; keys and playback timing are independent.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'name':{'type':'string','minLength':1,'maxLength':120},'duplicate':{'type':'boolean'},
+        'start':{'type':'integer','minimum':0,'maximum':360000},
+        'end':{'type':'integer','minimum':0,'maximum':360000},
+    },'required':['name']},
+)
+def action_create(session,name,duplicate=False,start=0,end=59):
+    from ...render import scene_actions
+    return scene_actions.create(session.designer.window_doc,session.designer.placements,name,duplicate=duplicate,start=start,end=end)
+
+
+@register_tool(
+    name='scene.action_switch',
+    description='Save current keys into the active action, then activate another action and seek its start.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+)
+def action_switch(session,id):
+    from ...render import scene_actions
+    return scene_actions.switch(session.designer.window_doc,session.designer.placements,id)
+
+
+@register_tool(
+    name='scene.action_rename',
+    description='Rename a saved animation action; duplicate names are rejected.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'name':{'type':'string','minLength':1,'maxLength':120}},'required':['id','name']},
+)
+def action_rename(session,id,name):
+    from ...render import scene_actions
+    return scene_actions.rename(session.designer.window_doc,session.designer.placements,id,name)
+
+
+@register_tool(
+    name='scene.action_remove',
+    description='Remove a named animation action. Removing the active action activates the first remaining action. The last action cannot be removed.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+)
+def action_remove(session,id):
+    from ...render import scene_actions
+    return scene_actions.remove(session.designer.window_doc,session.designer.placements,id)
