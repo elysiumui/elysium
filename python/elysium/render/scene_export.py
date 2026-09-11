@@ -310,8 +310,8 @@ def package_app(bundle, destination, *, name=None, cancel=None, progress=None):
         code_root = source.parent
         while (code_root/'__init__.py').is_file(): code_root = code_root.parent
         module = '.'.join(source.relative_to(code_root).with_suffix('').parts)
-        if not all(part.isidentifier() for part in module.split('.')):
-            raise ValueError('Paired source package/file names must be Python identifiers for application packaging')
+        # ModuleGraph resolves file-backed modules such as behavior-panel.py;
+        # Python identifier syntax is not a restriction on this loader path.
         code_args = ['--paths',str(code_root),'--hidden-import',module]
     destination.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix=".elysium-app-build-", dir=destination))
