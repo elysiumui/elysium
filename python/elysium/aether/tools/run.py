@@ -70,23 +70,17 @@ def run_stop(session) -> dict:
 
 @register_tool(
     name="run.snapshot",
-    description="Capture a PNG of the running app's current canvas. "
-                "Falls back to a Designer-rendered preview when no app "
-                "is running so the agent can still verify visual state.",
+    description="Capture the current Designer scene or Layout as PNG, including authored materials and lights. This is a Designer preview, not a capture of an independently running app. Does not save or mutate the project.",
     input_schema={"type": "object", "properties": {}},
     side_effect=SideEffect.READ,
     undoable=False,
 )
 def run_snapshot(session) -> dict:
-    # Always-on path: render the live skin through the existing
-    # preview module. Cheap (offscreen Skia), no IPC needed.
-    from elysium.render.preview import paint_skin_png
-    # The Designer stores its layout on disk so the preview reflects
-    # whatever the agent last did.
-    session.designer.save_layout()
-    png = paint_skin_png(session.designer.skin_path)
-    return {"png_b64": base64.b64encode(png).decode(),
-            "bytes": len(png)}
+    from elysium.render.designer_preview import paint_designer_png
+    png = paint_designer_png(session.designer)
+    return {"png_b64": base64.b64encode(png).decode(), "bytes": len(png),
+            "source": "designer", "view": "scene" if getattr(session.designer.window_doc, "scene_view", False) else "layout"}
+
 
 
 @register_tool(

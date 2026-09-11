@@ -31,6 +31,21 @@ def paint_designer_png(designer) -> bytes:
 
     w = int(getattr(designer.window_doc, "w", 800))
     h = int(getattr(designer.window_doc, "h", 600))
+    if getattr(designer.window_doc, "scene_view", False):
+        from . import scene, scene_animation, pbr
+        import time
+        view = getattr(designer, '_scene_view', None)
+        placements = designer.placements
+        if view is not None and getattr(view, 'play_start', None) is not None:
+            frame = int((time.monotonic() - view.play_start) * 60) % 145
+            placements = scene_animation.pose(placements, frame)
+        rgba, _ = scene.render(
+            placements, max(2, w), max(2, h),
+            **scene.camera(getattr(designer.window_doc, 'scene_camera', None)),
+            shading=getattr(view, 'shading', getattr(designer.window_doc, 'scene_shading', 'solid')), grid=False,
+            lighting=getattr(designer.window_doc, 'scene_lighting', None))
+        return pbr.rgba_to_png(rgba, max(2, w), max(2, h))
+
     layer = _n.SkiaLayer(w, h)
 
     bg = tuple(getattr(designer.window_doc, "bg_color", (0, 0, 0, 0)))
@@ -38,10 +53,12 @@ def paint_designer_png(designer) -> bytes:
                  (bg[3] / 255.0) if len(bg) >= 4 else 1.0)
 
     dl = _n.DisplayList()
+    rect = getattr(designer, "_window_rect", lambda: (0, 0, w, h))()
+    origin = rect[:2]
     for p in designer.placements:
         if getattr(p, "is_hotspot", False):
             continue
-        _paint_placement(dl, p, designer)
+        _paint_placement(dl, p, designer, origin)
     layer.execute(dl)
     return layer.encode_png()
 
@@ -50,17 +67,19 @@ def paint_designer_png(designer) -> bytes:
 # Per-placement dispatch.
 # ---------------------------------------------------------------------------
 
-def _paint_placement(dl, p, designer) -> None:
+def _paint_placement(dl, p, designer, origin=(0, 0)) -> None:
     # Apply runtime animation transform if any (so the user sees the
     # current frame of the playing timeline, not just the resting pose).
-    ax = p.x + getattr(p, "_t_dx", 0.0)
-    ay = p.y + getattr(p, "_t_dy", 0.0)
+    if not getattr(p, "visible", True) or (getattr(p, "props", None) or {}).get("hidden"):
+        return
+    ax = p.x - origin[0] + getattr(p, "_t_dx", 0.0)
+    ay = p.y - origin[1] + getattr(p, "_t_dy", 0.0)
     alpha = getattr(p, "_t_opacity", 1.0)
     if alpha <= 0.01: return     # fully transparent placements skip
 
     kind = p.kind
     if kind == "Mesh3D":
-        _paint_mesh3d(dl, p, ax, ay, alpha)
+        _paint_mesh3d(dl, p, ax, ay, alpha, designer)
         # Composite the placement's PaintMask overlay (if any) on top of
         # the rendered mesh, the same way Designer._paint_one_placement
         # does in the live window — without this the snapshot doesn't
@@ -216,7 +235,7 @@ def _part_is_flappable(part_names, keywords: tuple[str, ...] | None = None) -> b
     return False
 
 
-def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
+def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float, designer=None) -> None:
     """Path-trace / render the Mesh3D placement through pbr.render_mesh
     and stamp the resulting bytes into the display list."""
     try:
@@ -225,9 +244,10 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
         dl.fill_path(_round_d(ax, ay, p.w, p.h, 4),
                       _alpha_color((90, 90, 110, 255), alpha))
         return
-    from . import mesh_materials
+    from . import mesh_materials, layout_lighting
+    light_context = layout_lighting.context(p, getattr(designer, "window_doc", None), getattr(designer, "placements", None))
     _parts_tex = getattr(p, "mesh_part_textures", None) or {}
-    key = (mesh_materials.preview_key(p), p.mesh_kind, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
+    key = (layout_lighting.key(light_context), mesh_materials.preview_key(p), p.mesh_kind, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
             p.pbr_clearcoat, p.pbr_clearcoat_roughness,
             getattr(p, "pbr_albedo_map", ""),
             getattr(p, "mesh_yaw", 0.4), getattr(p, "mesh_pitch", 0.25),
@@ -376,14 +396,11 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
                 if nrm:
                     mat.normal_map = nrm
                 obj = pbr_engine.MeshObject(mesh=mesh, materials=[mat])
-        # Studio lookup from the window_doc if accessible.
-        studio_name = getattr(p, "_studio_override", None)
-        env = pbr_engine.to_environment(
-            pbr_engine.STUDIOS.get(studio_name or "Default Soft Studio",
-                                     pbr_engine.STUDIOS["Default Soft Studio"]))
+        obj, env, camera_target = layout_lighting.prepare(obj, light_context)
         size = min(384, max(64, int(min(p.w, p.h))))
         rgba = pbr_engine.render_mesh(
             size, size, obj, env,
+            cam_target=camera_target,
             cam_yaw=getattr(p, "mesh_yaw", 0.4),
             cam_pitch=getattr(p, "mesh_pitch", 0.25),
             cam_dist=getattr(p, "mesh_dist", 3.5),

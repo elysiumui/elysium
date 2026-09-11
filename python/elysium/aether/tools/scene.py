@@ -116,6 +116,25 @@ def group_create(session, name):
     return {"placement_id": session.id_for(p), "name": p.name}
 
 
+@register_tool(name="scene.view_get", description="Read the current persistent Layout/3D Scene workspace and solid/material/checker shading.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{}}, side_effect=SideEffect.READ, undoable=False)
+def view_get(session):
+    window = session.designer.window_doc
+    return {"view": "scene" if window.scene_view else "layout", "shading": scene.shading_mode(getattr(window, "scene_shading", "solid"))}
+
+
+@register_tool(name="scene.view_set", description="Choose Layout or 3D Scene and optional persistent solid/material/checker shading. Keeps authored geometry, camera, lights and materials unchanged.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"view":{"enum":["layout","scene"]},"shading":{"enum":["solid","material","checker"]}},"required":["view"]})
+def view_set(session, view, shading=None):
+    if view not in ("layout", "scene"):
+        raise ValueError("Choose layout or scene")
+    window = session.designer.window_doc
+    checked = scene.shading_mode(getattr(window, "scene_shading", "solid") if shading is None else shading)
+    window.scene_view = view == "scene"
+    window.scene_shading = checked
+    return view_get(session)
+
+
 @register_tool(
     name="scene.camera_set",
     description="Set the persistent shared scene camera. Angles are radians; orthographic scale is vertical meters. Enables 3D Scene view.",

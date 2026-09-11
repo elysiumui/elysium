@@ -28,6 +28,12 @@ CAMERA_DEFAULT = {
 }
 
 
+def shading_mode(value="solid"):
+    if value not in ("solid", "material", "checker"):
+        raise ValueError("Shading must be solid, material or checker")
+    return value
+
+
 def camera(values=None):
     values = {} if values is None else values
     if not isinstance(values, dict) or set(values) - set(CAMERA_DEFAULT):
