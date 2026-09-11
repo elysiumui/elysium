@@ -141,9 +141,10 @@ def scaffold_handler(source: str | Path, hook: str,
             "\"\"\"Elysium app entry — handlers wired to skin hooks.\"\"\"\n"
             "from __future__ import annotations\n\n"
             "import elysium as ely\n\n"
-            "app = ely.App(title=\"App\")\n"
-            f"{window_var} = app.window()\n"
-            "# win.load_skin(\"path/to/skin.esk/\")\n\n"
+            f"if {window_var!r} not in globals():\n"
+            "    app = ely.App(title=\"App\", identifier=\"dev.elysium.code-behind\")\n"
+            f"    {window_var} = app.window()\n"
+            "    # win.load_skin(\"path/to/skin.esk/\")\n\n"
         )
         p.write_text(preamble, encoding="utf-8")
 

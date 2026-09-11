@@ -42,6 +42,18 @@ class SceneAnimation:
 
         self.skin = load_skin(str(self.path))
         self._masks = {}
+        self._object_masks = {}
+        self.objects = self.data.get('objects', [])
+        self.code_file = self.data.get('code_file', '')
+        if self.code_file:
+            source = (self.path / self.code_file).resolve()
+            if not source.is_relative_to(self.path) or not source.is_file():
+                raise ValueError('Missing or out-of-bundle paired Python source')
+        for frame in self.frames:
+            if frame.get('object_src'):
+                source = (self.path / frame['object_src']).resolve()
+                if not source.is_relative_to(self.path) or not source.is_file():
+                    raise ValueError('Missing or out-of-bundle object hit map')
 
     def masks(self, index):
         if index in self._masks:
@@ -71,6 +83,31 @@ class SceneAnimation:
         return bool(body[y, x]), bool(close[y, x])
 
 
+    def object_at(self, index, cursor):
+        if cursor is None or not self.frames[index].get('object_src'):
+            return None
+        x,y = (int(v*self.scale) for v in cursor)
+        if not 0 <= x < self.size*self.scale or not 0 <= y < self.size*self.scale:
+            return None
+        if index not in self._object_masks:
+            with Image.open(self.path/self.frames[index]['object_src']) as image:
+                mask = np.asarray(image).copy()
+            if mask.shape != (self.size*self.scale,self.size*self.scale):
+                raise ValueError('Object hit map dimensions do not match the frame')
+            if len(self._object_masks) >= 4:
+                self._object_masks.pop(next(iter(self._object_masks)))
+            self._object_masks[index] = mask
+        item = int(self._object_masks[index][y,x])-1
+        return self.objects[item] if 0 <= item < len(self.objects) else None
+
+    def dispatch_click(self, window, index, cursor):
+        obj = self.object_at(index,cursor)
+        if obj is None: return 0
+        return window.fire(obj['hook'], {'object_id':obj['id'], 'object_name':obj['name'],
+                                        'source_frame':self.frames[index]['source_frame'],
+                                        'position':list(cursor)})
+
+
 def run(path):
     import elysium as ely
     from elysium import anim
@@ -85,6 +122,9 @@ def run(path):
     )
     win.set_has_shadow(False)
     win.set_window_level(3)
+    if asset.code_file:
+        from elysium.scene_code import load
+        load(asset.path/asset.code_file, app, win)
     started = app.playback_time
     state = {
         "running": True,
@@ -139,11 +179,15 @@ def run(path):
             origin = win.left_press_position or cursor
             body, close = asset.hit(index, origin)
             if close:
-                state["running"] = False
-                app.quit()
+                # A close region never arms a drag. Its authored hook takes
+                # precedence; otherwise preserve the default immediate close.
+                if not asset.dispatch_click(win, index, origin):
+                    state['running'] = False
+                    app.quit()
                 return
             if body:
-                state["drag"] = {"origin": origin, "position": state["position"], "moved": False}
+                state["drag"] = {"origin": origin, "position": state["position"], "moved": False,
+                                 "index": index}
         drag = state["drag"]
         if drag is not None:
             if cursor:
@@ -161,7 +205,8 @@ def run(path):
                         max(wy, min(wy + wh - size, gy - drag["origin"][1])),
                     )
             if not held:
-                if not drag["moved"]:
+                handled = asset.dispatch_click(win, drag['index'], drag['origin']) if not drag['moved'] else 0
+                if not drag["moved"] and not handled:
                     reverse_phase = (
                         period - state["pose"] * duration
                         if phase < duration + hold

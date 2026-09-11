@@ -882,6 +882,13 @@ impl ApplicationHandler for AppHandler {
                     return;
                 }
                 let pressed = state == winit::event::ElementState::Pressed;
+                #[cfg(target_os = "macos")]
+                if let Some(view) = ns_view_ptr(&lw.winit_window) {
+                    if let Some((x, y)) = unsafe { crate::platform::macos::button_event_cursor_in_view(view) } {
+                        lw.handle.mouse().x.store(x as i32, Ordering::Release);
+                        lw.handle.mouse().y.store(y as i32, Ordering::Release);
+                    }
+                }
                 match button {
                     winit::event::MouseButton::Left => {
                         let was = lw

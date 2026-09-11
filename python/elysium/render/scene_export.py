@@ -53,6 +53,7 @@ def export_bundle(
     start_frame=0,
     fps=None,
     flight_seconds=None,
+    project_root=None,
 ):
     playback = scene_animation.settings(getattr(window, 'scene_timeline', None))
     playback = scene_animation.settings({**playback,
@@ -74,6 +75,16 @@ def export_bundle(
     meshes = [p for p in placements if p.kind == "Mesh3D"]
     if not meshes:
         raise ValueError("Export requires at least one native mesh")
+    from elysium.project_code import source_path, copy_source
+    from elysium.scene_code import validate_source
+    code_value = getattr(window, 'code_file', '')
+    if code_value and not Path(code_value).is_absolute() and project_root is None:
+        raise ValueError('A relative paired Python file requires the source project folder')
+    paired_source = source_path(code_value, project_root or '.')
+    if paired_source is not None:
+        validate_source(paired_source)
+    if len(placements) > 65534:
+        raise ValueError('Animated object picking supports at most 65534 objects')
     camera = scene.camera(window.scene_camera)
     close_ids = [
         i for i, p in enumerate(placements) if p.name == close_object and p.kind == "Mesh3D"
@@ -85,6 +96,7 @@ def export_bundle(
         scene_animation.tracks(p)
     staging = Path(tempfile.mkdtemp(prefix=f".{destination.name}-", dir=destination.parent))
     try:
+        paired_code = copy_source(paired_source, project_root or '.', staging)
         assets = staging / "assets"
         assets.mkdir()
         # Every referenced dependency is owned by the portable authoring copy.
@@ -135,8 +147,11 @@ def export_bundle(
                 else np.zeros_like(alpha)
             )
             Image.fromarray(close_pixels).save(staging / close_file)
+            object_file = f"assets/objects-{index:04d}.png"
+            object_pixels = np.where(alpha >= 128, ids + 1, 0).astype(np.uint16)
+            Image.fromarray(object_pixels).save(staging / object_file)
             entries.append(
-                {
+                {"object_src": object_file,
                     "src": filename,
                     "source_frame": frame,
                     "close_src": close_file,
@@ -183,9 +198,13 @@ def export_bundle(
             "close_object": close_object,
             "camera": camera,
             "frames": entries,
+            "code_file": paired_code,
+            "objects": [{"id": p.entity_id, "name": p.name,
+                         "hook": str(p.props.get('hook') or (p.name or p.kind).strip().replace(' ', '_').lower()+'.click')}
+                        for p in placements],
         }
         window_json = deepcopy(window.to_json())
-        window_json["code_file"] = ""
+        window_json["code_file"] = paired_code
         for p in placements:
             for field in (
                 "pbr_albedo_map",
@@ -247,6 +266,18 @@ def package_app(bundle, destination, *, name=None, cancel=None, progress=None):
     app_path = destination / (name + ".app" if sys.platform == "darwin" else name)
     if app_path.exists():
         raise FileExistsError(f"Application already exists: {app_path}")
+    code_args = []
+    animation = json.loads((bundle/'scene-animation.json').read_text())
+    if animation.get('code_file'):
+        source = (bundle/animation['code_file']).resolve()
+        if not source.is_relative_to(bundle) or not source.is_file():
+            raise ValueError('Missing or out-of-bundle paired Python source')
+        code_root = source.parent
+        while (code_root/'__init__.py').is_file(): code_root = code_root.parent
+        module = '.'.join(source.relative_to(code_root).with_suffix('').parts)
+        if not all(part.isidentifier() for part in module.split('.')):
+            raise ValueError('Paired source package/file names must be Python identifiers for application packaging')
+        code_args = ['--paths',str(code_root),'--hidden-import',module]
     destination.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix=".elysium-app-build-", dir=destination))
     staging = work / "dist"
@@ -272,6 +303,7 @@ def package_app(bundle, destination, *, name=None, cancel=None, progress=None):
         "--add-data",
         str(bundle) + os.pathsep + "scene",
     ]
+    args += code_args
     if sys.platform == "darwin":
         args += [
             "--osx-bundle-identifier",
