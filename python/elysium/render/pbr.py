@@ -55,6 +55,7 @@ class Material:
     # Owned scalar maps: linear red-channel data, Closest / Repeat.
     data_maps: dict[str, np.ndarray] = field(default_factory=dict)
     normal_sampling: str = "legacy"
+    metallic_rough_sampling: str = "legacy"
 
 
 def material_with_albedo(path) -> Material:
@@ -360,10 +361,10 @@ def _sample_material_textures(mat: Material, uvs: np.ndarray | None) -> dict:
         if tex.shape[-1] >= 4 and getattr(mat, "albedo_alpha_cutout", False):
             out["alpha"] = tex[..., 3].astype(np.float32) / 255.0
     if mat.metallic_rough_map is not None:
-        tex = _sample_texture(mat.metallic_rough_map, uv)
+        tex = _sample_texture(mat.metallic_rough_map, uv, closest_repeat=mat.metallic_rough_sampling == "closest_repeat")
         # glTF convention: G = roughness, B = metallic
-        out["roughness"] = (tex[..., 1].astype(np.float32) / 255.0) * mat.roughness * 2
-        out["metallic"]  = (tex[..., 2].astype(np.float32) / 255.0) * max(mat.metallic, 1.0)
+        out["roughness"] = (tex[..., 1].astype(np.float32) / 255.0) * mat.roughness
+        out["metallic"]  = (tex[..., 2].astype(np.float32) / 255.0) * mat.metallic
     for channel in ("roughness", "metallic"):
         if channel in mat.data_maps:
             tex = _sample_texture(mat.data_maps[channel], uv, closest_repeat=True)

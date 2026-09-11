@@ -165,7 +165,7 @@ def test_multiple_owned_channels_preserve_each_other_and_invalidate_preview(tmp_
     for channel in mesh_materials.IMAGE_CHANNELS:
         mesh_materials.set_image(p,slot,str(path),channel)
         keys.append(mesh_materials.preview_key(p))
-    assert len(set(keys))==4
+    assert len(set(keys))==5
     before=mesh_materials.table(p)['slots'][-1]
     mesh_materials.set_image(p,slot,'','roughness')
     after=mesh_materials.table(p)['slots'][-1]
@@ -186,3 +186,30 @@ def test_scalar_image_changes_actual_render(tmp_path,channel):
     assert render()!=before
     mesh_materials.set_image(p,slot,'',channel)
     assert render()==before
+
+
+@pytest.mark.parametrize('rough,metal',[(0,0),(.5,.25),(1,1)])
+def test_packed_maps_use_linear_green_blue_and_respect_factors(rough,metal):
+    mat=pbr.Material(roughness=rough,metallic=metal,metallic_rough_map=np.array([[[7,64,192,0]]],np.uint8))
+    sampled=pbr._sample_material_textures(mat,np.array([[.2,.3]]))
+    np.testing.assert_allclose(sampled['roughness'],[64/255*rough],atol=1e-7)
+    np.testing.assert_allclose(sampled['metallic'],[192/255*metal],atol=1e-7)
+    assert set(sampled)=={'roughness','metallic'}
+
+
+def test_owned_packed_image_sampling_and_individual_override(tmp_path):
+    p=cube();slot=mesh_materials.add(p,values={'roughness':.5,'metallic':.25})['slot_id']
+    path=tmp_path/'packed.png';Image.fromarray(np.array([[[255,64,192],[0,192,64]]],np.uint8)).save(path)
+    mesh_materials.set_image(p,slot,str(path),'metallic_roughness');path.unlink()
+    def sample():
+        mat=mesh_materials.render_materials(p,mesh_document.resolve(p.mesh_kind))[0][-1]
+        return pbr._sample_material_textures(mat,np.array([[.25,.5],[.75,.5],[1.25,-.5]]))
+    values=sample()
+    np.testing.assert_allclose(values['roughness'],np.array([64,192,64])/255*.5,atol=1e-7)
+    np.testing.assert_allclose(values['metallic'],np.array([192,64,192])/255*.25,atol=1e-7)
+    rough=tmp_path/'rough.png';Image.new('RGB',(1,1),(32,255,255)).save(rough)
+    mesh_materials.set_image(p,slot,str(rough),'roughness')
+    np.testing.assert_allclose(sample()['roughness'],32/255*.5,atol=1e-7)
+    np.testing.assert_array_equal(sample()['metallic'],values['metallic'])
+    mesh_materials.set_image(p,slot,'','roughness')
+    np.testing.assert_array_equal(sample()['roughness'],values['roughness'])
