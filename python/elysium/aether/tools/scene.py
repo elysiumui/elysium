@@ -440,7 +440,7 @@ def normals_get(session, id):
 
 @register_tool(
     name="mesh.normals_set",
-    description="Set a retained whole-mesh normal policy: flat polygon normals; smooth angle-weighted connected fans; or authored to restore the source corner normals. Smooth angle is 0–180 degrees (default 180); respect_sharp defaults true. Boundaries, nonmanifold edges and inconsistent winding split fans. Policy recomputes after geometry edits; positions, UVs, pins and component identities do not change. No per-face subset or custom-vector editing.",
+    description="Set a retained whole-mesh normal policy: flat polygon normals; smooth angle-weighted connected fans; or authored to restore the source corner normals. Smooth angle is 0–180 degrees (default 180); respect_sharp defaults true. Boundaries, nonmanifold edges and inconsistent winding split fans. Policy recomputes after geometry edits; positions, UVs, pins and component identities do not change. This policy applies to the whole mesh; use mesh.normals_direction_set for explicit custom vectors on selected faces.",
     input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"mode":{"type":"string","enum":["authored","flat","smooth"]},"angle":{"type":"number","minimum":0,"maximum":180},"respect_sharp":{"type":"boolean"}},"required":["id","mode"]},
 )
 def normals_set(session, id, mode, angle=180.0, respect_sharp=True):
@@ -470,3 +470,16 @@ def normals_transfer(session, id, source_id, space="world"):
     from ...render import mesh_normals
     return mesh_normals.transfer(session.designer.placements, session.lookup(id),
                                  session.lookup(source_id), space=space)
+
+
+@register_tool(
+    name="mesh.normals_direction_set",
+    description="Set every corner of the selected source face IDs to a normalized, nonzero local XYZ normal direction. Bakes the current source normal policy first to preserve all unselected corner directions, then stores authored custom normals. Geometry, UVs, seams and modifier stack stay unchanged; necessary sharp discontinuities are added. This is explicit vector editing, not a retained per-face smoothing flag.",
+    input_schema={"type": "object", "additionalProperties": False,
+                  "properties": {"id": {"type": "string"}, "face_ids": _UV_IDS,
+                                 "normal": _VECTOR},
+                  "required": ["id", "face_ids", "normal"]},
+)
+def normals_direction_set(session, id, face_ids, normal):
+    from ...render import mesh_normals
+    return mesh_normals.set_direction(session.lookup(id), face_ids, normal)

@@ -261,6 +261,12 @@ def transfer(placements, target, source, *, space="world"):
             if not np.isfinite(normal).all() or length <= 1e-12:
                 raise ValueError("Normal transfer encountered an undefined normal")
             tc["normal"] = (normal / length).tolist()
+    _mark_discontinuities(dst)
+    dst.pop("shading", None)
+    return _publish(target, dst)
+
+
+def _mark_discontinuities(dst):
     # Custom-normal discontinuities require split fans in Blender's representation.
     # Preserve existing sharp flags and seams; only add new manifold discontinuities.
     adjacency = {}
@@ -278,5 +284,49 @@ def transfer(placements, target, source, *, space="world"):
                 np.dot(c["normal"], d["normal"]) < 1 - 1e-4 for c, d in ((a[0], b[1]), (a[1], b[0]))
             ):
                 edge["sharp"] = True
-    dst.pop("shading", None)
-    return _publish(target, dst)
+
+
+def set_direction(placement, face_ids, normal):
+    """Set selected source face-corner normals to one normalized local direction."""
+    doc = _source(placement)
+    if (
+        not isinstance(face_ids, list)
+        or not face_ids
+        or any(not isinstance(i, str) for i in face_ids)
+        or len(set(face_ids)) != len(face_ids)
+    ):
+        raise ValueError("Select distinct source face identities")
+    if set(face_ids) - {f["id"] for f in doc["faces"]}:
+        raise ValueError("Selected face no longer exists")
+    if (
+        not isinstance(normal, (list, tuple))
+        or len(normal) != 3
+        or any(type(v) not in (int, float) or not math.isfinite(v) for v in normal)
+    ):
+        raise ValueError("Normal direction requires three finite numbers")
+    # Scale first so finite extreme components cannot overflow the normalization.
+    n = np.asarray(normal, dtype=float)
+    scale = float(np.max(np.abs(n)))
+    if scale == 0:
+        raise ValueError("Normal direction must be nonzero")
+    n /= scale
+    n /= np.linalg.norm(n)
+    mesh, ids, face_map = topology.compile(doc)
+    existing = {}
+    points = {v["id"]: v["position"] for v in doc["vertices"]}
+    fallback = {
+        f["id"]: topology.normal([points[c["vertex"]] for c in f["corners"]]) for f in doc["faces"]
+    }
+    for triangle, fid in zip(mesh.faces, face_map):
+        for i in triangle:
+            existing[fid, ids[i]] = (
+                fallback[fid] if mesh.vert_normals is None else mesh.vert_normals[i]
+            )
+    for face in doc["faces"]:
+        for c in face["corners"]:
+            c["normal"] = (
+                n if face["id"] in face_ids else np.asarray(existing[face["id"], c["vertex"]])
+            ).tolist()
+    _mark_discontinuities(doc)
+    doc.pop("shading", None)
+    return _publish(placement, doc)
