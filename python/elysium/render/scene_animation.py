@@ -295,3 +295,32 @@ def channel_value(keys,channel,frame):
             animation_curve.handles(keys,right['frame'],channel)['left'])
     t=(frame-left['frame'])/(right['frame']-left['frame'])
     return a+(b-a)*t
+
+
+def edit_object_keys(placements,selection,*,offset=0,duplicate=False,delete=False,mode=None):
+    """Edit explicit (entity ID, frame, channel) keys as one scene transaction."""
+    if not isinstance(selection,(list,tuple)) or not selection:
+        raise ValueError('Select at least one object key')
+    grouped={};seen=set()
+    for item in selection:
+        if not isinstance(item,(list,tuple)) or len(item)!=3:
+            raise ValueError('Object keys require an identity, frame and channel')
+        identity,frame,channel=item
+        if not isinstance(identity,str) or not identity or isinstance(frame,bool) or not isinstance(frame,int) or not isinstance(channel,str):
+            raise ValueError('Object keys require a string identity, integer frame and channel')
+        key=(identity,frame,channel)
+        if key in seen:raise ValueError('Select each object key only once')
+        seen.add(key);grouped.setdefault(identity,[]).append((frame,channel))
+    changes=[];result={}
+    for identity,keys in grouped.items():
+        matches=[p for p in placements if getattr(p,'entity_id',None)==identity]
+        if len(matches)!=1:raise ValueError('Selected object no longer exists or has an ambiguous identity: '+identity)
+        p=matches[0]
+        if p.kind not in ('Mesh3D','SceneGroup') or p.props.get('selection_locked'):
+            raise ValueError('Selected object keys require unlocked meshes or groups')
+        candidate=deepcopy(p)
+        result[identity]=edit_keys(candidate,keys,offset=offset,duplicate=duplicate,delete=delete,mode=mode)
+        changes.append((p,candidate))
+    # A collision on the last object cannot leave earlier objects edited.
+    for p,candidate in changes:p.props['keys3d']=deepcopy(candidate.props['keys3d'])
+    return result

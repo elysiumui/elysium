@@ -715,3 +715,21 @@ def action_rename(session,id,name):
 def action_remove(session,id):
     from ...render import scene_actions
     return scene_actions.remove(session.designer.window_doc,session.designer.placements,id)
+
+
+@register_tool(
+    name='scene.object_keys_edit',
+    description='Atomically move, duplicate, delete or interpolate explicit transform keys across multiple objects. Any missing/locked object or occupied destination rejects the whole selection.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'selection':{'type':'array','minItems':1,'uniqueItems':True,'items':{
+            'type':'object','additionalProperties':False,'properties':{
+                'id':{'type':'string'},'frame':{'type':'integer','minimum':0,'maximum':360000},
+                'channel':{'enum':list(scene_animation.CHANNELS)},
+            },'required':['id','frame','channel']}},
+        'offset':{'type':'integer'},'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},
+        'mode':{'enum':['LINEAR','CONSTANT','BEZIER']},
+    },'required':['selection']},
+)
+def object_keys_edit(session,selection,offset=0,duplicate=False,delete=False,mode=None):
+    resolved=[(session.lookup(k['id']).entity_id,k['frame'],k['channel']) for k in selection]
+    return {'objects':scene_animation.edit_object_keys(session.designer.placements,resolved,offset=offset,duplicate=duplicate,delete=delete,mode=mode)}
