@@ -407,6 +407,12 @@ impl PyWindow {
         self.handle.a11y().pop_action()
     }
 
+    /// Poll an assistive action including its optional text value. SetValue
+    /// updates the application's field draft; normal validation still applies.
+    fn poll_a11y_event(&self) -> Option<(u64, String, Option<String>)> {
+        self.handle.a11y().pop_event()
+    }
+
     /// Push a target tween into render-thread animation `slot`. Easing
     /// is one of `"linear" | "ease_in" | "ease_out" | "ease_in_out" |
     /// "spring"`. For `"spring"` you can pass `(stiffness, damping)`

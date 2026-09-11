@@ -125,7 +125,7 @@ pub struct A11yState {
     /// Actions requested by an assistive technology — VoiceOver / JAWS
     /// / Orca calling "click this button", "focus this", etc. Python
     /// drains the queue and dispatches the matching hook.
-    pub action_queue: Mutex<std::collections::VecDeque<(u64, String)>>,
+    pub action_queue: Mutex<std::collections::VecDeque<(u64, String, Option<String>)>>,
     /// Source bounds remain logical; AccessKit consumes physical pixels.
     scale_milli: std::sync::atomic::AtomicU32,
 }
@@ -164,10 +164,18 @@ impl A11yState {
     }
 
     pub fn push_action(&self, node_id: u64, action: String) {
-        self.action_queue.lock().push_back((node_id, action));
+        self.push_event(node_id, action, None);
+    }
+
+    pub fn push_event(&self, node_id: u64, action: String, value: Option<String>) {
+        self.action_queue.lock().push_back((node_id, action, value));
     }
 
     pub fn pop_action(&self) -> Option<(u64, String)> {
+        self.pop_event().map(|(id, action, _)| (id, action))
+    }
+
+    pub fn pop_event(&self) -> Option<(u64, String, Option<String>)> {
         self.action_queue.lock().pop_front()
     }
 

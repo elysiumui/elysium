@@ -185,7 +185,11 @@ fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode, scale: f64) {
                 b.add_action(Action::Default);
                 b.add_action(Action::Focus);
             }
-            "textfield" | "textarea" | "slider" => { b.add_action(Action::Focus); }
+            "textfield" | "textarea" => {
+                b.add_action(Action::Focus);
+                if !n.read_only { b.add_action(Action::SetValue); }
+            }
+            "slider" => { b.add_action(Action::Focus); }
             _ => {}
         }
     }
@@ -235,7 +239,12 @@ impl accesskit::ActionHandler for StateActionHandler {
         // the bias when handing back to the framework.
         let node_id = req.target.0.saturating_sub(1);
         let name = format!("{:?}", req.action);
-        self.state.push_action(node_id, name);
+        let value = match req.data {
+            Some(accesskit::ActionData::Value(value)) => Some(value.to_string()),
+            Some(accesskit::ActionData::NumericValue(value)) => Some(value.to_string()),
+            _ => None,
+        };
+        self.state.push_event(node_id, name, value);
     }
 }
 
@@ -286,8 +295,29 @@ mod tests {
         push_node(&mut out, &node("label", false), 1.0);
         assert!(!out[0].1.supports_action(Action::Default));
         out.clear();
-        push_node(&mut out, &node("textfield", false), 1.0);
+        let mut editable = node("textfield", false);
+        editable.read_only = false;
+        push_node(&mut out, &editable, 1.0);
         assert!(out[0].1.supports_action(Action::Focus));
+        assert!(out[0].1.supports_action(Action::SetValue));
+        out.clear();
+        let mut read_only = node("textfield", false);
+        read_only.read_only = true;
+        push_node(&mut out, &read_only, 1.0);
+        assert!(!out[0].1.supports_action(Action::SetValue));
+    }
+
+    #[test]
+    fn forwards_assistive_values_and_preserves_legacy_polling() {
+        let state = A11yState::new();
+        let mut handler = StateActionHandler { state: state.clone() };
+        accesskit::ActionHandler::do_action(&mut handler, accesskit::ActionRequest {
+            action: Action::SetValue, target: NodeId(8),
+            data: Some(accesskit::ActionData::Value("new draft".into())),
+        });
+        assert_eq!(state.pop_event(), Some((7, "SetValue".into(), Some("new draft".into()))));
+        state.push_action(4, "Focus".into());
+        assert_eq!(state.pop_action(), Some((4, "Focus".into())));
     }
 
     #[test]
