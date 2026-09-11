@@ -129,8 +129,10 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
                 polygon_normals.extend(normals)
         faces.append(face_indices + count)
         uvs.append(mesh.vert_uvs if mesh.vert_uvs is not None else np.zeros((len(mesh.verts), 2)))
-        face_materials.extend([len(mats)] * len(mesh.faces))
-        mats.append(material(p))
+        from .mesh_materials import render_materials
+        surfaces, indices = render_materials(p, mesh)
+        face_materials.extend((indices + len(mats)).tolist())
+        mats.extend(surfaces)
         face_objects.extend([i] * len(mesh.faces))
         count += len(mesh.verts)
     if not verts or count == 0:

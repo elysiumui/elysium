@@ -198,3 +198,39 @@ def material_read(session, id: str) -> dict:
         "clear_coat":  getattr(p, "pbr_clearcoat", 0.0),
         "clear_coat_roughness": getattr(p, "pbr_clearcoat_roughness", 0.0),
     }
+
+
+_SLOT_VALUES = {"type":"object", "additionalProperties":False, "properties":{
+    **{key:{"type":"number", "minimum":0, "maximum":1} for key in ('metallic','roughness','specular','clear_coat','clear_coat_roughness')},
+    **{key:{"type":"array","items":{"type":"number","minimum":0,"maximum":maximum},"minItems":3,"maxItems":3} for key,maximum in [('base_color',1),('emissive',64)]},
+}}
+
+
+@register_tool(name="material.slots_get", description="Read stable object-local material slots and source face-to-slot assignments. Null parameters inherit the existing object material.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]}, side_effect=SideEffect.READ, undoable=False)
+def slots_get(session, id):
+    from ...render import mesh_materials
+    return mesh_materials.read(session.lookup(id))
+
+
+@register_tool(name="material.slot_add", description="Add a named material slot with linear RGB surface parameters. Existing face assignments and object material are preserved. At most 64 slots per object.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"name":{"type":"string"},"values":_SLOT_VALUES},"required":["id"]})
+def slot_add(session, id, name="Material", values=None):
+    from ...render import mesh_materials
+    return mesh_materials.add(session.lookup(id), name, values)
+
+
+@register_tool(name="material.slot_update", description="Rename a stable material slot or update linear RGB surface parameters. Explicit parameters replace inherited object binding for this slot; other slots and assignments stay unchanged.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"name":{"type":"string"},"values":_SLOT_VALUES},"required":["id","slot_id"]})
+def slot_update(session, id, slot_id, name=None, values=None):
+    from ...render import mesh_materials
+    return mesh_materials.update(session.lookup(id), slot_id, name=name, values=values)
+
+
+@register_tool(name="material.faces_assign", description="Assign the selected stable source face identities to an existing material slot. Geometry, UVs, normals and other face assignments are preserved; validates the retained modifier stack before publication.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"face_ids":{"type":"array","items":{"type":"string"},"minItems":1,"uniqueItems":True}},"required":["id","slot_id","face_ids"]})
+def faces_assign(session, id, slot_id, face_ids):
+    from ...render import mesh_materials
+    return mesh_materials.assign(session.lookup(id), face_ids, slot_id)
+
+
+@register_tool(name="material.slot_remove", description="Remove an unused material slot; used slots and the last slot reject. Reindexes later face indices while preserving their stable slot identities and appearance.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"}},"required":["id","slot_id"]})
+def slot_remove(session, id, slot_id):
+    from ...render import mesh_materials
+    return mesh_materials.remove(session.lookup(id), slot_id)
