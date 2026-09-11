@@ -153,6 +153,75 @@ both frames are retained. An empty source key is removed after a move/delete.
     return tracks(placement)
 
 
+def edit_keys(placement, selection, *, offset=0, duplicate=False, delete=False, mode=None):
+    """Edit explicit (frame, channel) pairs as one transaction.
+
+    A move vacates all selected sources before checking destinations, so adjacent
+    selected keys can move together. Copies retain sources and reject collisions.
+    Non-selected channels, values and interpolation are retained exactly.
+    """
+    if isinstance(offset, bool) or not isinstance(offset, int):
+        raise ValueError('Frame offset must be an integer')
+    if not isinstance(duplicate, bool) or not isinstance(delete, bool):
+        raise ValueError('Duplicate and delete must be on or off')
+    if delete and (duplicate or offset or mode is not None):
+        raise ValueError('Delete cannot be combined with other key edits')
+    if duplicate and offset == 0:
+        raise ValueError('Choose a nonzero frame offset for duplicate keys')
+    if mode is not None and mode not in ('LINEAR', 'CONSTANT'):
+        raise ValueError('Interpolation must be Linear or Constant')
+    if not isinstance(selection, (list, tuple)) or not selection:
+        raise ValueError('Select at least one key')
+    selected = set()
+    for item in selection:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            raise ValueError('Each key selection must contain a frame and channel')
+        frame, channel = item
+        if isinstance(frame, bool) or not isinstance(frame, int) or not 0 <= frame <= 360000 or channel not in CHANNELS:
+            raise ValueError('Select a valid key frame and transform channel')
+        if (frame, channel) in selected:
+            raise ValueError('Key selection must be unique')
+        selected.add((frame, channel))
+    keys = tracks(placement)
+    by_frame = {key['frame']: key for key in keys}
+    for frame, channel in selected:
+        if frame not in by_frame or channel not in key_channels(by_frame[frame]):
+            raise ValueError(f'Selected key no longer exists: frame {frame}, {channel}')
+        if not delete and not 0 <= frame + offset <= 360000:
+            raise ValueError('Every destination frame must be between 0 and 360000')
+    originals = deepcopy(by_frame)
+    if delete or (offset and not duplicate):
+        for frame in {f for f, _ in selected}:
+            key = by_frame[frame]
+            remaining = [c for c in key_channels(key) if (frame, c) not in selected]
+            if remaining:
+                key['channels'] = remaining
+                key['interpolation'] = {c: m for c, m in key.get('interpolation', {}).items() if c in remaining}
+            else:
+                del by_frame[frame]
+    if not delete:
+        for frame, channel in sorted(selected):
+            target = frame + offset
+            destination = by_frame.get(target)
+            if offset and destination is not None and channel in key_channels(destination):
+                raise ValueError(f'Destination already has a key: frame {target}, {channel}')
+            original = originals[frame]
+            if destination is None:
+                destination = {'frame': target, 'transform': deepcopy(original['transform']), 'channels': []}
+                by_frame[target] = destination
+            if offset:
+                group, axis = channel.split('.')
+                destination['transform'][group]['xyz'.index(axis)] = original['transform'][group]['xyz'.index(axis)]
+                destination['channels'] = [c for c in CHANNELS if c in set(key_channels(destination)) | {channel}]
+                # Explicit default interpolation is unnecessary; retain authored metadata.
+                if channel in original.get('interpolation', {}):
+                    destination.setdefault('interpolation', {})[channel] = original['interpolation'][channel]
+            if mode is not None:
+                destination.setdefault('interpolation', {})[channel] = mode
+    _commit(placement, list(by_frame.values()))
+    return tracks(placement)
+
+
 def pose(placements, frame):
     if isinstance(frame, bool) or not isinstance(frame, (int, float)) or not math.isfinite(frame) or frame < 0:
         raise ValueError("Frame must be nonnegative and finite")

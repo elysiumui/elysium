@@ -603,6 +603,24 @@ def key_edit(session,id,source_frame,channels,target_frame=None,duplicate=False,
 
 
 @register_tool(
+    name='scene.keys_edit',
+    description='Atomically move, duplicate, delete or interpolate multiple explicit frame/channel keys on one object. A move vacates all selected sources; occupied unselected destinations reject the whole operation.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},
+        'selection':{'type':'array','minItems':1,'uniqueItems':True,'items':{
+            'type':'object','additionalProperties':False,'properties':{
+                'frame':{'type':'integer','minimum':0,'maximum':360000},
+                'channel':{'enum':list(scene_animation.CHANNELS)},
+            },'required':['frame','channel']}},
+        'offset':{'type':'integer'},'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},
+        'mode':{'enum':['LINEAR','CONSTANT']},
+    },'required':['id','selection']},
+)
+def keys_edit(session,id,selection,offset=0,duplicate=False,delete=False,mode=None):
+    return {'keys':scene_animation.edit_keys(session.lookup(id),[(k['frame'],k['channel']) for k in selection],offset=offset,duplicate=duplicate,delete=delete,mode=mode)}
+
+
+@register_tool(
     name='scene.timeline_get',
     description='Read saved model playback range, FPS, loop and desktop-flight duration.',
     input_schema={'type':'object','additionalProperties':False,'properties':{}},

@@ -54,6 +54,7 @@ def test_flight_cycles_wings_and_same_time_freezes_position_and_pose(monkeypatch
         anim, "run_animation_thread", lambda clock, tick, **kw: callbacks.append(tick)
     )
     asset = SimpleNamespace(
+        code_file='',
         size=384,
         deploy_count=73,
         path=tmp_path,
