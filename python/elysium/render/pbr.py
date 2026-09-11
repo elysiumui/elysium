@@ -15,7 +15,7 @@ silicon. Material params are mutated by the UI between frames.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Tuple
 
@@ -52,6 +52,8 @@ class Material:
     uv_scale: Tuple[float, float] = (1.0, 1.0)
     uv_offset: Tuple[float, float] = (0.0, 0.0)
     albedo_sampling: str = "legacy"
+    # Owned scalar maps: linear red-channel data, Closest / Repeat.
+    data_maps: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 def material_with_albedo(path) -> Material:
@@ -361,6 +363,10 @@ def _sample_material_textures(mat: Material, uvs: np.ndarray | None) -> dict:
         # glTF convention: G = roughness, B = metallic
         out["roughness"] = (tex[..., 1].astype(np.float32) / 255.0) * mat.roughness * 2
         out["metallic"]  = (tex[..., 2].astype(np.float32) / 255.0) * max(mat.metallic, 1.0)
+    for channel in ("roughness", "metallic"):
+        if channel in mat.data_maps:
+            tex = _sample_texture(mat.data_maps[channel], uv, closest_repeat=True)
+            out[channel] = (tex[..., 0].astype(np.float32) / 255.0) * getattr(mat, channel)
     if mat.ao_map is not None:
         tex = _sample_texture(mat.ao_map, uv)
         out["ao"] = (tex[..., 0:1].astype(np.float32) / 255.0)

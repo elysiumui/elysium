@@ -17,6 +17,7 @@ DEFAULTS = {
     "emissive": [0.0, 0.0, 0.0],
 }
 MAX_SLOTS = 64
+IMAGE_CHANNELS = {"base_color": "albedo_image", "roughness": "roughness_image", "metallic": "metallic_image"}
 
 
 def parameters(values):
@@ -66,14 +67,15 @@ def _validate(table):
     for slot in table["slots"]:
         if (
             not isinstance(slot, dict)
-            or set(slot) - {"id", "name", "parameters", "albedo_image", "color_graph"}
+            or set(slot) - ({"id", "name", "parameters", "color_graph"} | set(IMAGE_CHANNELS.values()))
             or not {"id", "name", "parameters"} <= set(slot)
         ):
             raise ValueError("Invalid material slot fields")
         if "color_graph" in slot:
             material_graph.evaluate(slot["color_graph"])
-        if "albedo_image" in slot:
-            material_image.pixels(slot["albedo_image"])
+        for image_key in IMAGE_CHANNELS.values():
+            if image_key in slot:
+                material_image.pixels(slot[image_key])
         identity = slot["id"]
         if (
             not isinstance(identity, str)
@@ -166,6 +168,10 @@ def render_materials(p, mesh):
         if "albedo_image" in slot:
             surface.albedo_map = material_image.pixels(slot["albedo_image"])
             surface.albedo_sampling = "closest_repeat"
+        for channel in ("roughness", "metallic"):
+            key = IMAGE_CHANNELS[channel]
+            if key in slot:
+                surface.data_maps[channel] = material_image.pixels(slot[key])
     return materials, indices
 
 
@@ -285,16 +291,19 @@ def preview_key(p):
     )
 
 
-def set_image(p, slot_id, path):
+def set_image(p, slot_id, path, channel="base_color"):
     """Own a decoded image in the project; empty path clears this slot's override."""
+    if not isinstance(channel, str) or channel not in IMAGE_CHANNELS:
+        raise ValueError("Choose base_color, roughness or metallic image channel")
+    key = IMAGE_CHANNELS[channel]
     slots = table(p)
     _, slot = _slot(slots, slot_id)
     if not isinstance(path, str):
         raise ValueError("Material image path must be text")  # noqa: TRY004
     if path.strip():
-        slot["albedo_image"] = material_image.import_image(path)
+        slot[key] = material_image.import_image(path)
     else:
-        slot.pop("albedo_image", None)
+        slot.pop(key, None)
     return _publish(p, slots)
 
 
@@ -303,10 +312,11 @@ def signature(p):
     value = deepcopy(getattr(p, "props", {}).get("materials3d"))
     if isinstance(value, dict) and isinstance(value.get("slots"), list):
         for slot in value["slots"]:
-            if isinstance(slot, dict) and isinstance(slot.get("albedo_image"), dict):
-                image = slot["albedo_image"]
-                if isinstance(image.get("png_base64"), str):
-                    image["png_base64"] = hash(image["png_base64"])
+            for key in IMAGE_CHANNELS.values():
+                if isinstance(slot, dict) and isinstance(slot.get(key), dict):
+                    image = slot[key]
+                    if isinstance(image.get("png_base64"), str):
+                        image["png_base64"] = hash(image["png_base64"])
     return value
 
 

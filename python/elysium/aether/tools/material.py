@@ -239,10 +239,10 @@ def slot_remove(session, id, slot_id):
     return mesh_materials.remove(session.lookup(id), slot_id)
 
 
-@register_tool(name="material.slot_image_set", description="Import a single PNG/JPEG (at most 2048x2048, 16 MiB) as this material slot's owned base-color image. Stored in the editable project and native export; sRGB color, closest sampling, repeat UVs, opaque surface. Multiplies the slot base color. Empty path clears the image override. Other surfaces and source attributes remain unchanged.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"path":{"type":"string"}},"required":["id","slot_id","path"]})
-def slot_image_set(session, id, slot_id, path):
+@register_tool(name="material.slot_image_set", description="Import a single PNG/JPEG (at most 2048x2048, 16 MiB) as this material slot's owned image for base_color (default), roughness or metallic. Stored in the editable project and native export; Base color uses sRGB RGB; roughness/metallic use linear red-channel data. Closest sampling, repeat UVs, opaque surface; each image multiplies its matching surface value. Empty path clears the image override. Other surfaces and source attributes remain unchanged.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"path":{"type":"string"},"channel":{"enum":["base_color","roughness","metallic"]}},"required":["id","slot_id","path"]})
+def slot_image_set(session, id, slot_id, path, channel="base_color"):
     from ...render import mesh_materials
-    return mesh_materials.set_image(session.lookup(id), slot_id, path)
+    return mesh_materials.set_image(session.lookup(id), slot_id, path, channel)
 
 
 _GRAPH_TARGET = {"id":{"type":"string"},"slot_id":{"type":"string"}}

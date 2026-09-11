@@ -134,3 +134,55 @@ def test_clear_material_removes_owned_surfaces_and_images(tmp_path):
     assert "materials3d" in result["cleared"]
     assert p.props["keep"] == "other object data"
     assert "materials3d" not in p.props
+
+
+@pytest.mark.parametrize("channel", ["roughness", "metallic"])
+def test_scalar_image_is_linear_red_and_multiplies_only_its_channel(tmp_path, channel):
+    path=tmp_path/'data.png'
+    # Non-grey pixels detect accidental luminance/green/blue or sRGB decoding.
+    data=np.array([[[64,220,255,0],[192,0,30,255]]],dtype=np.uint8)
+    Image.fromarray(data).save(path)
+    p=cube(); slot=mesh_materials.add(p,values={channel:.5})['slot_id']
+    source=deepcopy(mesh_document.resolve(p.mesh_kind).topology)
+    mesh_materials.set_image(p,slot,str(path),channel)
+    path.unlink()
+    surface=mesh_materials.render_materials(p,mesh_document.resolve(p.mesh_kind))[0][-1]
+    uv=np.array([[.25,.5],[.75,.5],[1.25,-.5],[-.25,1.5]])
+    values=pbr._sample_material_textures(surface,uv)
+    assert set(values)=={channel}
+    np.testing.assert_allclose(values[channel],np.array([64,192,64,192])/255*.5,atol=1e-7)
+    assert mesh_document.resolve(p.mesh_kind).topology==source
+    assert not surface.albedo_alpha_cutout
+    mesh_materials.set_image(p,slot,'',channel)
+    surface=mesh_materials.render_materials(p,mesh_document.resolve(p.mesh_kind))[0][-1]
+    assert pbr._sample_material_textures(surface,uv)=={}
+
+
+def test_multiple_owned_channels_preserve_each_other_and_invalidate_preview(tmp_path):
+    p=cube();slot=mesh_materials.add(p,values={'roughness':1,'metallic':1})['slot_id']
+    path=tmp_path/'channels.png';checker(path)
+    keys=[]
+    for channel in mesh_materials.IMAGE_CHANNELS:
+        mesh_materials.set_image(p,slot,str(path),channel)
+        keys.append(mesh_materials.preview_key(p))
+    assert len(set(keys))==3
+    before=mesh_materials.table(p)['slots'][-1]
+    mesh_materials.set_image(p,slot,'','roughness')
+    after=mesh_materials.table(p)['slots'][-1]
+    assert 'roughness_image' not in after
+    assert after['albedo_image']==before['albedo_image'] and after['metallic_image']==before['metallic_image']
+    state=deepcopy(p.__dict__)
+    with pytest.raises(ValueError):mesh_materials.set_image(p,slot,str(path),'unknown')
+    assert p.__dict__==state
+
+
+@pytest.mark.parametrize('channel',['roughness','metallic'])
+def test_scalar_image_changes_actual_render(tmp_path,channel):
+    p=cube();slot=mesh_materials.add(p,values={'roughness':1,'metallic':1,'base_color':[.8,.3,.1]})['slot_id']
+    mesh_materials.assign(p,[f['id'] for f in mesh_document.resolve(p.mesh_kind).topology['faces']],slot)
+    def render():return scene.render([p],48,48,yaw=0,pitch=0,projection='orthographic',ortho_scale=3,grid=False,shading='material')[0]
+    before=render();path=tmp_path/'black.png';Image.new('RGB',(2,2),'black').save(path)
+    mesh_materials.set_image(p,slot,str(path),channel)
+    assert render()!=before
+    mesh_materials.set_image(p,slot,'',channel)
+    assert render()==before
