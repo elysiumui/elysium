@@ -206,3 +206,77 @@ def set_sharp(placement, edge_ids, sharp=True):
     for edge in selected:
         edge["sharp"] = sharp
     return _publish(placement, doc)
+
+
+def transfer(placements, target, source, *, space="world"):
+    """Copy evaluated source corner normals onto identically ordered target topology."""
+    if source is target or getattr(source, "entity_id", None) == getattr(target, "entity_id", None):
+        raise ValueError("Choose distinct source and target meshes")
+    if space not in ("world", "local"):
+        raise ValueError("Normal transfer space must be world or local")
+    if source.kind != "Mesh3D" or target.kind != "Mesh3D":
+        raise ValueError("Normal transfer requires two meshes")
+    indices = []
+    for placement in (source, target):
+        matches = [i for i, p in enumerate(placements) if p is placement]
+        if len(matches) != 1:
+            raise ValueError("Normal transfer requires distinct objects in the current scene")
+        indices.append(matches[0])
+    src = topology.document(mesh_edit.evaluate(source))
+    dst = _source(target)
+
+    def signature(doc):
+        lookup = {v["id"]: i for i, v in enumerate(doc["vertices"])}
+        return (
+            len(lookup),
+            [tuple(lookup[c["vertex"]] for c in f["corners"]) for f in doc["faces"]],
+        )
+
+    if not src["faces"] or signature(src) != signature(dst):
+        raise ValueError("Normal transfer requires matching vertex, polygon and corner ordering")
+    matrix = np.eye(3)
+    if space == "world":
+        from . import scene
+
+        matrices = scene.world_matrices(placements)
+        try:
+            matrix = np.linalg.inv(matrices[indices[0]][:3, :3]) @ matrices[indices[1]][:3, :3]
+        except np.linalg.LinAlgError as exc:
+            raise ValueError("Normal transfer requires invertible object transforms") from exc
+    compiled, vertex_ids, face_ids = topology.compile(src)
+    observed = {}
+    points = {v["id"]: v["position"] for v in src["vertices"]}
+    fallback = {
+        f["id"]: topology.normal([points[c["vertex"]] for c in f["corners"]]) for f in src["faces"]
+    }
+    for triangle, face_id in zip(compiled.faces, face_ids):
+        for index in triangle:
+            observed[(face_id, vertex_ids[index])] = (
+                fallback[face_id] if compiled.vert_normals is None else compiled.vert_normals[index]
+            )
+    for sf, tf in zip(src["faces"], dst["faces"]):
+        for sc, tc in zip(sf["corners"], tf["corners"]):
+            normal = np.asarray(observed[(sf["id"], sc["vertex"])]) @ matrix
+            length = np.linalg.norm(normal)
+            if not np.isfinite(normal).all() or length <= 1e-12:
+                raise ValueError("Normal transfer encountered an undefined normal")
+            tc["normal"] = (normal / length).tolist()
+    # Custom-normal discontinuities require split fans in Blender's representation.
+    # Preserve existing sharp flags and seams; only add new manifold discontinuities.
+    adjacency = {}
+    for face in dst["faces"]:
+        cs = face["corners"]
+        for i, c in enumerate(cs):
+            nxt = cs[(i + 1) % len(cs)]
+            pair = tuple(sorted((c["vertex"], nxt["vertex"])))
+            adjacency.setdefault(pair, []).append((c, nxt))
+    for edge in dst["edges"]:
+        uses = adjacency.get(tuple(sorted(edge["vertices"])), [])
+        if len(uses) == 2 and uses[0][0]["vertex"] == uses[1][1]["vertex"]:
+            a, b = uses
+            if any(
+                np.dot(c["normal"], d["normal"]) < 1 - 1e-4 for c, d in ((a[0], b[1]), (a[1], b[0]))
+            ):
+                edge["sharp"] = True
+    dst.pop("shading", None)
+    return _publish(target, dst)

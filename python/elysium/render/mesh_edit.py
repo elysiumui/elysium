@@ -52,14 +52,17 @@ def evaluate(placement, *, include_modifiers=True):
 
 
 def evaluate_mesh(source, placement, *, include_modifiers=True):
-    if "taper3d" not in placement.props or len(source.verts) == 0:
+    settings = taper_settings(placement) if "taper3d" in placement.props else None
+    axis = "xyz".index(settings["axis"]) if settings is not None else None
+    neutral = settings is None or all(
+        settings[field][i] == 1 for field in ("start", "end") for i in range(3) if i != axis
+    )
+    if neutral or len(source.verts) == 0:
         if include_modifiers:
             from . import mesh_modifiers
 
             return mesh_modifiers.evaluate_stack(source, mesh_modifiers.settings(placement))
         return source
-    settings = taper_settings(placement)
-    axis = "xyz".index(settings["axis"])
     verts = source.verts.copy()
     along = verts[:, axis]
     span = float(np.ptp(along))

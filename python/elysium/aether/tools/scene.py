@@ -456,3 +456,17 @@ def normals_set(session, id, mode, angle=180.0, respect_sharp=True):
 def edges_sharp_set(session, id, edge_ids, sharp=True):
     from ...render import mesh_normals
     return mesh_normals.set_sharp(session.lookup(id), edge_ids, sharp)
+
+
+@register_tool(
+    name="mesh.normals_transfer",
+    description="Copy evaluated source corner normals onto the target editable source. Requires identical vertex/polygon/corner ordering, without proximity matching. World space (default) respects both objects and parents; local copies local vectors. Target geometry, UVs, existing sharp flags and modifiers remain unchanged; new sharp flags mark copied normal discontinuities and target shading policy becomes authored custom normals. This is a one-time copy, not a retained source link.",
+    input_schema={"type": "object", "additionalProperties": False,
+                  "properties": {"id": {"type": "string"}, "source_id": {"type": "string"},
+                                 "space": {"enum": ["world", "local"]}},
+                  "required": ["id", "source_id"]},
+)
+def normals_transfer(session, id, source_id, space="world"):
+    from ...render import mesh_normals
+    return mesh_normals.transfer(session.designer.placements, session.lookup(id),
+                                 session.lookup(source_id), space=space)
