@@ -177,6 +177,7 @@ def render(
     shading="solid",
     grid=True,
     component_output=None,
+    lighting=None,
 ):
     if shading not in ("solid", "material", "checker"):
         raise ValueError("Shading must be solid, material or checker")
@@ -195,12 +196,13 @@ def render(
             [pbr.Material()],
         )
         face_objects = np.array([-1], dtype=np.int32)
+    from . import scene_lighting
     hits = {}
     rgba = pbr.render_mesh(
         width,
         height,
         obj,
-        pbr.to_environment(pbr.STUDIOS["Default Soft Studio"]),
+        scene_lighting.environment(lighting if shading == "material" else None),
         cam_dist=distance,
         cam_yaw=yaw,
         cam_pitch=pitch,

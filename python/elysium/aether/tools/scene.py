@@ -493,3 +493,44 @@ def normals_direction_set(session, id, face_ids, normal):
 def faces_smooth_set(session, id, face_ids, smooth=True):
     from ...render import mesh_normals
     return mesh_normals.set_faces_smooth(session.lookup(id), face_ids, smooth)
+
+
+# Persistent scene-light commands share the native UI validation and renderer.
+from ...render import scene_lighting
+_LIGHT_FIELDS = {
+    "name": {"type": "string"}, "type": {"enum": ["sun", "point", "area"]},
+    "enabled": {"type": "boolean"},
+    **{k: _VECTOR for k in ("position", "rotation", "color")},
+    "power": {"type": "number"}, "size": {"type": "number"},
+}
+_LIGHT_VALUES = {"type": "object", "additionalProperties": False, "properties": _LIGHT_FIELDS}
+
+
+@register_tool(name="scene.lighting_get", description="Read persistent authored lights, ambient RGB and studio/scene mode.",
+               input_schema={"type": "object", "properties": {}, "additionalProperties": False}, side_effect=SideEffect.READ)
+def lighting_get(session):
+    return {"lighting": scene_lighting.read(session.designer.window_doc)}
+
+
+@register_tool(name="scene.light_add", description="Add a persistent sun, point or square area light. Y-up meters; XYZ degrees; local -Y emission; linear RGB. Adding enables scene lighting.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"values": _LIGHT_VALUES}, "required": ["values"]})
+def light_add(session, values):
+    return scene_lighting.add(session.designer.window_doc, values)
+
+
+@register_tool(name="scene.light_update", description="Edit a stable light ID atomically; sun power is irradiance, point/area power is total flux; area size is side length in meters.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"light_id": {"type": "string"}, "values": _LIGHT_VALUES}, "required": ["light_id", "values"]})
+def light_update(session, light_id, values):
+    return {"lighting": scene_lighting.update(session.designer.window_doc, light_id, values)}
+
+
+@register_tool(name="scene.light_remove", description="Remove one authored light by stable ID.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"light_id": {"type": "string"}}, "required": ["light_id"]})
+def light_remove(session, light_id):
+    return {"lighting": scene_lighting.update(session.designer.window_doc, light_id, remove=True)}
+
+
+@register_tool(name="scene.lighting_set", description="Switch studio/scene lighting or set uniform linear ambient RGB (0 to 1), retaining authored lights.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"enabled": {"type": "boolean"}, "ambient": _VECTOR}})
+def lighting_set(session, enabled=None, ambient=None):
+    return {"lighting": scene_lighting.configure(session.designer.window_doc, enabled=enabled, ambient=ambient)}

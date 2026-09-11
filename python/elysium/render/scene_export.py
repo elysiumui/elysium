@@ -109,7 +109,8 @@ def export_bundle(
             frame = min(index, end_frame)
             posed = scene_animation.pose(placements, frame)
             rgba, ids = scene.render(
-                posed, pixels, pixels, **camera, shading="material", grid=False
+                posed, pixels, pixels, **camera, shading="material", grid=False,
+                lighting=getattr(window, "scene_lighting", None)
             )
             image = Image.frombytes("RGBA", (pixels, pixels), rgba)
             filename = f"assets/frame-{index:04d}.png"

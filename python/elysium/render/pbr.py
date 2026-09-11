@@ -134,6 +134,7 @@ class Environment:
     hdri:        np.ndarray | None = None
     hdri_blur:   np.ndarray | None = None        # diffuse-irradiance mip (blurred)
     hdri_intensity: float = 1.0
+    authored_lights: list[dict] | None = None
 
 
 # --- HDRI loading (.hdr / .exr) ------------------------------------------
@@ -1096,6 +1097,11 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                 emiss = emiss + tex_override["emissive"]
             # AO multiplies the indirect term.
             ao = tex_override.get("ao", 1.0) if tex_override else 1.0
+            if env.authored_lights is not None:
+                from .scene_lighting import direct
+                points = ro_flat[hit_mask][mask] + rd_flat[hit_mask][mask] * t_min[hit_mask][mask, None]
+                dk = direct(env, points, Nm, Vm, mat, tex_override, obj, verts_w, bvh)
+                df = 0
             shaded[mask] = dk + df + ind * ao + emiss
             if tex_override and "alpha" in tex_override:
                 hit_alpha[mask] = tex_override["alpha"]
@@ -2179,11 +2185,20 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
             F = F0 + (1.0 - F0) * np.power(1.0 - nv_clip, 5)
             p_spec = np.clip(F.mean(axis=-1, keepdims=True), 0.05, 0.95)
 
-            # --- Direct sun NEE (shadow ray) ---
+            if env.authored_lights is not None:
+                from .scene_lighting import direct
+                for m in np.unique(mat_idx):
+                    mask = mat_idx == m
+                    mat = obj.materials[m] if m < len(obj.materials) else obj.materials[0]
+                    ov = _sample_material_textures(mat, uvs_hit[mask] if uvs_hit is not None else None)
+                    amount = direct(env, hit_p[mask], N[mask], V[mask], mat, ov, obj, verts_w, bvh)
+                    radiance[hit_global[mask]] += throughput[hit_global[mask]] * amount
+
+            # --- Direct studio sun NEE (shadow ray) ---
             L = np.broadcast_to(sun_dir, N.shape)
             nl = np.clip(np.sum(N * L, axis=-1, keepdims=True), 0.0, 1.0)
             lit = (nl[:, 0] > 0.0)
-            if lit.any():
+            if env.authored_lights is None and lit.any():
                 shadow_o = hit_p[lit] + N[lit] * 1e-3
                 shadow_d = np.broadcast_to(sun_dir, shadow_o.shape).copy()
                 _, sfi, _, _ = _intersect_rays_mesh(shadow_o, shadow_d,
