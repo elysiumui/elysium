@@ -225,8 +225,9 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
         dl.fill_path(_round_d(ax, ay, p.w, p.h, 4),
                       _alpha_color((90, 90, 110, 255), alpha))
         return
+    from . import mesh_materials
     _parts_tex = getattr(p, "mesh_part_textures", None) or {}
-    key = (p.mesh_kind, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
+    key = (mesh_materials.preview_key(p), p.mesh_kind, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
             p.pbr_clearcoat, p.pbr_clearcoat_roughness,
             getattr(p, "pbr_albedo_map", ""),
             getattr(p, "mesh_yaw", 0.4), getattr(p, "mesh_pitch", 0.25),
@@ -246,7 +247,9 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
     # A texture is always applied as `mat.albedo_map` on the existing
     # geometry — it must never swap the mesh itself.
     try:
-        if p.mesh_kind.startswith("file:"):
+        if "materials3d" in getattr(p, "props", {}):
+            obj = mesh_materials.render_object(p, legacy_flap=True)
+        elif p.mesh_kind.startswith("file:"):
             # Imported mesh (.obj / .gltf / .glb / .3ds).
             mesh_path = p.mesh_kind.split(":", 1)[1]
             mesh = pbr_engine.import_mesh_from_file(mesh_path)

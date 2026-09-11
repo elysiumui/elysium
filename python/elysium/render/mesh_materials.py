@@ -136,7 +136,7 @@ def render_materials(p, mesh):
     """Return surfaces and local triangle indices; legacy scenes keep object shading."""
     from . import scene
 
-    if "materials3d" not in p.props:
+    if "materials3d" not in getattr(p, "props", {}):
         return [scene.material(p)], np.zeros(len(mesh.faces), dtype=np.int32)
     slots = table(p)["slots"]
     indices = (
@@ -238,3 +238,32 @@ def remove(p, slot_id):
         if face["material"] > index:
             face["material"] -= 1
     return _publish(p, slots, doc)
+
+
+def render_object(p, *, legacy_flap=False):
+    """Build the same evaluated surfaces for an individual Layout preview."""
+    from dataclasses import replace
+
+    mesh = mesh_edit.evaluate(p)
+    if legacy_flap and getattr(p, "mesh_flap", 0):
+        from .designer_preview import _flap_imported_parts
+
+        mesh = _flap_imported_parts(mesh, p.mesh_flap)
+    materials, indices = render_materials(p, mesh)
+    return pbr.MeshObject(replace(mesh, face_mats=indices), materials)
+
+
+def preview_key(p):
+    """Include inherited surface changes as well as explicit slot edits."""
+    import json
+
+    from . import scene
+
+    if "materials3d" not in getattr(p, "props", {}):
+        return None
+    return (
+        json.dumps(p.props["materials3d"], sort_keys=True),
+        repr(scene.material(p)),
+        repr(p.props.get("modifiers3d")),
+        repr(p.props.get("taper3d")),
+    )

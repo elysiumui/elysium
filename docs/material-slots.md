@@ -14,7 +14,7 @@ Public operations:
 
 Every mutation validates the complete prospective table, source and retained modifier stack before publication. Invalid names, values, stale/duplicate face identities, absent slots or out-of-range source/evaluated indices reject without changing the object. Source topology material inheritance also carries assignments through the existing child-face, duplicate and modifier operations.
 
-The shared scene composer now offsets each object's evaluated face-material indices into the composed material list. It previously assigned one surface to every triangle of an object. Neutral Solid mode remains a viewport override. Material mode uses retained assignments. The native scene exporter uses this same renderer and serializes the editable material table and source mesh. The older independent 2D imported-model layout renderer still needs full slot integration; this specification covers the shared native 3D scene path.
+The shared scene composer now offsets each object's evaluated face-material indices into the composed material list. It previously assigned one surface to every triangle of an object. Neutral Solid mode remains a viewport override. Material mode uses retained assignments. The native scene exporter uses this same renderer and serializes the editable material table and source mesh. The individual Layout preview, its cached-PNG fallback, and public snapshot renderer also evaluate retained meshes and material slots. Their cache keys include explicit and inherited surface changes; asynchronous workers capture placement state before rendering. Legacy objects without a slot table retain their previous path.
 
 ## Native controls
 
@@ -32,4 +32,8 @@ Actual native GUI Export App was also exercised on the independently API-authore
 
 480 relevant framework tests and 263 Designer tests pass; the wheel builds and installs. Tests include actual rendered pixels, multi-object slot offsets, unused-slot removal/reindexing, stable ids, modifier propagation, atomic failure, native control actions, Undo/Redo and persistence. Evidence is archived in Designer plan `evidence/material-slots-20260910/`.
 
-Full material graphs, textures on explicit slots, shared datablocks, lighting/transmission, color-management/image parity, broader GUI variants, layout-path integration and complete S4 acceptance remain open. The accepted X-wing is unchanged.
+Full material graphs, textures on explicit slots, shared datablocks, lighting/transmission, color-management/image parity, broader GUI variants and complete S4 acceptance remain open. The accepted X-wing is unchanged.
+
+## Layout and snapshot follow-up
+
+A separate copy of the API-authored cube was opened in the native GUI. Layout camera tilt revealed the red assigned top. The Materials panel changed its RGB to (0,0,1); 3D Scene, Layout and GET /snapshot showed blue with unchanged grey sides. Undo restored red; Redo, Save, Quit and clean reopening restored the exact blue surface, source, normals and modifier state. The snapshot uses the project canvas, so this fixture extending beyond 800×600 is clipped. This is a surface/cache check, not cross-view camera or lighting equivalence. All 264 Designer tests and 36 focused framework tests pass, including rendered red/blue pixels through all three individual preview implementations.
