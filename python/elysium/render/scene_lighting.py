@@ -150,9 +150,11 @@ def samples(item, points):
         yield direction, incident, distance
 
 
-def direct(env, points, normals, view, mat, overrides, obj, vertices, bvh):
+def direct(env, points, normals, view, mat, overrides, obj, vertices, bvh, parts=None):
     from . import pbr
     output = np.zeros_like(points)
+    if parts is not None:
+        parts.update(diffuse=np.zeros_like(points), specular=np.zeros_like(points))
     extent = np.max(np.ptp(vertices, axis=0)) if len(vertices) else 1
     epsilon = max(1e-6, float(extent) * 1e-6)
     for item in env.authored_lights or []:
@@ -161,5 +163,9 @@ def direct(env, points, normals, view, mat, overrides, obj, vertices, bvh):
         for direction, incident, distance in samples(item, points):
             t, faces, _, _ = pbr._intersect_rays_mesh(points + normals * epsilon, direction, vertices, obj.mesh.faces, bvh)
             visible = (faces < 0) | (t >= distance - 2 * epsilon)
-            output += pbr._shade_pixels(normals, view, direction, incident * visible[:, None], mat, overrides)
+            current = {}
+            output += pbr._shade_pixels(normals, view, direction, incident * visible[:, None], mat, overrides, current if parts is not None else None)
+            if parts is not None:
+                for channel in ("diffuse", "specular"):
+                    parts[channel] += current[channel]
     return output

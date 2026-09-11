@@ -386,7 +386,7 @@ def _resolve(name: str, mat_value, override: dict | None):
 
 
 def _shade_pixels(N, V, L, light_color, mat: Material,
-                  override: dict | None = None) -> np.ndarray:
+                  override: dict | None = None, parts: dict | None = None) -> np.ndarray:
     """Direct lighting from one light. N, V, L are unit-length per pixel."""
     H = _normalize(L + V)
     nl = np.clip(_dot(N, L), 0.0, 1.0)
@@ -420,6 +420,7 @@ def _shade_pixels(N, V, L, light_color, mat: Material,
     diff = kD * base / math.pi
 
     direct = (diff + spec) * light_color * nl
+    diffuse_part, specular_part = diff * light_color * nl, spec * light_color * nl
 
     # Clear-coat layer (achromatic dielectric on top).
     if mat.clear_coat > 0:
@@ -430,12 +431,16 @@ def _shade_pixels(N, V, L, light_color, mat: Material,
         spec_cc = F_cc * D_cc * G_cc / (4.0 * nl * nv + 1e-5)
         # Below the clearcoat the energy is attenuated by 1-F_cc.
         direct = direct * (1.0 - F_cc) + spec_cc * light_color * nl
+        diffuse_part *= 1.0 - F_cc
+        specular_part = specular_part * (1.0 - F_cc) + spec_cc * light_color * nl
 
+    if parts is not None:
+        parts.update(diffuse=diffuse_part, specular=specular_part)
     return direct
 
 
 def _ibl_indirect(N, V, mat: Material, env: Environment,
-                  override: dict | None = None) -> np.ndarray:
+                  override: dict | None = None, parts: dict | None = None) -> np.ndarray:
     """Crude split-sum approximation: diffuse irradiance ≈ env(N),
     specular ≈ env(reflect(-V, N)) blurred by roughness."""
     base = _resolve("base_color",
@@ -480,7 +485,11 @@ def _ibl_indirect(N, V, mat: Material, env: Environment,
         cc_blur = mat.clear_coat_roughness
         cc_env = cc_env * (1.0 - cc_blur) + cc_env_blur * cc_blur
         indirect = indirect * (1.0 - cc_F) + cc_env * cc_F
+        diffuse *= 1.0 - cc_F
+        specular = specular * (1.0 - cc_F) + cc_env * cc_F
 
+    if parts is not None:
+        parts.update(diffuse=diffuse, specular=specular)
     return indirect
 
 
@@ -975,7 +984,8 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                 transparent_bg: bool = False,
                 cam_target: Tuple[float, float, float] = (0., 0., 0.),
                 hit_output: dict | None = None,
-                ortho_scale: float | None = None) -> bytes:
+                ortho_scale: float | None = None,
+                pass_output: dict | None = None) -> bytes:
     """Render a MeshObject with Cook-Torrance PBR + IBL. Returns RGBA bytes.
 
     When ``transparent_bg`` is True, pixels that don't hit the mesh
@@ -1036,6 +1046,7 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
 
     # Shade hit pixels.
     color_buf = np.zeros((w * h, 3), dtype=np.float32)
+    passes = {name: np.zeros_like(color_buf) for name in ("diffuse", "specular", "emission", "normal")} if pass_output is not None else None
 
     # Background — environment along the view ray, unless the caller
     # wants the bg punched out for compositing.
@@ -1083,15 +1094,16 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                                  N[mask], verts_w)
             Vm = V[mask]
             Nm = np.where(np.sum(Nm * Vm, axis=1, keepdims=True) < 0, -Nm, Nm)
+            key_parts, fill_parts, indirect_parts = {}, {}, {}
             dk = _shade_pixels(Nm, Vm,
                                np.broadcast_to(L_key, Nm.shape),
                                np.array(env.sun_color, dtype=np.float32) * 0.5,
-                               mat, tex_override)
+                               mat, tex_override, key_parts if passes is not None else None)
             df = _shade_pixels(Nm, Vm,
                                np.broadcast_to(L_fill, Nm.shape),
                                np.array(env.fill_color, dtype=np.float32),
-                               mat, tex_override)
-            ind = _ibl_indirect(Nm, Vm, mat, env, tex_override)
+                               mat, tex_override, fill_parts if passes is not None else None)
+            ind = _ibl_indirect(Nm, Vm, mat, env, tex_override, indirect_parts if passes is not None else None)
             emiss = np.array(mat.emissive, dtype=np.float32)
             if tex_override and "emissive" in tex_override:
                 emiss = emiss + tex_override["emissive"]
@@ -1100,12 +1112,25 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
             if env.authored_lights is not None:
                 from .scene_lighting import direct
                 points = ro_flat[hit_mask][mask] + rd_flat[hit_mask][mask] * t_min[hit_mask][mask, None]
-                dk = direct(env, points, Nm, Vm, mat, tex_override, obj, verts_w, bvh)
+                dk = direct(env, points, Nm, Vm, mat, tex_override, obj, verts_w, bvh, key_parts if passes is not None else None)
                 df = 0
+                fill_parts = {"diffuse": 0, "specular": 0}
             shaded[mask] = dk + df + ind * ao + emiss
+            if passes is not None:
+                indices = np.flatnonzero(hit_mask)[mask]
+                for channel in ("diffuse", "specular"):
+                    passes[channel][indices] = key_parts[channel] + fill_parts[channel] + indirect_parts[channel] * ao
+                passes["emission"][indices] = emiss
+                passes["normal"][indices] = Nm
             if tex_override and "alpha" in tex_override:
                 hit_alpha[mask] = tex_override["alpha"]
         color_buf[hit_mask] = shaded
+
+    if pass_output is not None:
+        pass_output.update({k: v.reshape(h, w, 3).copy() for k, v in passes.items()})
+        pass_output["beauty_linear"] = color_buf.reshape(h, w, 3).copy()
+        pass_output["depth"] = (t_min * (rd_flat @ look)).reshape(h, w).copy()
+        pass_output["mask"] = hit_mask.reshape(h, w).copy()
 
     # Wireframe overlay (rasterised after shading).
     if wireframe:

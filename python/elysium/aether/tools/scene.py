@@ -534,3 +534,24 @@ def light_remove(session, light_id):
                input_schema={"type": "object", "additionalProperties": False, "properties": {"enabled": {"type": "boolean"}, "ambient": _VECTOR}})
 def lighting_set(session, enabled=None, ambient=None):
     return {"lighting": scene_lighting.configure(session.designer.window_doc, enabled=enabled, ambient=ambient)}
+
+
+@register_tool(name="scene.render_start", description="Start a background direct/IBL scene preview job with real diffuse/specular/emission/world-normal/meter-depth passes. PNG plus lossless numeric NPZ; new output folder only; 60 fps keys.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"destination": {"type": "string"}, "size": {"type": "integer"}, "first": {"type": "integer"}, "last": {"type": "integer"}, "channels": {"type": "array", "items": {"enum": ["beauty", "diffuse", "specular", "emission", "normal", "depth"]}}}, "required": ["destination"]}, undoable=False)
+def render_start(session, destination, size=256, first=0, last=0, channels=None):
+    from ...render import scene_render_job
+    return {"job": scene_render_job.start(session.designer, destination, size=size, first=first, last=last, channels=channels)}
+
+
+@register_tool(name="scene.render_status", description="Read scene-render job progress, completion, cancellation or error.",
+               input_schema={"type": "object", "properties": {}, "additionalProperties": False}, side_effect=SideEffect.READ, undoable=False)
+def render_status(session):
+    from ...render import scene_render_job
+    return {"job": scene_render_job.status(session.designer)}
+
+
+@register_tool(name="scene.render_cancel", description="Cancel a running scene render after its current frame; unfinished output is discarded.",
+               input_schema={"type": "object", "properties": {}, "additionalProperties": False}, undoable=False)
+def render_cancel(session):
+    from ...render import scene_render_job
+    return {"job": scene_render_job.cancel(session.designer)}

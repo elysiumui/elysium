@@ -178,6 +178,7 @@ def render(
     grid=True,
     component_output=None,
     lighting=None,
+    pass_output=None,
 ):
     if shading not in ("solid", "material", "checker"):
         raise ValueError("Shading must be solid, material or checker")
@@ -209,6 +210,7 @@ def render(
         cam_target=target,
         transparent_bg=True,
         hit_output=hits,
+        pass_output=pass_output,
         ortho_scale=ortho_scale if projection == "orthographic" else None,
     )
     faces = hits["face_index"]
@@ -218,6 +220,9 @@ def render(
         faces.fill(-1)
         hits["depth"].fill(np.inf)
         rgba = bytes(width * height * 4)
+        if pass_output is not None:
+            for k, v in pass_output.items():
+                v.fill(np.inf if k == "depth" else 0)
     mask = faces >= 0
     ids[mask] = face_objects[faces[mask]]
     if component_output is not None:
