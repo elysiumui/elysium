@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import mesh_document, scene, scene_animation
+from . import mesh_document, scene, scene_animation, scene_actions
 
 
 def mask_path(mask, scale=1.0):
@@ -39,6 +39,19 @@ def mask_path(mask, scale=1.0):
     )
 
 
+def idle_clip(window,placements,identity,fps):
+    """Resolve an authored idle clip and duration-preserving output frame count."""
+    if identity is None:return None,0
+    library=scene_actions.read(window,placements)
+    action=next((a for a in library['items'] if a['id']==identity),None)
+    if action is None:raise ValueError('The selected idle action no longer exists')
+    timing=action['timing']
+    fps=scene_animation.settings({'fps':fps})['fps']
+    count=((timing['end']-timing['start']+1)*fps+timing['fps']-1)//timing['fps']
+    if count>600:raise ValueError('The idle action exceeds 600 output frames; shorten its range or lower the export frame rate')
+    return action,count
+
+
 def export_bundle(
     placements,
     window,
@@ -54,6 +67,7 @@ def export_bundle(
     fps=None,
     flight_seconds=None,
     project_root=None,
+    idle_action_id=None,
 ):
     playback = scene_animation.settings(getattr(window, 'scene_timeline', None))
     playback = scene_animation.settings({**playback,
@@ -67,6 +81,9 @@ def export_bundle(
         raise ValueError("Export range must be ordered within 0–360000 and contain at most 3601 frames")
     if not isinstance(idle_frames, int) or not 0 <= idle_frames <= 600:
         raise ValueError("Idle frame count must be 0–600")
+    library=scene_actions.read(window,placements)
+    idle_action,idle_count=idle_clip(window,placements,idle_action_id,playback['fps'])
+    if idle_action is not None:idle_frames=idle_count
     destination = Path(destination).resolve()
     if destination.exists():
         raise FileExistsError(f"Export destination already exists: {destination}")
@@ -121,12 +138,26 @@ def export_bundle(
                     shutil.copyfile(source, assets / name)
                     # Keep an absolute staging path while rendering; rewrite for persistence below.
                     setattr(p, field, str(assets / name))
+        idle_placements=None
+        if idle_action is not None:
+            # Unkeyed idle channels inherit the fully deployed pose, so a
+            # partial idle action cannot snap unrelated wings back to rest.
+            idle_placements=scene_animation.pose(placements,end_frame)
+            idle_window=deepcopy(window)
+            scene_actions.switch(idle_window,idle_placements,idle_action_id)
         entries = []
         total = end_frame - start_frame + 1 + idle_frames
         pixels = size * scale
         for index in range(total):
             frame = start_frame + min(index, end_frame-start_frame)
-            posed = scene_animation.pose(placements, frame)
+            source_action=library['active']
+            if idle_placements is not None and index>end_frame-start_frame:
+                offset=index-(end_frame-start_frame+1)
+                frame=min(idle_action['timing']['end'],idle_action['timing']['start']+offset*idle_action['timing']['fps']/playback['fps'])
+                posed=scene_animation.pose(idle_placements,frame)
+                source_action=idle_action_id
+            else:
+                posed = scene_animation.pose(placements, frame)
             rgba, ids = scene.render(
                 posed, pixels, pixels, **camera, shading="material", grid=False,
                 lighting=getattr(window, "scene_lighting", None)
@@ -154,6 +185,7 @@ def export_bundle(
                 {"object_src": object_file,
                     "src": filename,
                     "source_frame": frame,
+                    "source_action": source_action,
                     "close_src": close_file,
                     "hit_path": hit_path,
                     "close_path": close_path,
@@ -203,7 +235,10 @@ def export_bundle(
                          "hook": str(p.props.get('hook') or (p.name or p.kind).strip().replace(' ', '_').lower()+'.click')}
                         for p in placements],
         }
+        if idle_action is not None:
+            animation['idle_action']={'id':idle_action_id,'name':idle_action['name'],**idle_action['timing']}
         window_json = deepcopy(window.to_json())
+        if getattr(window,'scene_actions',None) is not None:window_json['scene_actions']=library
         window_json["code_file"] = paired_code
         for p in placements:
             for field in (

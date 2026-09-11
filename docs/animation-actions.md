@@ -9,3 +9,11 @@ Existing projects need no migration: they expose a synthesized Default action. R
 Switching validates and evaluates the complete candidate before modifying live objects. An inactive action referencing a deleted object rejects activation with the missing IDs; restoring the object or removing the action resolves it. No object is resurrected implicitly. Shared unkeyed transform components keep their current values, as when a channel has no animation curve.
 
 Public tools: `scene.actions_get`, `scene.action_create`, `scene.action_switch`, `scene.action_rename`, `scene.action_remove`. Native changes use one Undo transaction. Key and handle operations use the same active buffer for every action.
+
+## Exported deployment and idle
+
+`export_bundle(..., idle_action_id=...)` uses the active action for the selected deployment range and a chosen named action for the idle segment. The native Export form exposes named choices in Idle clip; Static hold retains the original Open hold frames behavior. A named choice uses its entire saved range and replaces that hold count.
+
+The bundle has one output FPS. Idle duration is its inclusive source frame count divided by its authored FPS. Export uses the ceiling of that duration times output FPS (at most 600 frames), sampling the source curve at corresponding fractional source frames and holding the final source pose for any final partial frame. Timing error is less than one output frame. Each frame records source action identity and source frame; the manifest retains the selected idle name/range/FPS. The existing player opens, plays the idle segment, and reverses deployment to close, using the same application clock for model and flight pause.
+
+Unkeyed idle channels inherit the deployment endpoint pose. They do not inherit a random editor seek position. Keyed channels use the selected action as authored, so matching its endpoints to deployment remains an authoring decision. Export retains both editable actions in its portable authoring copy and never alters the live project. Job retry retains the selected idle identity as well as the form values.

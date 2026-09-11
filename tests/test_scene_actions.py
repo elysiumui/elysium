@@ -64,3 +64,12 @@ def test_switch_validates_unkeyed_objects_before_committing_any_keys():
     before=deepcopy((w.to_json(),ps))
     with pytest.raises(ValueError,match='Scale'):actions.switch(w,ps,'action:default')
     assert (w.to_json(),ps)==before
+
+
+def test_idle_output_duration_rounds_up_by_less_than_one_frame():
+    from elysium.render.scene_export import idle_clip
+    w,ps=fixture();actions.create(w,ps,'Idle',start=10,end=11);identity=w.scene_actions['active']
+    w.scene_timeline['fps']=30
+    clip,count=idle_clip(w,ps,identity,24)
+    assert count==2 and 0<=count/24-2/30<1/24
+    assert clip['timing']['fps']==30
