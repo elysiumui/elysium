@@ -1613,6 +1613,94 @@ def merge_center(mesh, vertex_ids):
     return compile(doc)[0], target
 
 
+def merge_distance(mesh, vertex_ids, threshold=0.0001, *, centroid=True):
+    """Weld selected local-space neighborhoods without mutating the source.
+
+    Neighborhoods are visited in source-vertex order, excluding points already
+    assigned to an earlier neighborhood. Distances are inclusive. This is not
+    transitive chain welding. See docs/merge-distance.md for the full contract.
+    """
+    if type(threshold) not in (int, float) or not isfinite(threshold) or not 0 <= threshold <= MAX_FLOAT32:
+        raise ValueError("Merge threshold must be finite, nonnegative local meters")
+    if type(centroid) is not bool:
+        raise ValueError("Centroid must be a boolean")
+    doc = document(mesh)
+    chosen = set(vertex_ids)
+    vertices = [v for v in doc["vertices"] if v["id"] in chosen]
+    if not vertices or len(vertices) != len(chosen):
+        raise ValueError("Select existing vertices to merge by distance")
+    if len({v["part"] for v in vertices}) != 1:
+        raise ValueError("Merge vertices within the same named part")
+    from scipy.spatial import cKDTree
+
+    positions = np.asarray([v["position"] for v in vertices], dtype=float)
+    tree = cKDTree(positions)
+    assigned = set()
+    targets = {}
+    changed = set()
+    for i, vertex in enumerate(vertices):
+        if i in assigned:
+            continue
+        neighbors = sorted(j for j in tree.query_ball_point(positions[i], threshold) if j not in assigned)
+        assigned.update(neighbors)
+        if len(neighbors) < 2:
+            continue
+        mean = positions[neighbors].mean(axis=0)
+        survivor = min(neighbors, key=lambda j: (float(np.sum((positions[j] - mean) ** 2)), j)) if len(neighbors) > 2 else neighbors[0]
+        target = vertices[survivor]["id"]
+        for j in neighbors:
+            targets[vertices[j]["id"]] = target
+        if centroid:
+            vertices[survivor]["position"] = mean.tolist()
+        changed.update(vertices[j]["id"] for j in neighbors)
+    selection = list(dict.fromkeys(targets.get(v["id"], v["id"]) for v in vertices))
+    if not targets:
+        return mesh, selection
+    doc["vertices"] = [v for v in doc["vertices"] if targets.get(v["id"], v["id"]) == v["id"]]
+    faces, seen_faces = [], set()
+    for face in doc["faces"]:
+        affected = any(c["vertex"] in changed for c in face["corners"])
+        corners = []
+        for corner in face["corners"]:
+            corner["vertex"] = targets.get(corner["vertex"], corner["vertex"])
+            if affected:
+                corner["normal"] = None
+            if not corners or corners[-1]["vertex"] != corner["vertex"]:
+                corners.append(corner)
+        if len(corners) > 1 and corners[0]["vertex"] == corners[-1]["vertex"]:
+            corners.pop()
+        if len(corners) < 3:
+            continue
+        ids = [c["vertex"] for c in corners]
+        if len(set(ids)) != len(ids):
+            raise ValueError("Merge would pinch a polygon; split it first")
+        # Opposite winding also denotes the same welded face. Keep the first
+        # source face and its corner attributes rather than averaging UV seams.
+        first = ids.index(min(ids))
+        cycle = ids[first:] + ids[:first]
+        key = min(tuple(cycle), (cycle[0], *reversed(cycle[1:])))
+        if key in seen_faces:
+            continue
+        seen_faces.add(key)
+        face["corners"] = corners
+        faces.append(face)
+    doc["faces"] = faces
+    edges = {}
+    for edge in doc["edges"]:
+        pair = tuple(sorted(targets.get(v, v) for v in edge["vertices"]))
+        if pair[0] == pair[1]:
+            continue
+        if pair in edges:
+            edges[pair]["seam"] |= edge["seam"]
+            edges[pair]["sharp"] |= edge["sharp"]
+        else:
+            edge["vertices"] = list(pair)
+            edges[pair] = edge
+    doc["edges"] = list(edges.values())
+    doc["schema_version"] = max(2, doc["schema_version"])
+    return compile(doc)[0], selection
+
+
 def _influence(doc, vertex_ids, radius):
     if type(radius) not in (int, float) or not 0 <= radius <= MAX_FLOAT32 or not isfinite(radius):
         raise ValueError("Proportional radius must be finite and nonnegative")
@@ -1781,6 +1869,8 @@ def edit_selected(
     plane_normal=(1.0, 0.0, 0.0),
     keep="both",
     fill=False,
+    threshold=0.0001,
+    centroid=True,
 ):
     from . import mesh_document
 
@@ -1791,10 +1881,13 @@ def edit_selected(
     if operation == "add_vertex":
         result, vertex_id = add_vertex(mesh, position)
         selected = {"mode": "vertices", "ids": [vertex_id]}
-    elif operation in ("connect", "extrude_vertices", "merge_center"):
+    elif operation in ("connect", "extrude_vertices", "merge_center", "merge_distance"):
         if selected.get("mode") != "vertices":
             raise ValueError("Choose vertex selection mode first")
-        if operation == "merge_center":
+        if operation == "merge_distance":
+            result, vertex_ids = merge_distance(mesh, selected.get("ids", []), threshold, centroid=centroid)
+            selected = {"mode": "vertices", "ids": vertex_ids}
+        elif operation == "merge_center":
             result, vertex_id = merge_center(mesh, selected.get("ids", []))
             selected = {"mode": "vertices", "ids": [vertex_id]}
         elif operation == "connect":
@@ -1887,7 +1980,7 @@ def edit_selected(
     from . import mesh_edit
 
     mesh_edit.evaluate_mesh(result, placement)
-    key = mesh_document.bind(placement, result, label=placement.name)
+    key = placement.mesh_kind if result is mesh else mesh_document.bind(placement, result, label=placement.name)
     placement.props["components3d"] = deepcopy(selected)
     return {
         "mesh_key": key,
