@@ -42,6 +42,10 @@ pub struct A11yNode {
     pub label: Option<String>,
     pub description: Option<String>,
     pub shortcut: Option<String>,
+    pub value: Option<String>,
+    pub disabled: bool,
+    pub selected: Option<bool>,
+    pub read_only: bool,
     pub bounds: (f32, f32, f32, f32),
     pub children: Vec<A11yNode>,
 }
@@ -199,6 +203,10 @@ mod tests {
             label: None,
             description: None,
             shortcut: None,
+            value: None,
+            disabled: false,
+            selected: None,
+            read_only: false,
             bounds: b,
             children: kids,
         }

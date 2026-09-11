@@ -22,7 +22,7 @@ use std::sync::Arc;
 pub struct A11yBridge {
     state: Arc<A11yState>,
     #[cfg(target_os = "macos")]
-    adapter: Option<accesskit_macos::Adapter>,
+    adapter: Option<accesskit_macos::SubclassingAdapter>,
     #[cfg(target_os = "windows")]
     adapter: Option<accesskit_windows::Adapter>,
     #[cfg(target_os = "linux")]
@@ -49,9 +49,9 @@ impl A11yBridge {
             return;
         }
         let adapter = unsafe {
-            accesskit_macos::Adapter::new(
+            accesskit_macos::SubclassingAdapter::new(
                 ns_view,
-                false,
+                MacActivationHandler { state: self.state.clone() },
                 StateActionHandler {
                     state: self.state.clone(),
                 },
@@ -105,11 +105,28 @@ impl A11yBridge {
 
     /// Publish the latest tree to the platform. Call after the
     /// framework's `A11yState::publish` so the OS sees the new layout.
+    pub fn set_view_focus(&mut self, focused: bool) {
+        #[cfg(target_os = "macos")]
+        if let Some(adapter) = self.adapter.as_mut() {
+            if let Some(events) = adapter.update_view_focus_state(focused) { events.raise(); }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = focused;
+    }
+
     pub fn refresh(&mut self) {
         #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         if let Some(adapter) = self.adapter.as_mut() {
             let lock = self.state.tree.lock();
-            let update = build_tree_update(&lock);
+            let mut update = build_tree_update(&lock);
+            if let Some(id) = *self.state.focused.lock() {
+                if update.nodes.iter().any(|(node_id, _)| node_id.0 == id.saturating_add(1)) {
+                    update.focus = NodeId(id.saturating_add(1));
+                }
+            }
+            #[cfg(target_os = "macos")]
+            if let Some(events) = adapter.update_if_active(|| update) { events.raise(); }
+            #[cfg(not(target_os = "macos"))]
             adapter.update_if_active(|| update);
         }
     }
@@ -118,7 +135,7 @@ impl A11yBridge {
 /// Translate a framework `A11yTree` into an accesskit `TreeUpdate`.
 fn build_tree_update(tree: &A11yTree) -> TreeUpdate {
     let mut nodes: Vec<(NodeId, Node)> = Vec::new();
-    let root_id: NodeId = NodeId(1);
+    let root_id: NodeId = tree.root.as_ref().map(node_id_for).unwrap_or(NodeId(1));
     if let Some(root) = &tree.root {
         push_node(&mut nodes, root);
     } else {
@@ -144,6 +161,12 @@ fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
     if let Some(short) = &n.shortcut {
         b.set_keyboard_shortcut(short.as_str());
     }
+    if let Some(value) = &n.value {
+        b.set_value(value.as_str());
+    }
+    if n.disabled { b.set_disabled(); }
+    if n.read_only { b.set_read_only(); }
+    if let Some(selected) = n.selected { b.set_selected(selected); }
     let (x, y, w, h) = n.bounds;
     b.set_bounds(Rect {
         x0: x as f64,
@@ -155,9 +178,16 @@ fn push_node(out: &mut Vec<(NodeId, Node)>, n: &A11yNode) {
         let kids: Vec<NodeId> = n.children.iter().map(node_id_for).collect();
         b.set_children(kids);
     }
-    // Anything clickable gets the default click action so screen
-    // readers offer "press this button" to the user.
-    b.add_action(Action::Default);
+    if !n.disabled {
+        match n.role.as_str() {
+            "button" | "checkbox" | "radio" | "menuitem" | "tab" | "link" => {
+                b.add_action(Action::Default);
+                b.add_action(Action::Focus);
+            }
+            "textfield" | "textarea" | "slider" => { b.add_action(Action::Focus); }
+            _ => {}
+        }
+    }
     out.push((node_id_for(n), b.build()));
     for c in &n.children {
         push_node(out, c);
@@ -229,4 +259,42 @@ struct NoopDeactivationHandler;
 #[cfg(target_os = "linux")]
 impl DeactivationHandler for NoopDeactivationHandler {
     fn deactivate_accessibility(&mut self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn node(role: &str, disabled: bool) -> A11yNode {
+        A11yNode { id: 7, role: role.into(), label: Some("Distance".into()),
+            description: None, shortcut: None, value: Some("12.5".into()),
+            selected: Some(true), disabled, read_only: true,
+            bounds: (1., 2., 30., 24.), children: vec![] }
+    }
+
+    #[test]
+    fn preserves_values_states_and_limits_actions_to_controls() {
+        let mut out = vec![];
+        push_node(&mut out, &node("button", true));
+        let n = &out[0].1;
+        assert_eq!(n.value(), Some("12.5"));
+        assert_eq!(n.is_selected(), Some(true));
+        assert!(n.is_disabled() && n.is_read_only());
+        assert!(!n.supports_action(Action::Default));
+        out.clear();
+        push_node(&mut out, &node("label", false));
+        assert!(!out[0].1.supports_action(Action::Default));
+        out.clear();
+        push_node(&mut out, &node("textfield", false));
+        assert!(out[0].1.supports_action(Action::Focus));
+    }
+}
+
+#[cfg(target_os = "macos")]
+struct MacActivationHandler { state: Arc<A11yState> }
+#[cfg(target_os = "macos")]
+impl accesskit::ActivationHandler for MacActivationHandler {
+    fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
+        Some(build_tree_update(&self.state.tree.lock()))
+    }
 }

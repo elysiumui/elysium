@@ -353,9 +353,22 @@ impl AppHandler {
             attrs = attrs.with_min_inner_size(winit::dpi::LogicalSize::new(mw as f64, mh as f64));
         }
 
+        // AccessKit must subclass the NSView before its first focus/show.
+        #[cfg(target_os = "macos")]
+        { attrs = attrs.with_visible(false); }
         let win = event_loop
             .create_window(attrs)
             .map_err(|e| AppError::Window(e.to_string()))?;
+        #[cfg(target_os = "macos")]
+        let a11y_bridge = if !self.a11y_disabled {
+            let mut bridge = crate::a11y_bridge::A11yBridge::new(handle.a11y().clone());
+            if let Some(view) = ns_view_ptr(&win) { bridge.attach_macos(view); }
+            Some(bridge)
+        } else { None };
+        #[cfg(not(target_os = "macos"))]
+        let a11y_bridge = None;
+        #[cfg(target_os = "macos")]
+        win.set_visible(true);
         // Seed the display state so Python can read scale + geometry on the
         // very first frame, rather than after the first resize.
         handle.set_scale_factor(win.scale_factor());
@@ -431,7 +444,7 @@ impl AppHandler {
             handle,
             render_tx,
             render_thread: Some(render_thread),
-            a11y_bridge: None,
+            a11y_bridge,
         })
     }
 }
@@ -712,6 +725,11 @@ impl ApplicationHandler for AppHandler {
         }
 
         match event {
+            WindowEvent::Focused(focused) => {
+                if let Some(bridge) = self.live[idx].a11y_bridge.as_mut() {
+                    bridge.set_view_focus(focused);
+                }
+            }
             WindowEvent::CloseRequested => {
                 let mut lw = self.live.swap_remove(idx);
                 lw.handle.close();
