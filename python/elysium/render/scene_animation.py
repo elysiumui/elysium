@@ -5,7 +5,7 @@ per-channel interpolation let the UI edit one axis without keying other axes.
 """
 import math
 from copy import deepcopy
-from . import scene
+from . import scene, animation_curve
 
 FPS = 60
 CHANNELS = tuple(f"{group}.{axis}" for group in scene.DEFAULT for axis in "xyz")
@@ -47,7 +47,7 @@ def tracks(placement):
         raise TypeError("3D keys must be a list")
     frames = []
     for key in keys:
-        if not isinstance(key, dict) or not {"frame", "transform"} <= set(key) or set(key) - {"frame", "transform", "channels", "interpolation"}:
+        if not isinstance(key, dict) or not {"frame", "transform"} <= set(key) or set(key) - {"frame", "transform", "channels", "interpolation", "handles"}:
             raise ValueError("Invalid 3D key fields")
         if not isinstance(key["transform"], dict) or set(key["transform"]) != set(scene.DEFAULT):
             raise ValueError("3D keys require a complete transform")
@@ -58,14 +58,28 @@ def tracks(placement):
         if not isinstance(channels, list) or not channels or any(c not in CHANNELS for c in channels) or len(channels) != len(set(channels)):
             raise ValueError("Key channels must be unique transform axes")
         modes = key.get("interpolation", {})
-        if not isinstance(modes, dict) or any(c not in channels or mode not in ("LINEAR", "CONSTANT") for c, mode in modes.items()):
-            raise ValueError("Interpolation must be Linear or Constant for a keyed channel")
+        if not isinstance(modes, dict) or any(c not in channels or mode not in ("LINEAR", "CONSTANT", "BEZIER") for c, mode in modes.items()):
+            raise ValueError("Interpolation must be Linear, Constant or Bezier for a keyed channel")
+        animation_curve.validate(key.get("handles", {}), channels)
         probe = deepcopy(placement)
         probe.props["transform3d"] = key["transform"]
         scene.transform(probe)
+        for channel,pair in key.get('handles',{}).items():
+            group,axis=channel.split('.');value=key['transform'][group]['xyz'.index(axis)]
+            if any(not math.isfinite(value+offset[1]) for offset in pair.values()):
+                raise ValueError('Curve handle values must remain finite')
         frames.append(frame)
     if frames != sorted(set(frames)):
         raise ValueError("3D keys must have unique ascending frames")
+    for channel in ('scale.x','scale.y','scale.z'):
+        chosen=[k for k in keys if channel in key_channels(k)]
+        for left,right in zip(chosen,chosen[1:]):
+            if interpolation(left,channel)!='BEZIER':continue
+            i='xyz'.index(channel[-1])
+            low,high=animation_curve.value_range(left['transform']['scale'][i],right['transform']['scale'][i],
+                animation_curve.handles(chosen,left['frame'],channel)['right'],
+                animation_curve.handles(chosen,right['frame'],channel)['left'],right['frame']-left['frame'])
+            if low<1e-8 and high>-1e-8:raise ValueError('Scale curve must stay nonzero between keys; adjust its handles')
     return deepcopy(keys)
 
 
@@ -130,6 +144,7 @@ both frames are retained. An empty source key is removed after a move/delete.
         if remaining:
             source["channels"] = remaining
             source["interpolation"] = {c:m for c,m in source.get("interpolation", {}).items() if c in remaining}
+            if "handles" in source:source["handles"]={c:h for c,h in source["handles"].items() if c in remaining}
         else:
             keys.remove(source)
     if not delete:
@@ -147,6 +162,8 @@ both frames are retained. An empty source key is removed after a move/delete.
                 destination["transform"][group][i] = original["transform"][group][i]
             destination["channels"] = [c for c in CHANNELS if c in set(key_channels(destination)) | set(chosen)]
             destination.setdefault("interpolation", {}).update({c:interpolation(original,c) for c in chosen})
+            for c in chosen:
+                if c in original.get("handles", {}):destination.setdefault("handles", {})[c]=deepcopy(original["handles"][c])
         if mode is not None:
             destination.setdefault("interpolation", {}).update({c:mode for c in chosen})
     _commit(placement, keys)
@@ -168,8 +185,8 @@ def edit_keys(placement, selection, *, offset=0, duplicate=False, delete=False, 
         raise ValueError('Delete cannot be combined with other key edits')
     if duplicate and offset == 0:
         raise ValueError('Choose a nonzero frame offset for duplicate keys')
-    if mode is not None and mode not in ('LINEAR', 'CONSTANT'):
-        raise ValueError('Interpolation must be Linear or Constant')
+    if mode is not None and mode not in ('LINEAR', 'CONSTANT', 'BEZIER'):
+        raise ValueError('Interpolation must be Linear, Constant or Bezier')
     if not isinstance(selection, (list, tuple)) or not selection:
         raise ValueError('Select at least one key')
     selected = set()
@@ -197,6 +214,7 @@ def edit_keys(placement, selection, *, offset=0, duplicate=False, delete=False, 
             if remaining:
                 key['channels'] = remaining
                 key['interpolation'] = {c: m for c, m in key.get('interpolation', {}).items() if c in remaining}
+                if 'handles' in key:key['handles']={c:h for c,h in key['handles'].items() if c in remaining}
             else:
                 del by_frame[frame]
     if not delete:
@@ -216,6 +234,8 @@ def edit_keys(placement, selection, *, offset=0, duplicate=False, delete=False, 
                 # Explicit default interpolation is unnecessary; retain authored metadata.
                 if channel in original.get('interpolation', {}):
                     destination.setdefault('interpolation', {})[channel] = original['interpolation'][channel]
+                if channel in original.get('handles', {}):
+                    destination.setdefault('handles', {})[channel]=deepcopy(original['handles'][channel])
             if mode is not None:
                 destination.setdefault('interpolation', {})[channel] = mode
     _commit(placement, list(by_frame.values()))
@@ -235,13 +255,8 @@ def pose(placements, frame):
             channel_keys = [key for key in keys if channel in key_channels(key)]
             if not channel_keys:
                 continue
-            left = next((k for k in reversed(channel_keys) if k["frame"] <= frame), channel_keys[0])
-            right = next((k for k in channel_keys if k["frame"] >= frame), channel_keys[-1])
-            t = 0.0 if left["frame"] == right["frame"] or interpolation(left,channel) == "CONSTANT" else (frame-left["frame"])/(right["frame"]-left["frame"])
-            group, axis = channel.split(".")
-            i = "xyz".index(axis)
-            a, b = left["transform"][group][i], right["transform"][group][i]
-            values[group][i] = a + (b-a)*t
+            group,axis=channel.split('.')
+            values[group]['xyz'.index(axis)]=channel_value(channel_keys,channel,frame)
         scene.update(p, values)
     return output
 
@@ -253,3 +268,30 @@ def seek(designer, frame):
             scene.update(p, scene.transform(evaluated_p))
     designer.window_doc.scene_frame = frame
     return frame
+
+
+def set_handles(placement,frame,channel,left,right):
+    if isinstance(frame,bool) or not isinstance(frame,int) or not 0<=frame<=360000:
+        raise ValueError('Key frame must be an integer between 0 and 360000')
+    keys=tracks(placement)
+    key=next((k for k in keys if k['frame']==frame and channel in key_channels(k)),None)
+    if key is None:raise ValueError('Select an existing key for curve handles')
+    key.setdefault('handles',{})[channel]={'left':deepcopy(left),'right':deepcopy(right)}
+    key.setdefault('interpolation',{})[channel]='BEZIER'
+    _commit(placement,keys)
+    return tracks(placement)
+
+
+def channel_value(keys,channel,frame):
+    """Evaluate an already validated, nonempty single-channel track."""
+    left=next((k for k in reversed(keys) if k['frame']<=frame),keys[0])
+    right=next((k for k in keys if k['frame']>=frame),keys[-1])
+    group,axis=channel.split('.');i='xyz'.index(axis)
+    a,b=left['transform'][group][i],right['transform'][group][i]
+    if left['frame']==right['frame'] or interpolation(left,channel)=='CONSTANT':return a
+    if interpolation(left,channel)=='BEZIER':
+        return animation_curve.evaluate(frame,left['frame'],right['frame'],a,b,
+            animation_curve.handles(keys,left['frame'],channel)['right'],
+            animation_curve.handles(keys,right['frame'],channel)['left'])
+    t=(frame-left['frame'])/(right['frame']-left['frame'])
+    return a+(b-a)*t

@@ -54,7 +54,7 @@ def test_move_duplicate_delete_and_constant_interpolation_are_channel_isolated()
 
 @pytest.mark.parametrize('changes',[
     {'target_frame':0}, {'target_frame':True}, {'target_frame':2.5},
-    {'target_frame':-1}, {'target_frame':360001}, {'mode':'BEZIER'},
+    {'target_frame':-1}, {'target_frame':360001}, {'mode':'UNKNOWN'},
     {'duplicate':True}, {'channels':['unknown']},
 ])
 def test_failed_key_edit_preserves_every_key(changes):

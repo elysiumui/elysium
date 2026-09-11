@@ -196,7 +196,7 @@ def taper_set(session, id, taper):
             "id": {"type": "string"},
             "frame": {"type": "integer", "minimum": 0, "maximum": 360000},
             "channels": {"type":"array","items":{"enum":list(scene_animation.CHANNELS)},"minItems":1,"uniqueItems":True},
-            "mode": {"enum":["LINEAR","CONSTANT"]},
+            "mode": {"enum":["LINEAR","CONSTANT","BEZIER"]},
             "transform": {
                 "type": "object",
                 "additionalProperties": False,
@@ -595,7 +595,7 @@ def keys_get(session,id):
         'id':{'type':'string'},'source_frame':{'type':'integer','minimum':0,'maximum':360000},
         'channels':{'type':'array','items':{'enum':list(scene_animation.CHANNELS)},'minItems':1,'uniqueItems':True},
         'target_frame':{'type':'integer','minimum':0,'maximum':360000},
-        'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},'mode':{'enum':['LINEAR','CONSTANT']},
+        'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},'mode':{'enum':['LINEAR','CONSTANT','BEZIER']},
     },'required':['id','source_frame','channels']},
 )
 def key_edit(session,id,source_frame,channels,target_frame=None,duplicate=False,delete=False,mode=None):
@@ -613,7 +613,7 @@ def key_edit(session,id,source_frame,channels,target_frame=None,duplicate=False,
                 'channel':{'enum':list(scene_animation.CHANNELS)},
             },'required':['frame','channel']}},
         'offset':{'type':'integer'},'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},
-        'mode':{'enum':['LINEAR','CONSTANT']},
+        'mode':{'enum':['LINEAR','CONSTANT','BEZIER']},
     },'required':['id','selection']},
 )
 def keys_edit(session,id,selection,offset=0,duplicate=False,delete=False,mode=None):
@@ -646,3 +646,17 @@ def timeline_set(session,settings):
     data=scene_animation.settings({**timeline_get(session),**settings})
     session.designer.window_doc.scene_timeline=data
     return data
+
+
+@register_tool(
+    name='scene.key_handles_set',
+    description='Set free Bezier handles as [frame offset, value offset] relative to an existing key. Left time offset must be nonpositive, right nonnegative. Values use meters, degrees or scale factors. Enables Bezier outgoing interpolation.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},'frame':{'type':'integer','minimum':0,'maximum':360000},
+        'channel':{'enum':list(scene_animation.CHANNELS)},
+        'left':{'type':'array','items':{'type':'number'},'minItems':2,'maxItems':2},
+        'right':{'type':'array','items':{'type':'number'},'minItems':2,'maxItems':2},
+    },'required':['id','frame','channel','left','right']},
+)
+def key_handles_set(session,id,frame,channel,left,right):
+    return {'keys':scene_animation.set_handles(session.lookup(id),frame,channel,left,right)}
