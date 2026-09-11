@@ -106,3 +106,26 @@ The native GUI fixture starts from the saved four-quad Stitch result, displays i
 ## Seam-preserving Stitch acceptance — 2026-09-10
 
 Repeating the four-quad fixture with Clear joined seams off in Designer and Clear Seams off in Blender passes native GUI / independent Aether / Blender comparison: exact geometry and winding, all twelve seam endpoint pairs exact, maximum final UV error 1.192092897173147e-7 against tolerance 1e-6. Native Undo restores the separated input; Redo, Save and clean-process reopening restore the joined output exactly. This accepts only the two-island rigid seam-preserving variant. The default seam-clearing mismatch above remains open.
+
+
+## Seam-aware fixed-reference and midpoint Stitch — 2026-09-10
+
+This specification supersedes the island-grouping default and bounded seam-clearing blocker above. The earlier all-edge Blender comparison is preserved as a failed broader-selection case.
+
+`mesh.uv_stitch(id, corner_ids=None, static_corner_id=None, clear_seams=True, midpoints=False, respect_seams=True)` expands selected corner seeds to exactly two neighboring islands. With `respect_seams=True`, marked source edges separate islands even when their corner UV coordinates coincide. The legacy coordinate-continuity grouping remains available with `False`; generic UV island selection/packing retain their existing coordinate-continuity semantics. Blender Stitch also uses seam-separated islands. Three coincident faces separated by marked seams therefore form three Stitch islands, not one L-shaped island.
+
+Without midpoints, the anchored island remains fixed and its neighbor rotates/translates rigidly to coincide along all shared source edges. With midpoints, shared endpoints move to the arithmetic mean of their original coordinates. Each island's other corners rotate by half the relative rotation in opposite directions, about its shared-anchor centroid, and translate to the average centroid. Snapping the joined endpoints can deform UV faces; this option is not a rigid shape-preserving operation. `fixed_face_ids` is empty and `moved_face_ids` includes both islands in midpoint mode. All three options require booleans.
+
+Shared anchor lengths and shapes must still be congruent. Degenerate/ambiguous/nonmanifold shared boundaries, more or fewer than two selected islands, positive-area overlap between the joined islands, and pins that would move reject atomically. The 10,000-triangle limit remains. Unselected islands, source geometry, identities, materials, normals and pin values remain unchanged. Clear seams changes only edges shared by the joined islands. Prospective modifier validation occurs before publication.
+
+Native Islands controls expose Clear joined seams, Join at midpoint, and Respect mesh seams. Their opening defaults are on/off/on. Clear selection, click a unique corner on the reference island, then a unique corner on its neighbor, and Stitch. Changing options alone does not create an Undo step; Stitch is one transaction. The same behavior is available through the public API and persists in saved source UVs/seams.
+
+### Independent reproduction and acceptance
+
+Create a 2 m Plane with two segments per side (9 vertices, 12 edges, 4 quads). Mark all 12 seams and project XZ into the unit tile. On the face whose center is (-0.5,0,-0.5), rotate UVs clockwise 37 degrees and translate +1 U. Select one corner on that face and one on the adjacent face centered at (0.5,0,-0.5), choosing the latter as reference. Stitch with Clear joined seams and Respect mesh seams on. Repeat from the separated input with Join at midpoint on.
+
+Independently in Blender 5.2.1 LTS build 9e2066aef7ef, author the equivalent subdivided plane, mark all seams, Top Project from View (Bounds), and transform the corresponding UV face by R 37 / G X 1. Disable UV Sync and Sticky Selection. In UV Edge mode select **only the shared boundary edge on each of the two intended islands**. Run Stitch with Snap Islands on, Static Island 0, Limit off, Clear Seams on; compare Midpoint off and on separately. Selecting all edges can also stitch boundaries to additional islands, even if those other islands were not selected. It is a broader operation than this two-island native contract.
+
+Both fixtures pass independent native GUI / public API / Blender GUI comparison. Source geometry, edges and oriented faces are exact; all 11 seam endpoint pairs match. Maximum UV errors are 1.1920928977282585e-7 (fixed reference) and 1.2513385194701243e-7 (midpoint), below the unchanged 1e-6 gate. Native Undo/Redo and clean-process reopening preserve exact source documents for both variants. 459 relevant framework and 260 Designer tests pass. Saved projects, operation receipts, read-only extractors and matrix are archived in Designer plan evidence `uv-stitch-boundary-20260910`.
+
+Vertex mode, distance limits, arbitrary multi-island/all-edge selection, unequal-scale midpoint joins, broader UV winding cases and full UV-family acceptance remain open. This resolves the earlier bounded seam mismatch by matching island grouping and selected boundaries; it does not certify the broader failed selection.

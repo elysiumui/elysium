@@ -5,10 +5,11 @@ import numpy as np
 from . import mesh_uv, topology
 
 
-def groups(doc):
+def groups(doc, *, respect_seams=False):
     """Faces connect only across a mesh edge with identical endpoint UVs.
 
-    A marked source seam alone does not split existing UV coordinates.
+    A marked source seam alone does not split existing UV coordinates unless
+    respect_seams is requested (used by Stitch to match Blender's grouping).
     Unprojected faces are excluded until all of their corners have UVs.
     """
     faces = [f for f in doc["faces"] if all(c.get("uv") is not None for c in f["corners"])]
@@ -21,9 +22,16 @@ def groups(doc):
         return i
 
     edges = {}
+    seams = (
+        {tuple(sorted(e["vertices"])) for e in doc["edges"] if e["seam"]}
+        if respect_seams
+        else set()
+    )
     for i, face in enumerate(faces):
         corners = face["corners"]
         for a, b in zip(corners, corners[1:] + corners[:1]):
+            if tuple(sorted((a["vertex"], b["vertex"]))) in seams:
+                continue
             key = tuple(sorted(((a["vertex"], tuple(a["uv"])), (b["vertex"], tuple(b["uv"])))))
             if key in edges:
                 first, second = root(i), root(edges[key])
@@ -36,8 +44,8 @@ def groups(doc):
     return list(islands.values())
 
 
-def selected(doc, corner_ids=None):
-    islands = groups(doc)
+def selected(doc, corner_ids=None, *, respect_seams=False):
+    islands = groups(doc, respect_seams=respect_seams)
     corners = [c for island in islands for f in island for c in f["corners"]]
     chosen = mesh_uv._selected(corners, corner_ids, "projected UV corner")
     ids = {c["id"] for c in chosen}

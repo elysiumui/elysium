@@ -408,12 +408,12 @@ def uv_unwrap_seams(session,id,face_ids=None,fit_tile=True,margin=.02):
 
 @register_tool(
     name="mesh.uv_stitch",
-    description="Rigidly join exactly two neighboring projected UV islands touched by corner_ids (omitted means all projected islands). static_corner_id chooses the island to keep fixed; omitted uses the earliest source face identity. Rotate/translate the other whole island so all shared source-edge endpoints coincide exactly, without scaling. clear_seams defaults true to clear joined seam flags; false preserves all seam flags. Mismatched edge shapes/scales, ambiguous UV anchors, overlapping results and pins that would move reject atomically. Limit: 10,000 triangles across the two islands. Unselected islands and source geometry remain unchanged. This is a bounded two-island edge stitch, not midpoint/distance-limited/vertex stitching.",
-    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"static_corner_id":{"type":"string"},"clear_seams":{"type":"boolean"}},"required":["id"]},
+    description="Join exactly two neighboring projected UV islands touched by corner_ids (omitted means all projected islands). static_corner_id chooses the island to keep fixed; omitted uses the earliest source face identity. Rotate/translate the other whole island so all shared source-edge endpoints coincide exactly, without scaling. clear_seams defaults true to clear joined seam flags; false preserves all seam flags. Mismatched edge shapes/scales, ambiguous UV anchors, overlapping results and pins that would move reject atomically. Limit: 10,000 triangles across the two islands. Unselected islands and source geometry remain unchanged. midpoints=true snaps shared endpoints to their arithmetic midpoint and rotates/translates other corners halfway; this may deform UV faces. respect_seams defaults true and splits islands at marked mesh seams, as Blender Stitch does; false retains legacy coordinate-only grouping. midpoints defaults false, keeping the reference island fixed. Distance-limited and vertex modes are not supported.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"static_corner_id":{"type":"string"},"clear_seams":{"type":"boolean"},"midpoints":{"type":"boolean"},"respect_seams":{"type":"boolean"}},"required":["id"]},
 )
-def uv_stitch(session,id,corner_ids=None,static_corner_id=None,clear_seams=True):
+def uv_stitch(session,id,corner_ids=None,static_corner_id=None,clear_seams=True,midpoints=False,respect_seams=True):
     from ...render import mesh_uv_stitch
-    return mesh_uv_stitch.stitch(session.lookup(id),corner_ids,static_corner_id=static_corner_id,clear_seams=clear_seams)
+    return mesh_uv_stitch.stitch(session.lookup(id),corner_ids,static_corner_id=static_corner_id,clear_seams=clear_seams,midpoints=midpoints,respect_seams=respect_seams)
 
 
 @register_tool(

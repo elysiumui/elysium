@@ -1,4 +1,4 @@
-"""Rigid joining of two neighboring corner-UV islands across shared source edges."""
+"""Fixed-reference or midpoint joining across neighboring corner-UV island edges."""
 
 from collections import defaultdict
 
@@ -56,17 +56,32 @@ def _validate_join(fixed, moving):
                 )
 
 
-def stitch(placement, corner_ids=None, *, static_corner_id=None, clear_seams=True):
-    """Keep one island fixed; rigidly join its shared edges with one other island.
+def stitch(
+    placement,
+    corner_ids=None,
+    *,
+    static_corner_id=None,
+    clear_seams=True,
+    midpoints=False,
+    respect_seams=True,
+):
+    """Join shared source edges between exactly two selected UV islands.
 
     Selected corner seeds expand to exactly two complete islands. All their
-    shared source edges join; clear_seams controls their seam flags. No scaling/stretching
-    is allowed. Pins that would move reject the complete operation.
+    shared source edges join; clear_seams controls their seam flags. By default
+    mesh seams split Stitch islands. Without midpoints, one island stays fixed
+    and the other moves rigidly. Midpoints averages shared endpoints and moves
+    both islands' remaining corners halfway, which can deform joined UV faces.
+    Incompatible edge lengths/shapes and moving pins reject atomically.
     """
     if not isinstance(clear_seams, bool):
-        raise ValueError("Clear seams must be true or false")
+        raise ValueError("Clear seams must be true or false")  # noqa: TRY004 - shared UI validation contract
+    if not isinstance(midpoints, bool):
+        raise ValueError("Midpoints must be true or false")  # noqa: TRY004 - shared UI validation contract
+    if not isinstance(respect_seams, bool):
+        raise ValueError("Respect seams must be true or false")  # noqa: TRY004 - shared UI validation contract
     doc = mesh_uv.source(placement)
-    islands = mesh_uv_islands.selected(doc, corner_ids)
+    islands = mesh_uv_islands.selected(doc, corner_ids, respect_seams=respect_seams)
     if len(islands) != 2:
         raise ValueError("Select UV corners in exactly two neighboring islands to stitch")
     islands.sort(key=lambda island: min(int(f["id"][1:]) for f in island))
@@ -114,6 +129,30 @@ def stitch(placement, corner_ids=None, *, static_corner_id=None, clear_seams=Tru
         raise ValueError(
             "Stitch would stretch the islands; match their scale and shared edge shape first"
         )
+    if midpoints:
+        angle = np.arctan2(rotation[0, 1], rotation[0, 0]) / 2
+        cosine, sine = np.cos(angle), np.sin(angle)
+        half = np.array([[cosine, sine], [-sine, cosine]])
+        center = (center_source + center_target) / 2
+        # Blender snaps stitched endpoints to their arithmetic midpoint. Other
+        # corners rotate halfway and translate; a rotated join can change UV shape.
+        joined = (source + target) / 2
+        new_anchors = {vertex: tuple(value.tolist()) for vertex, value in zip(anchors, joined)}
+        fixed_corners = [c for f in fixed for c in f["corners"]]
+        fixed_values = (
+            np.array([c["uv"] for c in fixed_corners]) - center_target
+        ) @ half.T + center
+        for c, value in zip(fixed_corners, fixed_values):
+            pair = anchors.get(c["vertex"])
+            if pair and tuple(c["uv"]) == pair[1]:
+                value = np.asarray(new_anchors[c["vertex"]])
+            if c.get("pin", False) and not np.array_equal(c["uv"], value):
+                raise ValueError(
+                    "Midpoint stitch would move a pinned corner in the reference island"
+                )
+            c["uv"] = value.tolist()
+        anchors = {v: (pair[0], new_anchors[v]) for v, pair in anchors.items()}
+        rotation, center_target = half, center
     moving_corners = [c for f in moving for c in f["corners"]]
     uv = np.array([c["uv"] for c in moving_corners])
     result = (uv - center_source) @ rotation + center_target
@@ -138,7 +177,7 @@ def stitch(placement, corner_ids=None, *, static_corner_id=None, clear_seams=Tru
     return {
         **mesh_uv._publish(placement, doc),
         "joined_edges": len(shared),
-        "fixed_face_ids": [f["id"] for f in fixed],
-        "moved_face_ids": [f["id"] for f in moving],
+        "fixed_face_ids": [] if midpoints else [f["id"] for f in fixed],
+        "moved_face_ids": [f["id"] for f in (fixed + moving if midpoints else moving)],
         "corner_ids": [c["id"] for island in islands for f in island for c in f["corners"]],
     }

@@ -89,7 +89,7 @@ def test_incompatible_stitch_rejects_atomically(fault, message):
 
 @pytest.mark.parametrize("selection", ["all", "one", "diagonal"])
 def test_stitch_requires_exactly_two_edge_neighbors(selection):
-    p, first, second = fixture()
+    p, first, _second = fixture()
     islands = mesh_uv_islands.read(p)
     corners = None if selection == "all" else first["corner_ids"]
     if selection == "diagonal":
@@ -126,3 +126,84 @@ def test_invalid_clear_seams_option_rejects_without_mutation(invalid):
     with pytest.raises(ValueError, match="Clear seams"):
         mesh_uv_stitch.stitch(p, fixed["corner_ids"] + moving["corner_ids"], clear_seams=invalid)
     assert vars(p) == before
+
+
+def test_midpoint_stitch_moves_both_and_preserves_other_islands():
+    p, first, second = fixture()
+    mesh_uv.transform(p, second["corner_ids"], angle=37, offset=[0.4, -0.3])
+    before = mesh_uv.source(p)
+    result = mesh_uv_stitch.stitch(
+        p, first["corner_ids"] + second["corner_ids"], midpoints=True, clear_seams=False
+    )
+    after = mesh_uv.source(p)
+    assert not result["fixed_face_ids"]
+    assert set(result["moved_face_ids"]) == set(first["face_ids"] + second["face_ids"])
+    assert after["vertices"] == before["vertices"] and after["edges"] == before["edges"]
+    assert len(mesh_uv_islands.read(p)) == 3
+    for a, b in zip(before["faces"], after["faces"]):
+        if a["id"] not in result["moved_face_ids"]:
+            assert a == b
+        else:
+            av = np.array([c["uv"] for c in a["corners"]])
+            bv = np.array([c["uv"] for c in b["corners"]])
+            assert not np.allclose(av, bv)
+            # The snapped shared edge shortens when the original islands differ
+            # in rotation; unstitched corners follow their half-rotation transform.
+            assert np.isfinite(bv).all()
+    saved = mesh_document.capture([p])
+    mesh_document.restore(saved, [p])
+    assert mesh_uv.source(p) == after
+
+
+@pytest.mark.parametrize("which", [0, 1])
+def test_midpoint_rejects_pins_in_either_island_atomically(which):
+    p, first, second = fixture()
+    mesh_uv.pin(p, [first, second][which]["corner_ids"])
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match="pinned"):
+        mesh_uv_stitch.stitch(p, first["corner_ids"] + second["corner_ids"], midpoints=True)
+    assert vars(p) == before
+
+
+@pytest.mark.parametrize("value", [0, 1, "false", None])
+def test_midpoint_requires_boolean(value):
+    p, first, second = fixture()
+    before = deepcopy(vars(p))
+    with pytest.raises(ValueError, match="Midpoints"):
+        mesh_uv_stitch.stitch(p, first["corner_ids"] + second["corner_ids"], midpoints=value)
+    assert vars(p) == before
+
+
+def test_stitch_respects_seams_even_where_coordinates_touch():
+    p = SimpleNamespace(kind="Mesh3D", props={}, name="Plane", entity_id="plane")
+    mesh_document.bind(p, primitives.build("Plane", {"segments": 2})[0])
+    mesh_uv.project(p, "planar_xz")
+    before = mesh_uv.source(p)
+    mesh_uv.seams(p, [e["id"] for e in before["edges"]])
+    before = mesh_uv.source(p)
+    assert len(mesh_uv_islands.groups(before)) == 1
+    assert len(mesh_uv_islands.groups(before, respect_seams=True)) == 4
+    selection = [c["id"] for f in before["faces"][:2] for c in f["corners"]]
+    with pytest.raises(ValueError, match="exactly two"):
+        mesh_uv_stitch.stitch(p, selection, respect_seams=False)
+    result = mesh_uv_stitch.stitch(p, selection)
+    assert result["joined_edges"] == 1
+    after = mesh_uv.source(p)
+    assert after["faces"] == before["faces"]
+    assert sum(e["seam"] for e in after["edges"]) == 11
+
+
+def test_midpoint_shared_endpoints_equal_arithmetic_mean():
+    p, first, second = fixture()
+    mesh_uv.transform(p, second["corner_ids"], angle=37, offset=[0.4, -0.3])
+    before = mesh_uv.source(p)
+    docs = {f["id"]: f for f in before["faces"]}
+    a = {c["vertex"]: np.array(c["uv"]) for fid in first["face_ids"] for c in docs[fid]["corners"]}
+    b = {c["vertex"]: np.array(c["uv"]) for fid in second["face_ids"] for c in docs[fid]["corners"]}
+    expected = {v: (a[v] + b[v]) / 2 for v in a.keys() & b.keys()}
+    mesh_uv_stitch.stitch(p, first["corner_ids"] + second["corner_ids"], midpoints=True)
+    for f in mesh_uv.source(p)["faces"]:
+        if f["id"] in first["face_ids"] + second["face_ids"]:
+            for c in f["corners"]:
+                if c["vertex"] in expected:
+                    np.testing.assert_allclose(c["uv"], expected[c["vertex"]], atol=1e-12)
