@@ -1613,7 +1613,7 @@ def merge_center(mesh, vertex_ids):
     return compile(doc)[0], target
 
 
-def merge_distance(mesh, vertex_ids, threshold=0.0001, *, centroid=True):
+def merge_distance(mesh, vertex_ids, threshold=0.0001, *, centroid=True, unselected=False):
     """Weld selected local-space neighborhoods without mutating the source.
 
     Neighborhoods are visited in source-vertex order, excluding points already
@@ -1624,6 +1624,8 @@ def merge_distance(mesh, vertex_ids, threshold=0.0001, *, centroid=True):
         raise ValueError("Merge threshold must be finite, nonnegative local meters")
     if type(centroid) is not bool:
         raise ValueError("Centroid must be a boolean")
+    if type(unselected) is not bool:
+        raise ValueError("Unselected must be a boolean")
     doc = document(mesh)
     chosen = set(vertex_ids)
     vertices = [v for v in doc["vertices"] if v["id"] in chosen]
@@ -1638,6 +1640,27 @@ def merge_distance(mesh, vertex_ids, threshold=0.0001, *, centroid=True):
     assigned = set()
     targets = {}
     changed = set()
+    if unselected:
+        # Fixed targets take priority. A selected point belongs to its nearest
+        # unselected target; targets never collapse into one another.
+        fixed = [v for v in doc["vertices"] if v["id"] not in chosen and v["part"] == vertices[0]["part"]]
+        if fixed:
+            fixed_positions = np.asarray([v["position"] for v in fixed], dtype=float)
+            fixed_tree = cKDTree(fixed_positions)
+            groups = {}
+            for i, point in enumerate(positions):
+                nearby = fixed_tree.query_ball_point(point, threshold)
+                if not nearby:
+                    continue
+                j = min(nearby, key=lambda k: (float(np.sum((fixed_positions[k] - point) ** 2)), k))
+                target = fixed[j]["id"]
+                targets[vertices[i]["id"]] = target
+                assigned.add(i)
+                groups.setdefault(j, []).append(i)
+                changed.update((target, vertices[i]["id"]))
+            if centroid:
+                for j, members in groups.items():
+                    fixed[j]["position"] = np.vstack([fixed_positions[j], positions[members]]).mean(axis=0).tolist()
     for i, vertex in enumerate(vertices):
         if i in assigned:
             continue
@@ -1871,6 +1894,7 @@ def edit_selected(
     fill=False,
     threshold=0.0001,
     centroid=True,
+    unselected=False,
 ):
     from . import mesh_document
 
@@ -1885,7 +1909,7 @@ def edit_selected(
         if selected.get("mode") != "vertices":
             raise ValueError("Choose vertex selection mode first")
         if operation == "merge_distance":
-            result, vertex_ids = merge_distance(mesh, selected.get("ids", []), threshold, centroid=centroid)
+            result, vertex_ids = merge_distance(mesh, selected.get("ids", []), threshold, centroid=centroid, unselected=unselected)
             selected = {"mode": "vertices", "ids": vertex_ids}
         elif operation == "merge_center":
             result, vertex_id = merge_center(mesh, selected.get("ids", []))

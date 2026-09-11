@@ -18,7 +18,7 @@ def wire(points):
 
 
 @pytest.mark.parametrize('centroid', [False, True])
-def test_extruded_wire_pairs_match_saved_blender_geometry(centroid):
+def test_extruded_wire_pairs_follow_explicit_centroid_and_survivor_policy(centroid):
     mesh, ids = wire([[0,0,0], [1,0,0], [1,1,0], [0,1,0]])
     for a, b in zip(ids, ids[1:]):
         mesh, _ = topology.connect_vertices(mesh, [a,b])
@@ -111,3 +111,29 @@ def test_pinched_face_failure_is_atomic():
     with pytest.raises(ValueError, match='pinch'):
         topology.edit_selected(p, 'merge_distance', threshold=3)
     assert vars(p) == before
+
+
+@pytest.mark.parametrize('centroid', [False, True])
+def test_unselected_targets_have_priority_and_centroid_is_per_target(centroid):
+    mesh, ids = wire([[0,0,0], [1,0,0], [.125,0,0], [1.125,0,0]])
+    merged, selection = topology.merge_distance(mesh, ids[2:], .2, centroid=centroid, unselected=True)
+    assert selection == ids[:2]
+    assert [v['id'] for v in merged.topology['vertices']] == ids[:2]
+    np.testing.assert_allclose(merged.verts, [[.0625 if centroid else 0,0,0], [1.0625 if centroid else 1,0,0]], atol=0)
+
+
+def test_unselected_nearest_target_and_source_tie_order_with_unmatched_pairs():
+    mesh, ids = wire([[0,0,0], [.5,0,0], [.25,0,0], [.4,0,0], [2,0,0], [2.125,0,0]])
+    merged, selection = topology.merge_distance(mesh, ids[2:], .3, centroid=False, unselected=True)
+    assert selection == [ids[0],ids[1],ids[4]]
+    assert [v['id'] for v in merged.topology['vertices']] == [ids[0],ids[1],ids[4]]
+    np.testing.assert_array_equal(merged.verts, [[0,0,0],[.5,0,0],[2,0,0]])
+
+
+def test_unselected_targets_do_not_merge_with_each_other():
+    mesh, ids = wire([[0,0,0], [.125,0,0], [.25,0,0]])
+    merged, selection = topology.merge_distance(mesh, ids[2:], .5, centroid=False, unselected=True)
+    assert selection == [ids[1]]
+    assert [v['id'] for v in merged.topology['vertices']] == ids[:2]
+    with pytest.raises(ValueError, match='boolean'):
+        topology.merge_distance(mesh, ids, unselected='yes')
