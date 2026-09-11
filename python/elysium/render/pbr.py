@@ -648,6 +648,7 @@ class Mesh:
     part_names:    list[str]  | None = None       # part_id → original name
     part_pivots:   np.ndarray | None = None       # (P, 3) float32 world pivot
     topology: dict | None = None  # Editable polygon/corner source; triangles are compiled.
+    corner_tangents: np.ndarray | None = None  # Derived render-only (M, 3, 4); never authored.
 
 
 # --- BVH acceleration structure ------------------------------------------
@@ -837,31 +838,23 @@ def _shading_normals(obj: MeshObject, face_indices: np.ndarray,
     return np.divide(interpolated, lengths, out=fallback.copy(), where=lengths > 1e-12)
 
 
-def _mapped_normals(obj, mat, face_indices, uvs, normals, verts_w):
-    """Apply linear RGB tangent-space normals using each triangle's UV derivatives.
-
-    Degenerate/unmapped UVs keep the original shading normal. Tangents are
-    orthogonalized to interpolated authored normals and retain UV handedness.
-    """
+def _mapped_normals(obj, mat, face_indices, uvs, normals, verts_w, bary_u=None, bary_v=None):
+    """Apply linear RGB normal maps using interpolated MikkTSpace corners."""
     if mat.normal_map is None or uvs is None or obj.mesh.vert_uvs is None:
         return normals
-    triangles = obj.mesh.faces[face_indices]
-    positions = verts_w[triangles]
-    coords = obj.mesh.vert_uvs[triangles]
-    e1, e2 = positions[:, 1] - positions[:, 0], positions[:, 2] - positions[:, 0]
-    d1, d2 = coords[:, 1] - coords[:, 0], coords[:, 2] - coords[:, 0]
-    determinant = d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]
-    valid = np.isfinite(determinant) & (np.abs(determinant) > 1e-12)
-    divisor = np.where(valid, determinant, 1)[:, None]
-    tangent = (e1 * d2[:, 1, None] - e2 * d1[:, 1, None]) / divisor
-    bitangent = (e2 * d1[:, 0, None] - e1 * d2[:, 0, None]) / divisor
-    tangent -= normals * np.sum(tangent * normals, axis=1, keepdims=True)
-    lengths = np.linalg.norm(tangent, axis=1, keepdims=True)
-    valid &= np.isfinite(lengths[:, 0]) & (lengths[:, 0] > 1e-12)
-    tangent = tangent / np.maximum(lengths, 1e-12)
-    cross = np.cross(normals, tangent)
-    handedness = np.where(np.sum(cross * bitangent, axis=1) < 0, -1, 1)
-    bitangent = cross * handedness[:, None]
+    from .mesh_tangents import corner_tangents, transform
+    linear = _euler_rot(*obj.rotation) @ np.diag(obj.scale)
+    corners = transform(corner_tangents(obj.mesh)[face_indices], linear)
+    if bary_u is None:
+        bary_u = np.full(len(face_indices), 1 / 3)
+        bary_v = np.full(len(face_indices), 1 / 3)
+    weights = np.stack((1 - bary_u - bary_v, bary_u, bary_v), axis=1)
+    frame = np.sum(corners * weights[..., None], axis=1)
+    tangent = frame[:, :3]
+    valid = np.linalg.norm(tangent, axis=1) > 1e-12
+    # Preserve the interpolated tangent's length and direction, matching the
+    # normal-map shader contract; normalize only the resulting mapped normal.
+    bitangent = np.cross(normals, tangent) * frame[:, 3, None]
     uv = uvs * np.asarray(mat.uv_scale) + np.asarray(mat.uv_offset)
     tex = _sample_texture(mat.normal_map, uv, closest_repeat=mat.normal_sampling == "closest_repeat")
     direction = tex[:, :3].astype(np.float32) / 255.0 * 2 - 1
@@ -1091,7 +1084,7 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                 mat, uvs_hit[mask] if uvs_hit is not None else None)
             Nm = _mapped_normals(obj, mat, fidx[mask],
                                  uvs_hit[mask] if uvs_hit is not None else None,
-                                 N[mask], verts_w)
+                                 N[mask], verts_w, bary_u[hit_mask][mask], bary_v[hit_mask][mask])
             Vm = V[mask]
             Nm = np.where(np.sum(Nm * Vm, axis=1, keepdims=True) < 0, -Nm, Nm)
             key_parts, fill_parts, indirect_parts = {}, {}, {}
@@ -2172,7 +2165,7 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
                 mat = obj.materials[m] if m < len(obj.materials) else obj.materials[0]
                 N[mask] = _mapped_normals(obj, mat, fi[mask],
                                           uvs_hit[mask] if uvs_hit is not None else None,
-                                          N[mask], verts_w)
+                                          N[mask], verts_w, bu[hit][mask], bv[hit][mask])
                 ov = _sample_material_textures(
                     mat, uvs_hit[mask] if uvs_hit is not None else None)
                 b_arr = _resolve("base_color", np.array(mat.base_color, dtype=np.float32), ov)

@@ -172,3 +172,20 @@ def test_curved_polygon_primitives_close_seams_without_losing_corner_uvs(kind, p
         poles = [v for v in doc["vertices"] if abs(v["position"][1]) == 1]
         assert len(poles) == 2
         assert all(len(corner_uvs[v["id"]]) == parameters["segments"] for v in poles)
+
+
+@pytest.mark.parametrize('segments', [3, 7, 8, 32])
+def test_sphere_uvs_have_blender_orientation_and_polar_midpoints(segments):
+    mesh, _ = primitives.build('Sphere', {'rings': 4, 'segments': segments})
+    faces = mesh.topology['faces']
+    for face in faces:
+        coords = np.asarray([c['uv'] for c in face['corners']])
+        assert np.ptp(coords[:, 0]) <= 1/segments + 1e-7
+        if len(coords) == 3:
+            pole = next(i for i, uv in enumerate(coords) if uv[1] in (0., 1.))
+            others = np.delete(coords, pole, axis=0)
+            assert coords[pole, 0] == pytest.approx(others[:, 0].mean(), abs=1e-7)
+    first = faces[0]['corners']
+    assert first[0]['uv'] == pytest.approx([.5-.5/segments, 1.])
+    assert first[1]['uv'] == pytest.approx([.5-1/segments, .75])
+    assert first[2]['uv'] == pytest.approx([.5, .75])

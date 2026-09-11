@@ -94,6 +94,8 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
     """Flatten only for rendering; authored geometry/attributes stay independent."""
     verts, faces, face_objects, uvs, face_materials, mats = [], [], [], [], [], []
     vertex_normals = []
+    tangent_frames = []
+    has_tangents = False
     has_normals = False
     count = 0
     matrices = world_matrices(placements)
@@ -131,6 +133,15 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
         uvs.append(mesh.vert_uvs if mesh.vert_uvs is not None else np.zeros((len(mesh.verts), 2)))
         from .mesh_materials import render_materials
         surfaces, indices = render_materials(p, mesh)
+        if materials and any(surface.normal_map is not None for surface in surfaces):
+            from .mesh_tangents import corner_tangents, transform
+            frames = transform(corner_tangents(mesh), m[:3, :3])
+            if np.linalg.det(m[:3, :3]) < 0:
+                frames = frames[:, ::-1]
+            has_tangents = True
+        else:
+            frames = np.zeros((len(mesh.faces), 3, 4), np.float32)
+        tangent_frames.append(frames)
         face_materials.extend((indices + len(mats)).tolist())
         mats.extend(surfaces)
         face_objects.extend([i] * len(mesh.faces))
@@ -144,6 +155,7 @@ def compose(placements, *, materials=False, polygon_normals=None, uv_status=None
         face_mats=np.asarray(face_materials, dtype=np.int32) if materials else None,
         vert_uvs=np.concatenate(uvs).astype(np.float32),
         vert_normals=np.concatenate(vertex_normals).astype(np.float32) if has_normals else None,
+        corner_tangents=np.concatenate(tangent_frames) if has_tangents else None,
     )
     return pbr.MeshObject(
         mesh,

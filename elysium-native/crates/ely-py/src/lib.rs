@@ -21,6 +21,7 @@ mod scene;
 mod skia;
 mod skin;
 mod text;
+mod tangents;
 mod wgsl;
 mod window;
 
@@ -61,6 +62,8 @@ fn _native(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(text::register_ui_font, m)?)?;
     m.add_function(wrap_pyfunction!(wgsl::validate_wgsl, m)?)?;
     m.add_function(wrap_pyfunction!(compute::render_pbr_compute, m)?)?;
+
+    m.add_function(wrap_pyfunction!(tangents::mesh_corner_tangents, m)?)?;
 
     errors::register_exceptions(py, m)?;
 

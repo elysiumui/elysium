@@ -10,7 +10,7 @@ import numpy as np
 from . import mesh_document, pbr, topology
 
 
-def _polygon_source(mesh, polygons, aliases=None):
+def _polygon_source(mesh, polygons, aliases=None, corner_uvs=None):
     """Use explicit primitive connectivity, preserving render-corner seams.
 
     Aliases come from the primitive's parametric rings, never proximity welding.
@@ -22,9 +22,11 @@ def _polygon_source(mesh, polygons, aliases=None):
     remapped = [[indices[aliases.get(i, i)] for i in face] for face in polygons]
     seed = pbr.Mesh(mesh.verts[source].copy(), np.empty((0, 3), dtype=np.int32))
     doc = topology.from_mesh(seed, remapped)
-    for face, original in zip(doc["faces"], polygons):
-        for corner, i in zip(face["corners"], original):
-            if mesh.vert_uvs is not None:
+    for face_index, (face, original) in enumerate(zip(doc["faces"], polygons)):
+        for corner_index, (corner, i) in enumerate(zip(face["corners"], original)):
+            if corner_uvs is not None:
+                corner["uv"] = corner_uvs[face_index][corner_index]
+            elif mesh.vert_uvs is not None:
                 corner["uv"] = mesh.vert_uvs[i].tolist()
             if mesh.vert_normals is not None:
                 corner["normal"] = mesh.vert_normals[i].tolist()
@@ -164,7 +166,21 @@ def build(kind: str, parameters: dict | None = None) -> tuple[pbr.Mesh, dict]:
                 polygons.append(
                     [b, d, c] if r == 0 else [a, b, c] if r == rings - 1 else [a, b, d, c]
                 )
-        mesh = _polygon_source(mesh, polygons, aliases)
+        # Latitude/longitude in Blender's Z-up convention, converted to Y-up.
+        # Each polar triangle owns its midpoint longitude. Unwrap each face
+        # across the back meridian, retaining distinct seam corners.
+        sphere_uvs = []
+        for face_index, polygon in enumerate(polygons):
+            sector = face_index % n
+            coords = []
+            for raw in polygon:
+                ring, meridian = divmod(raw, n + 1)
+                longitude = (sector + .5) / n if ring in (0, rings) else meridian / n
+                u = (.5 - longitude) % 1.0
+                coords.append([u, 1.0 - ring / rings])
+            high = max(uv[0] for uv in coords)
+            sphere_uvs.append([[u + (1.0 if high - u > .5 else 0.0), v] for u, v in coords])
+        mesh = _polygon_source(mesh, polygons, aliases, sphere_uvs)
     elif kind == "Torus":
         major, minor = v["major_segments"], v["minor_segments"]
         aliases = {
