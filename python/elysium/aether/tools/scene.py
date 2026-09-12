@@ -8,6 +8,33 @@ _VECTOR = {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItem
 
 
 @register_tool(
+    name='mesh.components_transform',
+    description='Transform selected mesh vertices/edges/faces in Global, Local or Parent coordinates. Amount is meters, degrees or a scale factor; rotation and scale use the selected vertex mean. Axis is X/Y/Z or free. Plane excludes the chosen axis for move/scale. Object transforms, selection IDs, UVs and material slots are retained; affected normals are recalculated. One validated mesh revision.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},'group':{'enum':['location','rotation','scale']},
+        'amount':{'type':'number'},'axis':{'enum':['X','Y','Z',None]},
+        'space':{'enum':['Global','Local','Parent']},'plane':{'type':'boolean'},
+        'free_axis':_VECTOR},'required':['id','group','amount']})
+def components_transform(session,id,group,amount,axis=None,space='Global',plane=False,free_axis=None):
+    import numpy as np
+    from ...render import mesh_document,mesh_edit
+    from ...render.component_transform import transformed_mesh
+    if axis is not None and axis not in ('X','Y','Z'):raise ValueError('Axis must be X, Y, Z or free')
+    p=session.lookup(id)
+    if p.kind!='Mesh3D' or p.props.get('selection_locked'):
+        raise ValueError('Select an unlocked mesh with selected components')
+    index=next(i for i,q in enumerate(session.designer.placements) if q is p)
+    world=scene.world_matrices(session.designer.placements)[index]
+    parent=world@np.linalg.inv(scene.matrix(p))
+    mesh=mesh_document.resolve(p.mesh_kind)
+    result=transformed_mesh(mesh,p.props.get('components3d',{}),world,parent,group,
+        None if axis is None else 'XYZ'.index(axis),space,amount,free_axis,plane)
+    mesh_edit.evaluate_mesh(result,p)
+    if result is not mesh:mesh_document.bind(p,result,label=p.name)
+    return {'placement_id':id,'mesh_key':p.mesh_kind,'selection':p.props['components3d']}
+
+
+@register_tool(
     name="scene.transform_set",
     description="Set mesh location in meters, XYZ Euler rotation in degrees, scale or local pivot in Y-up model space.",
     input_schema={
