@@ -164,6 +164,32 @@ nav:
       - "Long task without blocking": recipes/23-long-task-without-blocking.md
       - "Custom Aether tool": recipes/24-custom-aether-tool.md
       - "Aether redesigns your skin at runtime": recipes/25-aether-redesign-runtime.md
+  - Authoring:
+      - Normals:
+          - Native normal authoring: authoring/native-normal-authoring.md
+          - Authored surface normals: authoring/authored-surface-normals.md
+          - Custom normal directions: authoring/custom-normal-direction.md
+          - Normal transfer: authoring/normal-transfer.md
+          - Weighted normals: authoring/weighted-normals.md
+          - Selected-face shading: authoring/selected-face-shading.md
+          - Tangent-space normal maps: authoring/mesh-tangents.md
+      - Mesh operations:
+          - Edge Split: authoring/edge-split.md
+          - Merge by Distance: authoring/merge-distance.md
+      - Materials:
+          - Material slots: authoring/material-slots.md
+          - Material color graphs: authoring/material-color-graphs.md
+          - Base-color images: authoring/material-images.md
+          - Normal images: authoring/material-normal-images.md
+          - Packed metallic/roughness images: authoring/material-packed-images.md
+          - Scalar roughness and metallic images: authoring/material-scalar-images.md
+      - Scene and lighting:
+          - Scene lighting: authoring/scene-lighting.md
+          - Layout lighting: authoring/layout-lighting.md
+          - Render passes and jobs: authoring/scene-render-passes.md
+      - Animation:
+          - Animation actions: authoring/animation-actions.md
+          - Animation curves: authoring/animation-curves.md
   - API reference:
       - Overview: api/index.md
       - elysium: api/elysium.md
@@ -210,6 +236,13 @@ nav:
       - elysium.updater: api/updater.md
       - elysium.webview: api/webview.md
       - elysium.cli: api/cli.md
+      - Scene code-behind: api/scene-code-behind.md
+  - Architecture:
+      - Editable polygon topology: architecture/editable-mesh-topology.md
+      - Native corner UV authoring: architecture/native-corner-uv-authoring.md
+      - Retained mesh modifiers: architecture/retained-mesh-modifiers.md
+      - Mesh document and stores: architecture/mesh-document.md
+      - Scene transforms and hierarchy: architecture/scene-transforms.md
   - Migration:
       - Overview: migration/index.md
       - From Tkinter: migration/from-tkinter.md

@@ -28,6 +28,7 @@ from ..types import SideEffect
                                    "saturation": {"type": "number"},
                                    "contrast":   {"type": "number"}},
                    "required": ["src", "name"]},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def texture_extract(session, src: str, name: str,
                      seamless: bool = True,
@@ -122,6 +123,7 @@ def texture_list_library(session) -> dict:
         },
         "required": ["src", "name"],
     },
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def texture_crop_to_match(session, src: str, name: str,
                             crop: list | None = None,
@@ -297,6 +299,7 @@ def texture_stamp_region(session, id: str, src: str,
         },
         "required": ["name", "regions"],
     },
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def texture_assemble_atlas(session, name: str,
                             regions: list, src: str = "",
@@ -470,6 +473,7 @@ def texture_read_info(path: str,
         },
         "required": ["src", "name"],
     },
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def texture_generate_pbr_maps(session, src: str, name: str,
                                 normal_strength: float = 6.0,
@@ -726,10 +730,8 @@ def lasso_wing_perimeter(session, id: str,
     placement_offset = (0.0, 0.0)
     if p.kind == "Mesh3D":
         # Project each vertex of the named part to placement-local pixels.
-        if p.mesh_kind.startswith("file:"):
-            mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-        else:
-            mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
+        from elysium.render import mesh_document
+        mesh = mesh_document.resolve(p.mesh_kind)
         if mesh.part_names is None:
             raise ValueError("mesh has no part_names")
         pid = None
@@ -1076,6 +1078,9 @@ def lasso_wing_perimeter(session, id: str,
         },
         "required": ["id", "src", "src_wing_bbox", "part"],
     },
+    # The albedo binding is undone with the document; the atlas PNG this
+    # writes to ~/.elysium/textures stays behind.
+    undoable=False,
 )
 def texture_transfer_uv_band(session, id: str, src: str,
                               src_wing_bbox: list, part: str,
@@ -1092,10 +1097,8 @@ def texture_transfer_uv_band(session, id: str, src: str,
     if p.kind != "Mesh3D":
         raise ValueError(f"transfer_uv_band: kind={p.kind!r} (need Mesh3D)")
     # Pull the mesh.
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
+    from elysium.render import mesh_document
+    mesh = mesh_document.resolve(p.mesh_kind)
     if mesh.vert_uvs is None or mesh.part_names is None:
         raise ValueError("mesh needs UVs + part names: uv_unwrap first")
     # Find the part's UV bbox.
@@ -1226,6 +1229,7 @@ def texture_transfer_uv_band(session, id: str, src: str,
                 "texture in the library: without this, pbr._TEX_CACHE "
                 "keeps the stale pixels even though the file changed.",
     input_schema={"type": "object", "properties": {}},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def texture_flush_caches(session) -> dict:
     from elysium.render import pbr as _pbr
@@ -1256,6 +1260,7 @@ def texture_flush_caches(session) -> dict:
     input_schema={"type": "object",
                    "properties": {"name": {"type": "string"}},
                    "required": ["name"]},
+    side_effect=SideEffect.DESTRUCTIVE, undoable=False, requires_confirmation="destructive",
 )
 def texture_delete_from_library(session, name: str) -> dict:
     from elysium.render import texture as tex

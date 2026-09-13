@@ -9,6 +9,7 @@ job, or the OS user environment.
 |---|---|
 | `ELYSIUM_LOG` | Log level: `debug` / `info` / `warn` / `error`. Default `info`. |
 | `ELYSIUM_TELEMETRY` | `0` disables anonymous telemetry |
+| `ELYSIUM_DISABLE_A11Y` | Any value but `0` skips the platform accessibility (accesskit) bridge. Use for headless / CI / server runs — on Linux the AT-SPI2 adapter needs a D-Bus session bus. |
 | `ELYSIUM_EDITOR` | Editor command for "Open paired Python file" |
 | `VISUAL` / `EDITOR` | Fallback editor (if `ELYSIUM_EDITOR` not set) |
 

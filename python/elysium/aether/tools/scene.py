@@ -1,0 +1,914 @@
+"""Public model-space transforms; independent from canvas coordinates."""
+
+from ...render import scene, scene_animation
+from ..types import SideEffect
+from . import register_tool
+
+_VECTOR = {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+
+
+@register_tool(
+    name='mesh.components_transform',
+    description='Transform selected mesh vertices/edges/faces in Global, Local or Parent coordinates. Amount is meters, degrees or a scale factor; rotation and scale use the selected vertex mean. Axis is X/Y/Z or free. Plane excludes the chosen axis for move/scale. Object transforms, selection IDs, UVs and material slots are retained; affected normals are recalculated. One validated mesh revision.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},'group':{'enum':['location','rotation','scale']},
+        'amount':{'type':'number'},'axis':{'enum':['X','Y','Z',None]},
+        'space':{'enum':['Global','Local','Parent']},'plane':{'type':'boolean'},
+        'free_axis':_VECTOR},'required':['id','group','amount']})
+def components_transform(session,id,group,amount,axis=None,space='Global',plane=False,free_axis=None):
+    from ...render import mesh_document,mesh_edit
+    from ...render.component_transform import transformed_mesh
+    if axis is not None and axis not in ('X','Y','Z'):raise ValueError('Axis must be X, Y, Z or free')
+    p=session.lookup(id)
+    if p.kind!='Mesh3D' or p.props.get('selection_locked'):
+        raise ValueError('Select an unlocked mesh with selected components')
+    index=next(i for i,q in enumerate(session.designer.placements) if q is p)
+    world=scene.world_matrices(session.designer.placements)[index]
+    parent=scene.parent_matrix(session.designer.placements,p)
+    mesh=mesh_document.resolve(p.mesh_kind)
+    result=transformed_mesh(mesh,p.props.get('components3d',{}),world,parent,group,
+        None if axis is None else 'XYZ'.index(axis),space,amount,free_axis,plane)
+    mesh_edit.evaluate_mesh(result,p)
+    if result is not mesh:mesh_document.bind(p,result,label=p.name)
+    return {'placement_id':id,'mesh_key':p.mesh_kind,'selection':p.props['components3d']}
+
+
+_SPACE = {"enum": list(scene.SPACES)}
+
+
+@register_tool(
+    name="scene.transform_set",
+    description="Set mesh location in meters, XYZ Euler rotation in degrees, scale or local pivot in Y-up model space. Space local (default) writes the authored channels; parent sets the local origin's position in the parent frame; world sets the origin's world position and/or the world rotation/scale (rejected when the parent chain would introduce shear). Rotation and scale act about the local pivot.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "transform": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {k: _VECTOR for k in scene.DEFAULT},
+            },
+            "space": _SPACE,
+        },
+        "required": ["id", "transform"],
+    },
+)
+def transform_set(session, id, transform, space="local"):
+    p = session.lookup(id)
+    return {"placement_id": id, "space": space,
+            "transform": scene.set_transform(session.designer.placements, p, transform, space=space)}
+
+
+@register_tool(
+    name="scene.transform_get",
+    description="Read the authored model-space mesh transform and matrices. Space local returns the stored channels; parent reports the local origin in the parent frame; world reports world origin, rotation and scale (rejected on a sheared parent chain).",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"id": {"type": "string"}, "space": _SPACE},
+        "required": ["id"],
+    },
+    side_effect=SideEffect.READ,
+)
+def transform_get(session, id, space="local"):
+    p = session.lookup(id)
+    index = next(i for i, candidate in enumerate(session.designer.placements) if candidate is p)
+    return {
+        "placement_id": session.id_for(p),
+        "space": space,
+        "transform": scene.describe(session.designer.placements, p, space),
+        "matrix": scene.matrix(p).tolist(),
+        "world_matrix": scene.world_matrices(session.designer.placements)[index].tolist(),
+        "parent_id": scene.parent_data(p)[0],
+    }
+
+
+@register_tool(
+    name="scene.transform_delta",
+    description="Move, rotate or scale one object by a delta in world (default), parent or local space: the same implementation the Designer gizmo uses. Amount is meters, degrees or a scale factor. Axis is X/Y/Z or null with a free_axis direction expressed in the chosen space; plane excludes the chosen axis for move/scale. Rotation and scale act about the object's pivot; rotation and scale results that would shear (non-uniform scale on a rotated chain) are rejected without changes, and the error names a space that was verified to work. A location delta only needs a direction, so it commits on any invertible chain, sheared or not, and amount stays a world distance. Returns the stored transform and world matrix.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "group": {"enum": ["location", "rotation", "scale"]},
+            "amount": {"type": "number"},
+            "axis": {"enum": ["X", "Y", "Z", None]},
+            "space": _SPACE,
+            "plane": {"type": "boolean"},
+            "free_axis": _VECTOR,
+        },
+        "required": ["id", "group", "amount"],
+    },
+)
+def transform_delta(session, id, group, amount, axis=None, space="world", plane=False, free_axis=None):
+    p = session.lookup(id)
+    result = scene.transform_delta(session.designer.placements, p, group, amount,
+                                   axis=axis, space=space, plane=plane, free_axis=free_axis)
+    return {"placement_id": session.id_for(p), "space": space, **result}
+
+
+@register_tool(
+    name="scene.parent_set",
+    description="Parent a mesh/group to a stable scene entity, or detach it. Keep-world preserves visible geometry including shear. Cycles are rejected.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "parent_id": {"type": ["string", "null"]},
+            "keep_world": {"type": "boolean"},
+        },
+        "required": ["id", "parent_id"],
+    },
+)
+def parent_set(session, id, parent_id, keep_world=True):
+    child = session.lookup(id)
+    parent = None if parent_id is None else session.lookup(parent_id)
+    return {
+        "placement_id": session.id_for(child),
+        "parent": scene.set_parent(
+            session.designer.placements, child, parent, keep_world=keep_world
+        ),
+    }
+
+
+@register_tool(
+    name="scene.transform_apply",
+    description="Apply local mesh transforms to editable geometry while preserving UVs, normals, pivots and child world positions. Optional location/rotation/scale booleans (default all true) apply a subset; the pivot resets only when all three are applied.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"id": {"type": "string"}, "location": {"type": "boolean"},
+                       "rotation": {"type": "boolean"}, "scale": {"type": "boolean"}},
+        "required": ["id"],
+    },
+)
+def transform_apply(session, id, location=True, rotation=True, scale=True):
+    p = session.lookup(id)
+    scene.apply_transform(session.designer.placements, p, location=location, rotation=rotation, scale=scale)
+    return {
+        "placement_id": session.id_for(p),
+        "mesh_key": p.mesh_kind,
+        "transform": scene.transform(p),
+    }
+
+
+@register_tool(
+    name="scene.group_create",
+    description="Create an empty transform group. Children are attached with scene.parent_set.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    },
+)
+def group_create(session, name):
+    d = session.designer
+    p = session.designer_models.Placement(
+        kind="SceneGroup", name=name, x=0, y=0, w=0, h=0, props={}
+    )
+    d.placements.append(p)
+    d._select_placement(len(d.placements) - 1)
+    return {"placement_id": session.id_for(p), "name": p.name}
+
+
+@register_tool(
+    name="scene.document_hash",
+    description="Read deterministic semantic hashes of the persisted document: the whole layout payload, the mesh asset set and each owned asset.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {}},
+    side_effect=SideEffect.READ,
+    undoable=False,
+)
+def document_hash(session):
+    from ...render import mesh_document
+
+    d = session.designer
+    if hasattr(d, "layout_payload"):
+        payload = d.layout_payload()
+    else:
+        payload = {
+            "window": d.window_doc.to_json(),
+            "placements": [p.to_json() for p in d.placements],
+            "mesh_document": mesh_document.capture(d.placements),
+        }
+    return {
+        "document_version": payload.get("document_version", 0),
+        "document_hash": mesh_document.document_hash(payload),
+        "mesh_document": payload["mesh_document"]["hashes"],
+    }
+
+
+@register_tool(name="scene.view_get", description="Read the current persistent Layout/3D Scene workspace and solid/material/checker shading.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{}}, side_effect=SideEffect.READ, undoable=False)
+def view_get(session):
+    window = session.designer.window_doc
+    return {"view": "scene" if window.scene_view else "layout", "shading": scene.shading_mode(getattr(window, "scene_shading", "solid"))}
+
+
+@register_tool(name="scene.view_set", description="Choose Layout or 3D Scene and optional persistent solid/material/checker shading. Keeps authored geometry, camera, lights and materials unchanged.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"view":{"enum":["layout","scene"]},"shading":{"enum":["solid","material","checker"]}},"required":["view"]})
+def view_set(session, view, shading=None):
+    if view not in ("layout", "scene"):
+        raise ValueError("Choose layout or scene")
+    window = session.designer.window_doc
+    checked = scene.shading_mode(getattr(window, "scene_shading", "solid") if shading is None else shading)
+    window.scene_view = view == "scene"
+    window.scene_shading = checked
+    return view_get(session)
+
+
+@register_tool(
+    name="scene.camera_set",
+    description="Set the persistent shared scene camera. Angles are radians; orthographic scale is vertical meters. Enables 3D Scene view.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "camera": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "target": _VECTOR,
+                    "projection": {"enum": ["perspective", "orthographic"]},
+                    **{k: {"type": "number"} for k in ("yaw", "pitch", "distance", "ortho_scale")},
+                },
+            }
+        },
+        "required": ["camera"],
+    },
+)
+def camera_set(session, camera):
+    w = session.designer.window_doc
+    w.scene_camera = scene.camera({**w.scene_camera, **camera})
+    w.scene_view = True
+    return {"camera": w.scene_camera}
+
+
+@register_tool(
+    name="mesh.taper_set",
+    description="Set a retained native taper. Start/end XYZ factors apply at minimum/maximum local axis; the axis coordinate is unchanged. Source geometry stays editable.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "taper": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"axis": {"enum": ["x", "y", "z"]}, "start": _VECTOR, "end": _VECTOR},
+            },
+        },
+        "required": ["id", "taper"],
+    },
+)
+def taper_set(session, id, taper):
+    from ...render import mesh_edit
+
+    p = session.lookup(id)
+    return {"placement_id": session.id_for(p), "taper": mesh_edit.taper_set(p, taper)}
+
+
+@register_tool(
+    name="scene.key_set",
+    description="Set or replace a persistent local-transform key at an integer frame. Optional channels edit only those axes; otherwise capture the complete pose.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"},
+            "frame": {"type": "integer", "minimum": 0, "maximum": 360000},
+            "channels": {"type":"array","items":{"enum":list(scene_animation.CHANNELS)},"minItems":1,"uniqueItems":True},
+            "mode": {"enum":["LINEAR","CONSTANT","BEZIER"]},
+            "transform": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {k: _VECTOR for k in scene.DEFAULT},
+            },
+        },
+        "required": ["id", "frame"],
+    },
+)
+def key_set(session, id, frame, transform=None, channels=None, mode=None):
+    from ...render import scene_animation
+
+    return scene_animation.set_key(session.lookup(id), frame, transform, channels=channels, mode=mode)
+
+
+@register_tool(
+    name="scene.frame_set",
+    description="Seek the shared 3D scene to an integer frame. Evaluates keys and parented objects.",
+    input_schema={
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"frame": {"type": "integer", "minimum": 0, "maximum": 360000}},
+        "required": ["frame"],
+    },
+)
+def frame_set(session, frame):
+    from ...render import scene_animation
+
+    return {"frame": scene_animation.seek(session.designer, frame)}
+
+
+@register_tool(
+    name="mesh.topology_get",
+    description="Read durable vertex, edge, polygon and corner identities, UVs and material slots. Legacy triangles are described without mutating the source.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def topology_get(session,id):
+    from ...render import mesh_document, topology
+    p=session.lookup(id)
+    if p.kind!='Mesh3D': raise ValueError('Topology requires a mesh')
+    return {'placement_id':id,'topology':topology.document(mesh_document.resolve(p.mesh_kind)),
+            'selection':p.props.get('components3d',{})}
+
+
+@register_tool(
+    name="mesh.components_select",
+    description="Select persistent vertex, edge or polygon IDs; additive selection toggles the specified IDs.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{
+        "id":{"type":"string"},"mode":{"enum":["vertices","edges","faces"]},
+        "ids":{"type":"array","items":{"type":"string"}},"additive":{"type":"boolean"}},
+        "required":["id","mode","ids"]},
+)
+def components_select(session,id,mode,ids,additive=False):
+    from ...render import topology
+    return topology.select(session.lookup(id),mode,ids,additive=additive)
+
+
+@register_tool(
+    name="mesh.components_expand",
+    description="Expand selected edge seeds into quad edge rings or loops through regular four-edge vertices. Rings cross opposite quad edges. Loops stop at boundaries, poles and non-quad neighborhoods. Preserves mesh geometry and uses persistent component IDs.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{
+        "id":{"type":"string"},"pattern":{"enum":["loop","ring"]}},"required":["id","pattern"]},
+)
+def components_expand(session,id,pattern):
+    from ...render import topology
+    return topology.expand_edge_selection(session.lookup(id),pattern)
+
+
+@register_tool(
+    name="mesh.components_edit",
+    description="Extrude a face region along its averaged normal or extrude_individual faces along their own normals, inset individual planar convex faces by positive distance, move components in local meters (radius 0 affects only selection; positive radius uses smooth Euclidean falloff), rotate selected components by rotation XYZ degrees in local-axis X/Y/Z order or scale by three factors about the selected vertex mean (smooth radius weights angles or factor deltas), delete selected components, or fill one planar boundary/wire loop. Add an isolated vertex at position, connect exactly two selected vertices, or extrude_vertices by offset into independent edges. merge_distance welds selected local-space neighborhoods within threshold (default 0.0001 m), optionally moving survivors to their centroid (default true); neighborhoods use source order and are not transitive chains. Unselected vertices remain separate unless unselected=true, which prioritizes nearest unselected targets in the same part before merging unmatched selected neighborhoods; one named part is required; duplicate faces retain the first source face and UVs. merge_center welds selected vertices at their mean within one named part; collapsed edges/faces are removed, surviving corner UVs and material slots remain, pinched polygons reject. Connect does not split existing faces. Vertex extrusion selects the new endpoints. extrude_edges sweeps boundary/wire chains by offset into quads and selects new parallel edges; branches and interior edges reject. loop_cut takes one selected edge and inserts 1–64 evenly spaced cuts across its connected quad strip, interpolating corner UVs and selecting the new cut edges; non-quad/nonmanifold strips reject. slide_edges moves one connected interior quad edge loop or boundary-to-boundary chain toward its adjacent rail by factor strictly between -1 and 1; positive follows the higher dominant local-axis rail at the geometric seed and corner UVs remain unchanged. bisect requires all faces selected and splits the mesh at plane_point with nonzero plane_normal; keep is both/negative/positive, optional fill closes one simple cut loop on a closed surface when retaining one side. Corners interpolate UVs; disconnected concave face cuts reject. bevel_edges chamfers exactly one edge of a closed convex solid with planar faces by positive offset distance with 1–64 segments and a circular profile; no clamp, offsets reaching neighboring vertices reject. bevel_vertices truncates closed convex three-edge corners by positive distance along incident edges, retaining interpolated face UVs and selecting triangular caps; single segment only, collapsed edges reject. bridge_edges joins two separate boundary/wire loops or chains with equal vertex counts using nearest alignment and consistent winding; no subdivisions/twist/merge, new quads receive unit-square UVs. dissolve_edges joins coplanar faces across selected interior edges, retaining boundary vertices and corner UVs; holes, mixed materials and nonmanifold regions reject. Delete preserves surviving loose geometry; fill creates a material-0 face with planar UVs. Inset rejects collapsed offsets. One atomic mesh revision with stable IDs and corner attributes.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{
+        "id":{"type":"string"},"operation":{"enum":["extrude","extrude_individual","inset","move","rotate","scale","delete","fill","add_vertex","connect","extrude_vertices","extrude_edges","merge_center","merge_distance","dissolve_edges","loop_cut","slide_edges","bridge_edges","bevel_vertices","bisect","bevel_edges"]},
+        "threshold":{"type":"number","minimum":0},"centroid":{"type":"boolean"},"unselected":{"type":"boolean"},"distance":{"type":"number"},"offset":_VECTOR,"position":_VECTOR,"rotation":_VECTOR,"scale":_VECTOR,"radius":{"type":"number","minimum":0},"cuts":{"type":"integer","minimum":1,"maximum":64},"segments":{"type":"integer","minimum":1,"maximum":64},"factor":{"type":"number","exclusiveMinimum":-1,"exclusiveMaximum":1},"plane_point":_VECTOR,"plane_normal":_VECTOR,"keep":{"enum":["both","negative","positive"]},"fill":{"type":"boolean"}},"required":["id","operation"]},
+)
+def components_edit(session,id,operation,distance=1.0,offset=(0.,0.,0.),position=(0.,0.,0.),radius=0.0,rotation=(0.,0.,0.),scale=(1.,1.,1.),cuts=1,factor=0.0,segments=1,plane_point=(0.,0.,0.),plane_normal=(1.,0.,0.),keep="both",fill=False,threshold=0.0001,centroid=True,unselected=False):
+    from ...render import topology
+    return topology.edit_selected(session.lookup(id),operation,distance=distance,offset=offset,position=position,radius=radius,rotation=rotation,scale=scale,cuts=cuts,factor=factor,segments=segments,plane_point=plane_point,plane_normal=plane_normal,keep=keep,fill=fill,threshold=threshold,centroid=centroid,unselected=unselected)
+
+
+@register_tool(
+    name='mesh.modifiers_get',
+    description='Read the retained modifier stack, unchanged editable source topology and evaluated topology. Generated copies become directly editable only after applying the stack.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+    side_effect=SideEffect.READ,
+)
+def modifiers_get(session,id):
+    from ...render import mesh_modifiers,mesh_edit,mesh_document,topology
+    p=session.lookup(id)
+    if p.kind!='Mesh3D': raise ValueError('Modifiers require a mesh')
+    return {'stack':mesh_modifiers.settings(p),'source_topology':topology.document(mesh_document.resolve(p.mesh_kind)),'evaluated_topology':topology.document(mesh_edit.evaluate(p))}
+
+
+@register_tool(
+    name='mesh.modifier_add',
+    description='Append a retained Mirror, Array, Solidify, Subdivision, WeightedNormals or EdgeSplit modifier without changing source geometry. Mirror: axis x/y/z, offset plane coordinate in meters, merge boolean, threshold distance to plane. Array: count 1–64 and absolute local-meter XYZ offset. Solidify: nonzero thickness in meters, offset -1 to 1, rim boolean; simple angle-weighted normals on consistently oriented manifold surfaces, without even-thickness correction or intersection repair. Subdivision: levels 1–4, method catmull-clark or simple, boundary all or keep_corners; discrete levels without limit-surface projection or creases, linear face-varying UV interpolation. WeightedNormals: mode face_area, corner_angle or face_angle; weight integer 1–100; threshold 0–10; keep_sharp boolean. Whole-mesh flat shading is preserved; use Smooth to see weighting. No vertex groups or face-strength influence. EdgeSplit: angle 0–180 degrees, use_angle and use_sharp booleans. Splits connected face fans without moving source positions; nonmanifold edges split when angle splitting is active below 180 degrees. Stack order is significant.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'kind':{'enum':['Mirror','Array','Solidify','Subdivision','WeightedNormals','EdgeSplit']},'parameters':{'type':'object'}},'required':['id','kind']},
+)
+def modifier_add(session,id,kind,parameters=None):
+    from ...render import mesh_modifiers
+    return mesh_modifiers.add(session.lookup(id),kind,parameters)
+
+
+@register_tool(
+    name='mesh.modifier_update',
+    description='Update retained modifier parameters, enable/bypass it, move it to a zero-based stack index, or remove it. The complete candidate stack is evaluated before one atomic change is published.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'modifier_id':{'type':'string'},'parameters':{'type':'object'},'enabled':{'type':'boolean'},'index':{'type':'integer','minimum':0},'remove':{'type':'boolean'}},'required':['id','modifier_id']},
+)
+def modifier_update(session,id,modifier_id,parameters=None,enabled=None,index=None,remove=False):
+    from ...render import mesh_modifiers
+    return mesh_modifiers.update(session.lookup(id),modifier_id,values=parameters,enabled=enabled,index=index,remove=remove)
+
+
+@register_tool(
+    name='mesh.modifiers_apply',
+    description='Bake the complete enabled modifier stack and existing taper into a new editable source revision, then remove all stack entries. Disabled entries are discarded. One undoable operation; generated components receive durable editable identities.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+)
+def modifiers_apply(session,id):
+    from ...render import mesh_modifiers
+    return mesh_modifiers.apply_all(session.lookup(id))
+
+
+_UV_PAIR = {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+_UV_IDS = {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": True}
+
+
+@register_tool(
+    name="mesh.uv_get",
+    description="Read editable face-corner UV identities, coordinates and marked seam edge identities.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}}, "required": ["id"]},
+    side_effect=SideEffect.READ,
+)
+def uv_get(session, id):
+    from ...render import mesh_uv
+    return mesh_uv.read(session.lookup(id))
+
+
+@register_tool(
+    name="mesh.uv_project",
+    description="Project selected source faces (omitted face_ids means all) into independent corner UVs. planar_xy uses +X/+Y, planar_xz +X/-Z, planar_yz -Z/+Y; planar/camera uses yaw/pitch radians. Planar bounds normalize independently to 0..1. Cylindrical and spherical wrap the local Y axis with per-face seam discontinuities. Geometry, custom normals, materials and modifier stack remain unchanged.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "mode": {"enum": ["planar", "camera", "planar_xy", "planar_xz", "planar_yz", "cylindrical", "spherical"]}, "face_ids": _UV_IDS, "yaw": {"type": "number"}, "pitch": {"type": "number"}}, "required": ["id", "mode"]},
+)
+def uv_project(session, id, mode, face_ids=None, yaw=0.0, pitch=0.0):
+    from ...render import mesh_uv
+    return mesh_uv.project(session.lookup(id), mode, face_ids=face_ids, yaw=yaw, pitch=pitch)
+
+
+@register_tool(
+    name="mesh.uv_project_cube",
+    description="Cube-project selected source faces (omitted face_ids means all) using each face's dominant geometric normal. Center on selected local vertex bounds. cube_size=0 selects the largest local dimension; positive values set the projection cube size. Opposite faces share axes: X-normal uses -Z/+Y, Y-normal +X/-Z, Z-normal +X/+Y. clip clamps UVs to the unit tile; scale_bounds then normalizes selected UV bounds independently. Both default false. Retain topology, pins, seams, normals, materials and modifier stack. Image aspect correction is not applied.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS,"cube_size":{"type":"number","minimum":0},"clip":{"type":"boolean"},"scale_bounds":{"type":"boolean"}},"required":["id"]},
+)
+def uv_project_cube(session,id,face_ids=None,cube_size=0.0,clip=False,scale_bounds=False):
+    from ...render import mesh_uv
+    return mesh_uv.cube_project(session.lookup(id),face_ids,cube_size=cube_size,clip=clip,scale_bounds=scale_bounds)
+
+
+@register_tool(
+    name="mesh.uv_transform",
+    description="Scale then rotate UV corners around their arithmetic mean, then translate. Omitted corner_ids means all; positive angle is clockwise degrees (Blender UV convention), offset and scale are UV pairs. Each selected corner must have UVs. Negative scale mirrors the selected UVs. One atomic owned mesh revision.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "corner_ids": _UV_IDS, "offset": _UV_PAIR, "scale": _UV_PAIR, "angle": {"type": "number"}}, "required": ["id"]},
+)
+def uv_transform(session, id, corner_ids=None, offset=(0., 0.), scale=(1., 1.), angle=0.):
+    from ...render import mesh_uv
+    return mesh_uv.transform(session.lookup(id), corner_ids, offset=offset, scale=scale, angle=angle)
+
+
+@register_tool(
+    name="mesh.uv_seams_set",
+    description="Mark or clear seams on specified editable source edge identities. Does not unwrap or move UVs.",
+    input_schema={"type": "object", "additionalProperties": False, "properties": {"id": {"type": "string"}, "edge_ids": _UV_IDS, "enabled": {"type": "boolean"}}, "required": ["id", "edge_ids"]},
+)
+def uv_seams_set(session, id, edge_ids, enabled=True):
+    from ...render import mesh_uv
+    return mesh_uv.seams(session.lookup(id), edge_ids, enabled)
+
+
+@register_tool(
+    name="mesh.uv_islands_get",
+    description="Read projected UV islands: faces joined across mesh edges with identical endpoint UVs, independent of seam flags alone. Returns stable face/corner IDs and UV bounds. Faces lacking any corner UV are excluded.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def uv_islands_get(session,id):
+    from ...render import mesh_uv_islands
+    return {"islands":mesh_uv_islands.read(session.lookup(id))}
+
+
+@register_tool(
+    name="mesh.uv_pack",
+    description="Pack whole UV islands touched by corner_ids (omitted means all projected islands) into the 0–1 tile. Deterministic height-sorted shelf layout, uniform common scale, no rotation. Margin is UV padding around each island (twice the margin between boxes; one margin at the tile border), 0 <= margin < 0.5, default 0.02. Preserves relative scale, island shape, winding and source geometry. Unselected islands stay unchanged and may overlap packed islands.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"margin":{"type":"number","minimum":0,"exclusiveMaximum":0.5}},"required":["id"]},
+)
+def uv_pack(session,id,corner_ids=None,margin=.02):
+    from ...render import mesh_uv_islands
+    return mesh_uv_islands.pack(session.lookup(id),corner_ids,margin=margin)
+
+
+@register_tool(
+    name="mesh.uv_normalize_scale",
+    description="Equalize UV area per local source surface area across whole islands touched by corner_ids (omitted means all projected islands). Preserve total selected UV area; scale each island uniformly about its corner mean. Unselected islands, source geometry and corner identities remain unchanged. Degenerate UV or surface areas reject atomically.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS},"required":["id"]},
+)
+def uv_normalize_scale(session,id,corner_ids=None):
+    from ...render import mesh_uv_islands
+    return mesh_uv_islands.normalize(session.lookup(id),corner_ids)
+
+
+@register_tool(
+    name="mesh.uv_pins_set",
+    description="Set persistent pin flags on selected source UV corner identities. Pinning does not move UVs or alter geometry. Manual UV transforms remain allowed; pins constrain supported unwrap solvers. Requires UVs on each selected corner. Unpin with enabled=false.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"enabled":{"type":"boolean"}},"required":["id","corner_ids"]},
+)
+def uv_pins_set(session,id,corner_ids,enabled=True):
+    from ...render import mesh_uv
+    return mesh_uv.pin(session.lookup(id),corner_ids,enabled)
+
+
+@register_tool(
+    name="mesh.uv_unwrap_seams",
+    description="Least-squares conformal unwrap of selected source faces (omitted face_ids means all), cut along marked seam edges. Supports consistently oriented manifold disk charts with one boundary and no holes; mark seams to open closed surfaces. Persistent corner pins stay exactly fixed; conflicting pins across an uncut edge reject. With fit_tile=true (default), entirely unpinned selections align to minimum-area chart bounds and pack into the unit tile with per-island UV margin (default 0.02). Any pinned chart disables tile fitting for the selection; unpinned charts are placed alongside without moving pins. fit_tile=false keeps the raw solved layout. Folded/collapsed solutions and impossible margins reject atomically. Current limits: 50,000 selected corners, 2,048 boundary edges per chart.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS,"fit_tile":{"type":"boolean"},"margin":{"type":"number","minimum":0,"exclusiveMaximum":0.5}},"required":["id"]},
+)
+def uv_unwrap_seams(session,id,face_ids=None,fit_tile=True,margin=.02):
+    from ...render import mesh_uv_unwrap
+    return mesh_uv_unwrap.unwrap(session.lookup(id),face_ids,fit_tile=fit_tile,margin=margin)
+
+
+@register_tool(
+    name="mesh.uv_stitch",
+    description="Join exactly two neighboring projected UV islands touched by corner_ids (omitted means all projected islands). static_corner_id chooses the island to keep fixed; omitted uses the earliest source face identity. Rotate/translate the other whole island so all shared source-edge endpoints coincide exactly, without scaling. clear_seams defaults true to clear joined seam flags; false preserves all seam flags. Mismatched edge shapes/scales, ambiguous UV anchors, overlapping results and pins that would move reject atomically. Limit: 10,000 triangles across the two islands. Unselected islands and source geometry remain unchanged. midpoints=true snaps shared endpoints to their arithmetic midpoint and rotates/translates other corners halfway; this may deform UV faces. respect_seams defaults true and splits islands at marked mesh seams, as Blender Stitch does; false retains legacy coordinate-only grouping. midpoints defaults false, keeping the reference island fixed. Distance-limited and vertex modes are not supported.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"corner_ids":_UV_IDS,"static_corner_id":{"type":"string"},"clear_seams":{"type":"boolean"},"midpoints":{"type":"boolean"},"respect_seams":{"type":"boolean"}},"required":["id"]},
+)
+def uv_stitch(session,id,corner_ids=None,static_corner_id=None,clear_seams=True,midpoints=False,respect_seams=True):
+    from ...render import mesh_uv_stitch
+    return mesh_uv_stitch.stitch(session.lookup(id),corner_ids,static_corner_id=static_corner_id,clear_seams=clear_seams,midpoints=midpoints,respect_seams=respect_seams)
+
+
+@register_tool(
+    name="mesh.uv_distortion_get",
+    description="Read local editable-source UV triangle stretch (largest/smallest singular value; 1 is undistorted similarity), area ratios and UV winding. Missing/collapsed UV faces have null stretch. Does not measure object scale, evaluated modifiers, overlap or Blender's color scale. No mutation.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def uv_distortion_get(session,id):
+    from ...render import mesh_uv_diagnostics
+    return mesh_uv_diagnostics.inspect(session.lookup(id))
+
+
+@register_tool(
+    name="mesh.normals_get",
+    description="Read source normal policy, sharp edge identities and compiled local source vertex normals. Geometry modifiers and object transforms are not evaluated by this inspection.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]},
+    side_effect=SideEffect.READ,
+)
+def normals_get(session, id):
+    from ...render import mesh_normals
+    return mesh_normals.read(session.lookup(id))
+
+
+@register_tool(
+    name="mesh.normals_set",
+    description="Set a retained whole-mesh normal policy: flat polygon normals; smooth angle-weighted connected fans; or authored to restore the source corner normals. Smooth angle is 0–180 degrees (default 180); respect_sharp defaults true. Boundaries, nonmanifold edges and inconsistent winding split fans. Policy recomputes after geometry edits; positions, UVs, pins and component identities do not change. This policy applies to the whole mesh; use mesh.normals_direction_set for explicit custom vectors on selected faces.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"mode":{"type":"string","enum":["authored","flat","smooth"]},"angle":{"type":"number","minimum":0,"maximum":180},"respect_sharp":{"type":"boolean"}},"required":["id","mode"]},
+)
+def normals_set(session, id, mode, angle=180.0, respect_sharp=True):
+    from ...render import mesh_normals
+    return mesh_normals.set_policy(session.lookup(id), mode, angle=angle, respect_sharp=respect_sharp)
+
+
+@register_tool(
+    name="mesh.edges_sharp_set",
+    description="Mark or clear sharp flags on distinct source edge identities. Does not change UV seams or geometry. A retained smooth normal policy with respect_sharp=true uses these flags to split smooth fans.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"edge_ids":_UV_IDS,"sharp":{"type":"boolean"}},"required":["id","edge_ids"]},
+)
+def edges_sharp_set(session, id, edge_ids, sharp=True):
+    from ...render import mesh_normals
+    return mesh_normals.set_sharp(session.lookup(id), edge_ids, sharp)
+
+
+@register_tool(
+    name="mesh.normals_transfer",
+    description="Copy evaluated source corner normals onto the target editable source. Requires identical vertex/polygon/corner ordering, without proximity matching. World space (default) respects both objects and parents; local copies local vectors. Target geometry, UVs, existing sharp flags and modifiers remain unchanged; new sharp flags mark copied normal discontinuities and target shading policy becomes authored custom normals. This is a one-time copy, not a retained source link.",
+    input_schema={"type": "object", "additionalProperties": False,
+                  "properties": {"id": {"type": "string"}, "source_id": {"type": "string"},
+                                 "space": {"enum": ["world", "local"]}},
+                  "required": ["id", "source_id"]},
+)
+def normals_transfer(session, id, source_id, space="world"):
+    from ...render import mesh_normals
+    return mesh_normals.transfer(session.designer.placements, session.lookup(id),
+                                 session.lookup(source_id), space=space)
+
+
+@register_tool(
+    name="mesh.normals_direction_set",
+    description="Set every corner of the selected source face IDs to a normalized, nonzero local XYZ normal direction. Bakes the current source normal policy first to preserve all unselected corner directions, then stores authored custom normals. Geometry, UVs, seams and modifier stack stay unchanged; necessary sharp discontinuities are added. This is explicit vector editing, not a retained per-face smoothing flag.",
+    input_schema={"type": "object", "additionalProperties": False,
+                  "properties": {"id": {"type": "string"}, "face_ids": _UV_IDS,
+                                 "normal": _VECTOR},
+                  "required": ["id", "face_ids", "normal"]},
+)
+def normals_direction_set(session, id, face_ids, normal):
+    from ...render import mesh_normals
+    return mesh_normals.set_direction(session.lookup(id), face_ids, normal)
+
+
+@register_tool(
+    name="mesh.faces_smooth_set",
+    description="Set selected source face Smooth/Flat flags under an existing computed whole-mesh normal policy. Choose mesh.normals_set flat or smooth first; authored custom-normal mode rejects. Smooth fans exclude flat faces and split at sharp/angle boundaries. Geometry, UVs, pins, materials and unselected face flags stay unchanged. Whole-mesh normals_set clears all face overrides. New child faces inherit parent flags.",
+    input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"face_ids":_UV_IDS,"smooth":{"type":"boolean"}},"required":["id","face_ids"]},
+)
+def faces_smooth_set(session, id, face_ids, smooth=True):
+    from ...render import mesh_normals
+    return mesh_normals.set_faces_smooth(session.lookup(id), face_ids, smooth)
+
+
+# Persistent scene-light commands share the native UI validation and renderer.
+from ...render import scene_lighting
+_LIGHT_FIELDS = {
+    "name": {"type": "string"}, "type": {"enum": ["sun", "point", "area"]},
+    "enabled": {"type": "boolean"},
+    **{k: _VECTOR for k in ("position", "rotation", "color")},
+    "power": {"type": "number"}, "size": {"type": "number"},
+}
+_LIGHT_VALUES = {"type": "object", "additionalProperties": False, "properties": _LIGHT_FIELDS}
+
+
+@register_tool(name="scene.lighting_get", description="Read persistent authored lights, ambient RGB and studio/scene mode.",
+               input_schema={"type": "object", "properties": {}, "additionalProperties": False}, side_effect=SideEffect.READ)
+def lighting_get(session):
+    return {"lighting": scene_lighting.read(session.designer.window_doc)}
+
+
+@register_tool(name="scene.light_add", description="Add a persistent sun, point or square area light. Y-up meters; XYZ degrees; local -Y emission; linear RGB. Adding enables scene lighting.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"values": _LIGHT_VALUES}, "required": ["values"]})
+def light_add(session, values):
+    return scene_lighting.add(session.designer.window_doc, values)
+
+
+@register_tool(name="scene.light_update", description="Edit a stable light ID atomically; sun power is irradiance, point/area power is total flux; area size is side length in meters.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"light_id": {"type": "string"}, "values": _LIGHT_VALUES}, "required": ["light_id", "values"]})
+def light_update(session, light_id, values):
+    return {"lighting": scene_lighting.update(session.designer.window_doc, light_id, values)}
+
+
+@register_tool(name="scene.light_remove", description="Remove one authored light by stable ID.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"light_id": {"type": "string"}}, "required": ["light_id"]})
+def light_remove(session, light_id):
+    return {"lighting": scene_lighting.update(session.designer.window_doc, light_id, remove=True)}
+
+
+@register_tool(name="scene.lighting_set", description="Switch studio/scene lighting or set uniform linear ambient RGB (0 to 1), retaining authored lights.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"enabled": {"type": "boolean"}, "ambient": _VECTOR}})
+def lighting_set(session, enabled=None, ambient=None):
+    return {"lighting": scene_lighting.configure(session.designer.window_doc, enabled=enabled, ambient=ambient)}
+
+
+@register_tool(name="scene.render_start", description="Start a background direct/IBL scene preview job with real diffuse/specular/emission/world-normal/meter-depth passes. PNG plus lossless numeric NPZ; new output folder only; 60 fps keys.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"destination": {"type": "string"}, "size": {"type": "integer"}, "first": {"type": "integer"}, "last": {"type": "integer"}, "channels": {"type": "array", "items": {"enum": ["beauty", "diffuse", "specular", "emission", "normal", "depth"]}}}, "required": ["destination"]}, undoable=False, side_effect=SideEffect.NONE)
+def render_start(session, destination, size=256, first=0, last=0, channels=None):
+    from ...render import scene_render_job
+    return {"job": scene_render_job.start(session.designer, destination, size=size, first=first, last=last, channels=channels)}
+
+
+@register_tool(name="scene.render_status", description="Read scene-render job progress, completion, cancellation or error.",
+               input_schema={"type": "object", "properties": {}, "additionalProperties": False}, side_effect=SideEffect.READ, undoable=False)
+def render_status(session):
+    from ...render import scene_render_job
+    return {"job": scene_render_job.status(session.designer)}
+
+
+@register_tool(name="scene.render_cancel", description="Cancel a running scene render after its current frame; unfinished output is discarded.",
+               input_schema={"type": "object", "properties": {}, "additionalProperties": False}, undoable=False, side_effect=SideEffect.NONE)
+def render_cancel(session):
+    from ...render import scene_render_job
+    return {"job": scene_render_job.cancel(session.designer)}
+
+
+@register_tool(
+    name='scene.keys_get',
+    description='Read persistent local transform keys and channel interpolation without modifying the pose.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+    side_effect=SideEffect.READ,
+)
+def keys_get(session,id):
+    return {'keys':scene_animation.tracks(session.lookup(id))}
+
+
+@register_tool(
+    name='scene.key_edit',
+    description='Atomically move, duplicate, delete or change interpolation on selected key channels. Occupied destination channels are rejected.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},'source_frame':{'type':'integer','minimum':0,'maximum':360000},
+        'channels':{'type':'array','items':{'enum':list(scene_animation.CHANNELS)},'minItems':1,'uniqueItems':True},
+        'target_frame':{'type':'integer','minimum':0,'maximum':360000},
+        'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},'mode':{'enum':['LINEAR','CONSTANT','BEZIER']},
+    },'required':['id','source_frame','channels']},
+)
+def key_edit(session,id,source_frame,channels,target_frame=None,duplicate=False,delete=False,mode=None):
+    return {'keys':scene_animation.edit_key(session.lookup(id),source_frame,channels=channels,target_frame=target_frame,duplicate=duplicate,delete=delete,mode=mode)}
+
+
+@register_tool(
+    name='scene.keys_edit',
+    description='Atomically move, duplicate, delete or interpolate multiple explicit frame/channel keys on one object. A move vacates all selected sources; occupied unselected destinations reject the whole operation.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},
+        'selection':{'type':'array','minItems':1,'uniqueItems':True,'items':{
+            'type':'object','additionalProperties':False,'properties':{
+                'frame':{'type':'integer','minimum':0,'maximum':360000},
+                'channel':{'enum':list(scene_animation.CHANNELS)},
+            },'required':['frame','channel']}},
+        'offset':{'type':'integer'},'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},
+        'mode':{'enum':['LINEAR','CONSTANT','BEZIER']},
+    },'required':['id','selection']},
+)
+def keys_edit(session,id,selection,offset=0,duplicate=False,delete=False,mode=None):
+    return {'keys':scene_animation.edit_keys(session.lookup(id),[(k['frame'],k['channel']) for k in selection],offset=offset,duplicate=duplicate,delete=delete,mode=mode)}
+
+
+@register_tool(
+    name='scene.timeline_get',
+    description='Read saved model playback range, FPS, loop and desktop-flight duration.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{}},
+    side_effect=SideEffect.READ,
+)
+def timeline_get(session):
+    return scene_animation.settings(getattr(session.designer.window_doc,'scene_timeline',None))
+
+
+@register_tool(
+    name='scene.timeline_set',
+    description='Set persistent model range, frame rate, looping and desktop flight duration; these are separate from object transform keys.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'settings':{'type':'object','additionalProperties':False,'properties':{
+            'start':{'type':'integer','minimum':0,'maximum':360000},
+            'end':{'type':'integer','minimum':0,'maximum':360000},
+            'fps':{'type':'integer','minimum':1,'maximum':240},
+            'loop':{'type':'boolean'},'flight_seconds':{'type':'number','minimum':.1,'maximum':3600},
+        }},
+    },'required':['settings']},
+)
+def timeline_set(session,settings):
+    data=scene_animation.settings({**timeline_get(session),**settings})
+    session.designer.window_doc.scene_timeline=data
+    return data
+
+
+@register_tool(
+    name='scene.key_handles_set',
+    description='Set free Bezier handles as [frame offset, value offset] relative to an existing key. Left time offset must be nonpositive, right nonnegative. Values use meters, degrees or scale factors. Enables Bezier outgoing interpolation.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'id':{'type':'string'},'frame':{'type':'integer','minimum':0,'maximum':360000},
+        'channel':{'enum':list(scene_animation.CHANNELS)},
+        'left':{'type':'array','items':{'type':'number'},'minItems':2,'maxItems':2},
+        'right':{'type':'array','items':{'type':'number'},'minItems':2,'maxItems':2},
+    },'required':['id','frame','channel','left','right']},
+)
+def key_handles_set(session,id,frame,channel,left,right):
+    return {'keys':scene_animation.set_handles(session.lookup(id),frame,channel,left,right)}
+
+
+@register_tool(
+    name='scene.actions_get',
+    description='Read named animation actions with the active action reflecting current object keys and timing.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{}},
+    side_effect=SideEffect.READ,
+)
+def actions_get(session):
+    from ...render import scene_actions
+    return scene_actions.read(session.designer.window_doc,session.designer.placements)
+
+
+@register_tool(
+    name='scene.action_create',
+    description='Create and activate an empty or duplicated named action. Actions share objects and geometry; keys and playback timing are independent.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'name':{'type':'string','minLength':1,'maxLength':120},'duplicate':{'type':'boolean'},
+        'start':{'type':'integer','minimum':0,'maximum':360000},
+        'end':{'type':'integer','minimum':0,'maximum':360000},
+    },'required':['name']},
+)
+def action_create(session,name,duplicate=False,start=0,end=59):
+    from ...render import scene_actions
+    return scene_actions.create(session.designer.window_doc,session.designer.placements,name,duplicate=duplicate,start=start,end=end)
+
+
+@register_tool(
+    name='scene.action_switch',
+    description='Save current keys into the active action, then activate another action and seek its start.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+)
+def action_switch(session,id):
+    from ...render import scene_actions
+    return scene_actions.switch(session.designer.window_doc,session.designer.placements,id)
+
+
+@register_tool(
+    name='scene.action_rename',
+    description='Rename a saved animation action; duplicate names are rejected.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'},'name':{'type':'string','minLength':1,'maxLength':120}},'required':['id','name']},
+)
+def action_rename(session,id,name):
+    from ...render import scene_actions
+    return scene_actions.rename(session.designer.window_doc,session.designer.placements,id,name)
+
+
+@register_tool(
+    name='scene.action_remove',
+    description='Remove a named animation action. Removing the active action activates the first remaining action. The last action cannot be removed.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{'id':{'type':'string'}},'required':['id']},
+)
+def action_remove(session,id):
+    from ...render import scene_actions
+    return scene_actions.remove(session.designer.window_doc,session.designer.placements,id)
+
+
+@register_tool(
+    name='scene.object_keys_edit',
+    description='Atomically move, duplicate, delete or interpolate explicit transform keys across multiple objects. Any missing/locked object or occupied destination rejects the whole selection.',
+    input_schema={'type':'object','additionalProperties':False,'properties':{
+        'selection':{'type':'array','minItems':1,'uniqueItems':True,'items':{
+            'type':'object','additionalProperties':False,'properties':{
+                'id':{'type':'string'},'frame':{'type':'integer','minimum':0,'maximum':360000},
+                'channel':{'enum':list(scene_animation.CHANNELS)},
+            },'required':['id','frame','channel']}},
+        'offset':{'type':'integer'},'duplicate':{'type':'boolean'},'delete':{'type':'boolean'},
+        'mode':{'enum':['LINEAR','CONSTANT','BEZIER']},
+    },'required':['selection']},
+)
+def object_keys_edit(session,selection,offset=0,duplicate=False,delete=False,mode=None):
+    resolved=[(session.lookup(k['id']).entity_id,k['frame'],k['channel']) for k in selection]
+    return {'objects':scene_animation.edit_object_keys(session.designer.placements,resolved,offset=offset,duplicate=duplicate,delete=delete,mode=mode)}
+
+
+# Scene collections, view presets, camera bookmarks and reference images
+# share the persistent AppWindow tables and validation with the native UI.
+from ...render import collections as _collections, scene_views as _views
+
+_IDS = {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": True}
+
+
+@register_tool(name="scene.collections_get", description="Read persistent scene collections: stable ids, names, nesting, members (scene entity ids), visibility and exclusion.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {}}, side_effect=SideEffect.READ, undoable=False)
+def collections_get(session):
+    return {"collections": _collections.read(session.designer.window_doc)}
+
+
+@register_tool(name="scene.collection_create", description="Create a named scene collection, optionally nested under parent_id. Names are unique (case-insensitive); at most 256 collections.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"name": {"type": "string"}, "parent_id": {"type": ["string", "null"]}}, "required": ["name"]})
+def collection_create(session, name, parent_id=None):
+    return _collections.create(session.designer.window_doc, name, parent_id)
+
+
+@register_tool(name="scene.collection_delete", description="Delete a collection by stable id. Child collections re-parent to its parent; member objects become unassigned and stay in the scene.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"collection_id": {"type": "string"}}, "required": ["collection_id"]})
+def collection_delete(session, collection_id):
+    return {"collections": _collections.remove(session.designer.window_doc, collection_id)}
+
+
+@register_tool(name="scene.collection_assign", description="Move objects (placement ids) into a collection, or unassign them with collection_id null. An object belongs to at most one collection; unknown objects or collections reject atomically.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"ids": _IDS, "collection_id": {"type": ["string", "null"]}}, "required": ["ids", "collection_id"]})
+def collection_assign(session, ids, collection_id):
+    d = session.designer
+    entity_ids = [session.lookup(i).entity_id for i in ids]
+    return {"collections": _collections.assign(d.window_doc, d.placements, entity_ids, collection_id)}
+
+
+@register_tool(name="scene.collection_set", description="Rename, re-parent (parent_id null moves to the root), hide/show or exclude/include a collection. Hidden or excluded collections (and their descendants) remove members from every render while their transforms still drive visible children.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"collection_id": {"type": "string"}, "name": {"type": "string"}, "parent_id": {"type": ["string", "null"]}, "visible": {"type": "boolean"}, "exclude": {"type": "boolean"}}, "required": ["collection_id"]})
+def collection_set(session, collection_id, name=None, parent_id=_collections.UNSET, visible=None, exclude=None):
+    return {"collections": _collections.update(session.designer.window_doc, collection_id, name=name, parent=parent_id, visible=visible, exclude=exclude)}
+
+
+@register_tool(name="scene.view_preset", description="Set the shared scene camera to a named view: front/back/left/right/top/bottom are orthographic axis views (target, distance and orthographic scale are kept); perspective restores the default orbit angles. Enables 3D Scene view.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"name": {"enum": [*scene.VIEW_PRESETS, "perspective"]}}, "required": ["name"]})
+def view_preset(session, name):
+    w = session.designer.window_doc
+    w.scene_camera = _views.view_preset(getattr(w, "scene_camera", None), name)
+    w.scene_view = True
+    return {"view": name, "camera": w.scene_camera}
+
+
+@register_tool(name="scene.camera_bookmarks_get", description="Read persistent named camera bookmarks and which axis view (if any) the current camera matches.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {}}, side_effect=SideEffect.READ, undoable=False)
+def camera_bookmarks_get(session):
+    w = session.designer.window_doc
+    return {"bookmarks": _views.read_bookmarks(w), "view": _views.view_name(getattr(w, "scene_camera", None))}
+
+
+@register_tool(name="scene.camera_bookmark_set", description="Save the current scene camera under a name (an existing name is replaced). At most 64 bookmarks.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"name": {"type": "string"}}, "required": ["name"]})
+def camera_bookmark_set(session, name):
+    return _views.bookmark_set(session.designer.window_doc, name)
+
+
+@register_tool(name="scene.camera_bookmark_go", description="Restore a saved camera bookmark by name or id and enable 3D Scene view.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"name": {"type": "string"}}, "required": ["name"]})
+def camera_bookmark_go(session, name):
+    return _views.bookmark_go(session.designer.window_doc, name)
+
+
+@register_tool(name="scene.camera_bookmark_remove", description="Remove a saved camera bookmark by name or id.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"name": {"type": "string"}}, "required": ["name"]})
+def camera_bookmark_remove(session, name):
+    return {"bookmarks": _views.bookmark_remove(session.designer.window_doc, name)}
+
+
+_PAIR = {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+
+
+@register_tool(name="scene.reference_images_get", description="Read persistent orthographic reference images per axis view (owned PNG digest, opacity, world offset and size in meters).",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {}}, side_effect=SideEffect.READ, undoable=False)
+def reference_images_get(session):
+    return {"references": _views.read_references(session.designer.window_doc)}
+
+
+@register_tool(name="scene.reference_image_set", description="Import a PNG/JPEG as the owned reference image for one axis view (front/back/left/right/top/bottom). Optional opacity 0-1 (default 0.5), world-anchored offset [u, v] and size [w, h] in meters (default 2 m tall at the image aspect). Drawn behind the grid only in that exact orthographic view; never in exports or render jobs.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"view": {"enum": list(_views.AXIS_VIEWS)}, "path": {"type": "string"}, "opacity": {"type": "number", "minimum": 0, "maximum": 1}, "offset": _PAIR, "size": _PAIR}, "required": ["view", "path"]})
+def reference_image_set(session, view, path, opacity=None, offset=None, size=None):
+    return _views.reference_set(session.designer.window_doc, view, path, opacity=opacity, offset=offset, size=size)
+
+
+@register_tool(name="scene.reference_image_clear", description="Remove the reference image of one axis view.",
+               input_schema={"type": "object", "additionalProperties": False, "properties": {"view": {"enum": list(_views.AXIS_VIEWS)}}, "required": ["view"]})
+def reference_image_clear(session, view):
+    return {"references": _views.reference_clear(session.designer.window_doc, view)}

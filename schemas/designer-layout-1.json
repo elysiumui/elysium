@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elysiumui.dev/schemas/designer-layout-1.json",
+  "title": "Elysium Designer layout document, version 1",
+  "description": "designer_layout.json as written by HeadlessDesigner.save_layout and the GUI Designer. Readers accept any document_version <= 1 (a missing key means 0) and reject greater versions. Optional keys may be added without bumping the version, so every object is open.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["window", "placements", "mesh_document"],
+  "properties": {
+    "document_version": {"type": "integer", "minimum": 0, "maximum": 1},
+    "window": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "AppWindow.to_json(): canvas size, scene camera/shading/lighting, collections, bookmarks and reference images."
+    },
+    "placements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["kind", "entity_id"],
+        "properties": {
+          "kind": {"type": "string", "minLength": 1},
+          "entity_id": {"type": "string", "pattern": "^entity:[0-9a-f]{32}$"},
+          "name": {"type": "string"},
+          "props": {"type": "object", "additionalProperties": true},
+          "mesh": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {"kind": {"type": "string", "minLength": 1}}
+          },
+          "pbr_maps": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Texture paths; files inside the project are stored project-relative (POSIX), others absolute."
+          }
+        }
+      }
+    },
+    "mesh_document": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "assets"],
+      "properties": {
+        "schema_version": {"type": "integer", "enum": [1, 2]},
+        "assets": {
+          "type": "object",
+          "description": "Serialized mesh assets keyed by revision key (mesh:<label>:<uuid>) or legacy name.",
+          "additionalProperties": {"type": "object", "additionalProperties": true}
+        },
+        "hashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["assets", "document"],
+          "properties": {
+            "assets": {
+              "type": "object",
+              "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            },
+            "document": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    }
+  }
+}

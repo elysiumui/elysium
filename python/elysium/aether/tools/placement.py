@@ -51,7 +51,10 @@ def placement_add(session, kind: str, x: float, y: float,
 def placement_remove(session, id: str) -> dict:
     p = session.lookup(id)
     designer = session.designer
+    from ...render import collections, scene
+    scene.detach_children(designer.placements, [p])
     designer.placements.remove(p)
+    collections.prune(designer.window_doc, designer.placements)
     return {"removed": id}
 
 
@@ -107,6 +110,7 @@ def placement_rename(session, id: str, name: str) -> dict:
     input_schema={"type": "object",
                    "properties": {"id": {"type": "string"}},
                    "required": ["id"]},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def placement_select(session, id: str) -> dict:
     d = session.designer
@@ -164,11 +168,26 @@ def placement_duplicate(session, id: str, dx: float = 24,
                          dy: float = 24) -> dict:
     designer = session.designer
     p = session.lookup(id)
-    from dataclasses import replace
-    new = replace(p, x=p.x + dx, y=p.y + dy,
-                  name=designer._assign_name(p.kind),
-                  props=dict(p.props or {}))
+    from copy import deepcopy
+    new = deepcopy(p)
+    if hasattr(new, "entity_id"):
+        from ...scene_identity import new_id
+        new.entity_id = new_id()
+    new.x, new.y = p.x + dx, p.y + dy
+    new.name = designer._assign_name(p.kind)
+    if p.kind == "Mesh3D":
+        from elysium.render.mesh_document import bind, resolve
+        bind(new, resolve(p.mesh_kind))
+        from elysium.render.primitives import settings
+        if settings(p) is not None:
+            new.props["primitive"]["mesh_key"] = new.mesh_kind
     designer.placements.append(new)
+    if hasattr(new, "entity_id") and hasattr(designer, "window_doc"):
+        # The copy joins the source's collection.
+        from ...render import collections
+        owner = collections.collection_of(designer.window_doc, getattr(p, "entity_id", None))
+        if owner is not None:
+            collections.assign(designer.window_doc, designer.placements, [new.entity_id], owner)
     return {"placement_id": session.id_for(new), "name": new.name}
 
 

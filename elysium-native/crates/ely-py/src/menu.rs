@@ -24,11 +24,15 @@ pub fn poll_menu_action() -> Option<i64> {
     chan().1.try_recv().ok()
 }
 
+/// With quit_tag, Cmd-Q and the application Quit menu enqueue that tag.
+/// The caller must drain outstanding commands and perform shutdown. Without
+/// quit_tag, the existing native terminate action remains unchanged.
 #[pyfunction]
-#[pyo3(signature = (spec, app_name="Elysium Designer"))]
+#[pyo3(signature = (spec, app_name="Elysium Designer", quit_tag=None))]
 pub fn set_application_menu(
     spec: Vec<(String, Vec<(String, i64)>)>,
     app_name: &str,
+    quit_tag: Option<i64>,
 ) -> PyResult<()> {
     #[cfg(target_os = "macos")]
     {
@@ -39,12 +43,12 @@ pub fn set_application_menu(
         // "setting the main menu on a non-main thread". Hop to the main
         // dispatch queue. Fire-and-forget: the caller doesn't depend on
         // completion, and async avoids any deadlock with the main run loop.
-        cocoa::install_native_menu_on_main(spec, app_name);
+        cocoa::install_native_menu_on_main(spec, app_name, quit_tag);
         Ok(())
     }
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (spec, app_name);
+        let _ = (spec, app_name, quit_tag);
         Ok(())
     }
 }
@@ -101,9 +105,10 @@ mod cocoa {
     pub(super) fn install_native_menu_on_main(
         spec: Vec<(String, Vec<(String, i64)>)>,
         app_name: &str,
+        quit_tag: Option<i64>,
     ) {
         let app_name = app_name.to_string();
-        run_on_main(move || unsafe { install_native_menu(spec, &app_name) });
+        run_on_main(move || unsafe { install_native_menu(spec, &app_name, quit_tag) });
     }
 
     extern "C" fn fired(_this: *mut AnyObject, _cmd: Sel, sender: *mut AnyObject) {
@@ -166,6 +171,7 @@ mod cocoa {
     pub(super) unsafe fn install_native_menu(
         spec: Vec<(String, Vec<(String, i64)>)>,
         app_name: &str,
+        quit_tag: Option<i64>,
     ) {
         let _ = ensure_class();
         // Build (or reuse) trampoline instance.
@@ -211,10 +217,21 @@ mod cocoa {
         let quit_item: *mut AnyObject = msg_send![class!(NSMenuItem), alloc];
         let quit_title = ns_string(&format!("Quit {app_name}"));
         let quit_key = ns_string("q");
-        let quit_sel = sel!(terminate:);
+        // Opt-in applications process Quit through their command queue so an
+        // earlier Save/Undo event finishes before the process can terminate.
+        let quit_sel = if quit_tag.is_some() {
+            sel!(menuItemFired:)
+        } else {
+            sel!(terminate:)
+        };
         let quit_item: *mut AnyObject = msg_send![quit_item,
             initWithTitle: quit_title action: quit_sel keyEquivalent: quit_key];
-        let _: () = msg_send![quit_item, setTarget: app];
+        if let Some(tag) = quit_tag {
+            let _: () = msg_send![quit_item, setTarget: target];
+            let _: () = msg_send![quit_item, setTag: tag];
+        } else {
+            let _: () = msg_send![quit_item, setTarget: app];
+        }
         let _: () = msg_send![app_menu, addItem: make_separator()];
         let _: () = msg_send![app_menu, addItem: quit_item];
         let _: () = msg_send![app_top, setSubmenu: app_menu];

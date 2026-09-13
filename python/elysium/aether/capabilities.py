@@ -26,10 +26,13 @@ def build_manifest() -> dict:
         out["easings"] = ["linear","ease_in","ease_out","ease_in_out",
                           "spring","ease-in-sine","ease-out-cubic"]
     try:
-        from elysium.render import pbr
+        from elysium.render import mesh_document, pbr
         out["studios"] = list(pbr.STUDIOS.keys())
         out["material_presets"] = list(pbr.PRESETS.keys())
-        out["mesh_library"] = list(pbr.MESH_LIBRARY.keys())
+        # Presets and named registrations; owned revision keys
+        # (mesh:<label>:<uuid>) are only mirrored there as Designer shims.
+        out["mesh_library"] = [k for k in pbr.MESH_LIBRARY
+                               if not k.startswith(mesh_document.OWNED_PREFIX)]
     except Exception: pass
     out["draw_commands"] = [
         "FillPath","FillPathLinearGradient","FillPathRadialGradient",

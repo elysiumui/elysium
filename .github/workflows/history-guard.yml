@@ -1,0 +1,80 @@
+name: History guard
+
+# The public repo has a scrubbed history and must never receive commits from
+# the private monorepo. GitHub cannot reject a push, so this job turns any
+# such push red immediately, on every branch and tag. If it fails: delete the
+# offending ref, then ask GitHub Support to garbage-collect the orphaned
+# objects.
+#
+# The private paths are matched by SHA-256 of the path (and of each of its
+# directory prefixes) so that this file does not itself list them.
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: private history must be unreachable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Known private commits are not ancestors of HEAD
+        run: |
+          set -euo pipefail
+          for sha in 10892184734e0f3d3c2c15e3c264efb0257ebef7 f1b8f02253120ea6c54c78d73a7a1a169b180be2; do
+            if git cat-file -e "$sha^{commit}" 2>/dev/null && git merge-base --is-ancestor "$sha" HEAD; then
+              echo "::error::$sha (private monorepo history) is an ancestor of HEAD"; exit 1
+            fi
+          done
+          echo "ok: no private commit is an ancestor of HEAD"
+      - name: Private paths exist neither in the tree nor in reachable history
+        run: |
+          set -euo pipefail
+          { git ls-tree -r --name-only HEAD; git log --all --name-only --format=; } | sort -u > paths.txt
+          python3 - <<'PY'
+          import hashlib, pathlib, sys
+          private = set("""
+            9cf0582643779a5c2592a23ab61c2c03787f9aad76d2cb2104ef9cf8438206e3
+            fb2c4fc67269b004dff6972148a4867aa7fc3f288841ec86c0bea3cf04a83fa0
+            87d6a57a759f2386bf9caf5309b9aa0b9ff0ca70f5e38696e114a1ccdb0e785d
+            24bb724f56dd4e841ea7bc1287f75a2fede7836b135f9f9724103f226388ad3d
+            59a0facf5498d52eff813d3873eaa2bbc9125c9c3b2fd52e4d1656aaba80e6b2
+            e73d23ff69571761992ab2b2327bfa15d4f08c7e667d7ac835e8f0dec21a02f5
+            c430713f6c364c1c361115e6de06cba34b1f2fcaee006efb7cb796f23ed2662e
+            c7731b29de71fca225e1dfac88ebe31975a4cd9759ab13e91d86eeadafbddc10
+            da62eb47722e22d374e7771cfa826e379b2578e8ac4e472ae48b86cd1db0cba0
+            42393a44ac07292621fcf444f7e8327c4bafcd9a99c8bd995bd2ccdbb1bedecb
+            41d15a90d7fa163d92d0142e5f4b3f120e3d36ed96dc828bc792b06e4fa7688b
+            bf6d3fb12f5ada9b3be0a65e24b7d146fa589a53a4e645c5c7f82a72e2b51dd3
+            82ab4d59079d969b7581a0685bdf9c7b883b1e53b39a8f250a2fb33d685f9028
+            24f554a81cb4d6787aca422370e0b62663ff0a2f66fed7c762340f155555cf67
+            743ec40325d9966faef0e0dfc296ebf90b44cd386f3c2b06d39dbfd26a234e05
+            3a435fdbaf4790ceeeaed8a53eaff090550d47fe5f56bbc60bca87974ccedafd
+            0e7bcdc3af1d7b04f1f51f595d6266b77ae26b0f614b6db204e9fbe1d7b39eb6
+            8de98ae1b2cd89544dbdc0b4be96c8b38fe89293ce1359daae976ea0de33ee45
+            b75293f1a5500f17b68de696e6b8e8fe5e8149f1877066d72fe9deebf5f20196
+            17a167d6d2b6ca1444b59b0cfe243bd92e6abceec724e60f27a8d29fa25bf81c
+            92af062d79cec20bc384382c68f647960ee0cd6bd1cc0af39ad4ab546705e14d
+          """.split())
+          bad = []
+          for p in pathlib.Path("paths.txt").read_text().splitlines():
+              if not p:
+                  continue
+              parts = p.split("/")
+              candidates = [p] + ["/".join(parts[:i]) + "/" for i in range(1, len(parts))]
+              if any(hashlib.sha256(c.encode()).hexdigest() in private for c in candidates):
+                  bad.append(p)
+          if bad:
+              print("::error::private path(s) present in the tree or in reachable history:")
+              print("\n".join(bad[:50]))
+              sys.exit(1)
+          print(f"ok: {sum(1 for _ in open('paths.txt'))} paths checked, none private")
+          PY

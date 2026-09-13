@@ -282,11 +282,64 @@
     "notify",
     "single_instance"
   ],
+  "elysium.project_code": [
+    "copy_source",
+    "source_path"
+  ],
   "elysium.reactive": [
     "Signal",
     "computed",
     "effect",
     "signal"
+  ],
+  "elysium.render": [
+    "animation_curve",
+    "collections",
+    "component_transform",
+    "compute",
+    "designer_preview",
+    "layout_lighting",
+    "material_graph",
+    "material_image",
+    "mesh_document",
+    "mesh_edge_split",
+    "mesh_edit",
+    "mesh_materials",
+    "mesh_modifiers",
+    "mesh_normals",
+    "mesh_subdivision",
+    "mesh_tangents",
+    "mesh_uv",
+    "mesh_uv_diagnostics",
+    "mesh_uv_islands",
+    "mesh_uv_stitch",
+    "mesh_uv_unwrap",
+    "pbr",
+    "preview",
+    "primitives",
+    "scene",
+    "scene_actions",
+    "scene_animation",
+    "scene_export",
+    "scene_lighting",
+    "scene_render_job",
+    "scene_views",
+    "texture",
+    "topology"
+  ],
+  "elysium.scene_code": [
+    "HandlerWindow",
+    "load",
+    "validate_source"
+  ],
+  "elysium.scene_identity": [
+    "new_id",
+    "parse",
+    "validate"
+  ],
+  "elysium.scene_player": [
+    "SceneAnimation",
+    "run"
   ],
   "elysium.settings": [
     "Settings",

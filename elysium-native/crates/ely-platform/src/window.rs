@@ -276,6 +276,9 @@ pub struct MouseState {
     /// Monotonic counter incremented on every left-button press transition;
     /// Python compares against a cached value to detect new clicks.
     pub press_count: AtomicU64,
+    /// Window-local origin of the most recent left-button press.
+    pub left_press_x: AtomicI32,
+    pub left_press_y: AtomicI32,
     /// Same counter, for right-button presses. Lets Python distinguish
     /// "open context menu" from "use this swatch".
     pub right_press_count: AtomicU64,
@@ -289,6 +292,16 @@ pub struct MouseState {
     /// contributed since the last poll — lets the scroll system pick
     /// momentum behaviour. Cleared on drain.
     pub scroll_precise: std::sync::atomic::AtomicBool,
+}
+
+impl MouseState {
+    pub fn record_left_press(&self) {
+        self.left_press_x
+            .store(self.x.load(Ordering::Acquire), Ordering::Release);
+        self.left_press_y
+            .store(self.y.load(Ordering::Acquire), Ordering::Release);
+        self.press_count.fetch_add(1, Ordering::AcqRel);
+    }
 }
 
 /// One wheel "line" is treated as this many logical pixels when an OS
@@ -347,8 +360,12 @@ pub enum CursorKind {
     ZoomOut,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum WindowRequest {
+    /// Cross-platform native title update, applied on the event-loop thread.
+    SetTitle {
+        title: String,
+    },
     SetOuterPosition {
         x: i32,
         y: i32,
@@ -703,6 +720,7 @@ impl WindowHandle {
         self.inner
             .scale_milli
             .store((s * 1000.0).round() as u32, Ordering::Release);
+        self.a11y().set_scale_factor(s);
     }
     /// The display this window is currently on, in logical pixels, or `None`
     /// before the first frame (or when the platform reports no monitors —
@@ -737,6 +755,10 @@ impl WindowHandle {
     pub fn set_hit_test_path(&self, svg_d: Option<&str>) {
         let mut g = self.inner.hit_test_path.write();
         *g = svg_d.map(ElyPath::from_svg);
+        if svg_d.is_none() {
+            self.cursor_inside_path().store(true, Ordering::Release);
+            self.request_set_ignores_mouse(false);
+        }
     }
 
     pub fn cursor_inside_path(&self) -> &std::sync::atomic::AtomicBool {
@@ -748,6 +770,33 @@ impl WindowHandle {
     }
     pub fn keyboard(&self) -> &KeyboardState {
         &self.inner.keyboard
+    }
+    /// End held input on deactivation, including releases delivered to another
+    /// application. Consumers receive cancellation before synthetic key-ups.
+    pub fn release_input_on_blur(&self) {
+        self.mouse().pressed_left.store(false, Ordering::Release);
+        self.mouse().pressed_right.store(false, Ordering::Release);
+        self.keyboard().modifiers.store(0, Ordering::Release);
+        self.keyboard().preedit.lock().clear();
+        let held: Vec<String> = self.keyboard().held.lock().drain().collect();
+        let mut events = self.keyboard().events.lock();
+        events.push_back(KeyEvent {
+            code: "WindowFocusLost".to_string(),
+            pressed: true,
+            modifiers: 0,
+            text: String::new(),
+        });
+        for code in held {
+            events.push_back(KeyEvent {
+                code,
+                pressed: false,
+                modifiers: 0,
+                text: String::new(),
+            });
+        }
+        drop(events);
+        self.request_set_cursor(CursorKind::Default);
+        self.notify_input();
     }
     #[allow(clippy::type_complexity)] // queue of (path, x, y) file drops
     pub fn file_drops(&self) -> &Arc<Mutex<std::collections::VecDeque<(String, f64, f64)>>> {
@@ -781,6 +830,13 @@ impl WindowHandle {
             .window_requests
             .lock()
             .push(WindowRequest::SetOuterPosition { x, y });
+    }
+
+    pub fn request_set_title(&self, title: String) {
+        self.inner
+            .window_requests
+            .lock()
+            .push(WindowRequest::SetTitle { title });
     }
 
     pub fn drain_window_requests(&self) -> Vec<WindowRequest> {
@@ -899,6 +955,38 @@ pub mod ely_core_hook_stub {
 #[cfg(test)]
 mod tier2_tests {
     use super::*;
+
+    #[test]
+    fn focus_loss_releases_input_and_reports_cancellation_first() {
+        let h = WindowHandle::stub(WindowConfig::default());
+        h.mouse().pressed_left.store(true, Ordering::Release);
+        h.mouse().pressed_right.store(true, Ordering::Release);
+        h.keyboard().held.lock().insert("Space".to_string());
+        h.keyboard().modifiers.store(5, Ordering::Release);
+        h.release_input_on_blur();
+        assert!(!h.mouse().pressed_left.load(Ordering::Acquire));
+        assert!(!h.mouse().pressed_right.load(Ordering::Acquire));
+        assert!(h.keyboard().held.lock().is_empty());
+        assert_eq!(h.keyboard().modifiers.load(Ordering::Acquire), 0);
+        let events = h.keyboard().events.lock();
+        assert_eq!(events[0].code, "WindowFocusLost");
+        assert_eq!(events[1].code, "Space");
+        assert!(!events[1].pressed);
+    }
+
+    #[test]
+    fn press_origin_survives_motion_and_release_between_frames() {
+        let mouse = MouseState::default();
+        mouse.x.store(120, Ordering::Release);
+        mouse.y.store(160, Ordering::Release);
+        mouse.record_left_press();
+        mouse.x.store(240, Ordering::Release);
+        mouse.y.store(190, Ordering::Release);
+        mouse.pressed_left.store(false, Ordering::Release);
+        assert_eq!(mouse.press_count.load(Ordering::Acquire), 1);
+        assert_eq!(mouse.left_press_x.load(Ordering::Acquire), 120);
+        assert_eq!(mouse.left_press_y.load(Ordering::Acquire), 160);
+    }
 
     #[test]
     fn scroll_accumulates_and_drains() {
@@ -1037,5 +1125,23 @@ mod tier2_tests {
         assert_eq!(h.scale_factor(), 2.0);
         h.set_scale_factor(f64::NAN); // never poison the divisor
         assert_eq!(h.scale_factor(), 1.0);
+    }
+}
+
+#[cfg(test)]
+mod title_request_tests {
+    use super::*;
+
+    #[test]
+    fn title_updates_are_owned_and_queued_for_the_event_thread() {
+        let handle = WindowHandle::stub(WindowConfig::default());
+        let title = String::from("Elysium Designer — 日本語.esk");
+        handle.request_set_title(title.clone());
+        drop(title);
+        let requests = handle.drain_window_requests();
+        assert!(
+            matches!(&requests[..], [WindowRequest::SetTitle { title }] if title == "Elysium Designer — 日本語.esk")
+        );
+        assert!(handle.drain_window_requests().is_empty());
     }
 }

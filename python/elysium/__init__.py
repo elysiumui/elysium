@@ -54,7 +54,7 @@ try:
     __version__ = _dist_version("elysium-ui")
 except Exception:
     _nmod = globals().get("_n")
-    __version__ = getattr(_nmod, "__version__", None) or "1.2.1"
+    __version__ = getattr(_nmod, "__version__", None) or "1.3.0"
 
 from elysium import layout, theme, components, anim, reactive  # re-export
 from elysium._deprecation import deprecated, deprecated_alias
@@ -85,10 +85,29 @@ if _NATIVE_AVAILABLE:
 
         def __init__(self, title: str, identifier: str, **kwargs):
             self._native = _NativeApp(title=title, identifier=identifier, **kwargs)
+            from elysium import anim
+            anim._app_time = lambda: self.playback_time
 
         @property
         def identifier(self) -> str:
             return self._native.identifier
+
+        @property
+        def playback_time(self) -> float:
+            """Seconds of application time, frozen by Space while paused."""
+            return self._native.playback_time
+
+        @property
+        def paused(self) -> bool:
+            return self._native.paused
+
+        @paused.setter
+        def paused(self, value: bool) -> None:
+            self._native.paused = value
+
+        def set_space_pause_enabled(self, enabled: bool) -> None:
+            """Editors may route Space to their preview instead of the UI clock."""
+            self._native.set_space_pause_enabled(enabled)
 
         def window(self, **kwargs):
             return _wrap_window(self._native.window(**kwargs))

@@ -15,7 +15,7 @@ silicon. Material params are mutated by the UI between frames.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Tuple
 
@@ -51,6 +51,11 @@ class Material:
     # UV tiling on the maps (the mesh's own UVs are pre-multiplied by this).
     uv_scale: Tuple[float, float] = (1.0, 1.0)
     uv_offset: Tuple[float, float] = (0.0, 0.0)
+    albedo_sampling: str = "legacy"
+    # Owned scalar maps: linear red-channel data, Closest / Repeat.
+    data_maps: dict[str, np.ndarray] = field(default_factory=dict)
+    normal_sampling: str = "legacy"
+    metallic_rough_sampling: str = "legacy"
 
 
 def material_with_albedo(path) -> Material:
@@ -83,7 +88,7 @@ def _load_texture(src) -> np.ndarray | None:
     return arr
 
 
-def _sample_texture(tex, uv: np.ndarray) -> np.ndarray:
+def _sample_texture(tex, uv: np.ndarray, *, closest_repeat=False) -> np.ndarray:
     """Bilinear-ish (nearest for speed) wrap-mode lookup. `uv` is (..., 2)
     float32 in [0, 1] tile-space (already scaled/offset). Returns (..., 4)
     uint8. ``tex`` may be a numpy array or a path — strings are loaded
@@ -94,6 +99,10 @@ def _sample_texture(tex, uv: np.ndarray) -> np.ndarray:
             return np.zeros(uv.shape[:-1] + (4,), dtype=np.uint8)
         tex = loaded
     H, W = tex.shape[:2]
+    if closest_repeat:
+        u = np.minimum((np.mod(uv[..., 0], 1.0) * W).astype(np.int32), W - 1)
+        v = H - 1 - np.minimum((np.mod(uv[..., 1], 1.0) * H).astype(np.int32), H - 1)
+        return tex[v, u]
     u = (np.mod(uv[..., 0], 1.0) * (W - 1)).astype(np.int32)
     v = (np.mod(1.0 - uv[..., 1], 1.0) * (H - 1)).astype(np.int32)
     return tex[v, u]
@@ -125,6 +134,7 @@ class Environment:
     hdri:        np.ndarray | None = None
     hdri_blur:   np.ndarray | None = None        # diffuse-irradiance mip (blurred)
     hdri_intensity: float = 1.0
+    authored_lights: list[dict] | None = None
 
 
 # --- HDRI loading (.hdr / .exr) ------------------------------------------
@@ -331,7 +341,7 @@ def _sample_material_textures(mat: Material, uvs: np.ndarray | None) -> dict:
     out: dict = {}
     uv = uvs * np.array(mat.uv_scale, dtype=np.float32) + np.array(mat.uv_offset, dtype=np.float32)
     if mat.albedo_map is not None:
-        tex = _sample_texture(mat.albedo_map, uv)
+        tex = _sample_texture(mat.albedo_map, uv, closest_repeat=mat.albedo_sampling == "closest_repeat")
         # Albedo textures are stored sRGB-encoded (standard PNG convention).
         # Linearise before PBR math — otherwise we apply the gamma curve
         # twice (once on read, once in _linear_to_srgb at output), which
@@ -352,10 +362,14 @@ def _sample_material_textures(mat: Material, uvs: np.ndarray | None) -> dict:
         if tex.shape[-1] >= 4 and getattr(mat, "albedo_alpha_cutout", False):
             out["alpha"] = tex[..., 3].astype(np.float32) / 255.0
     if mat.metallic_rough_map is not None:
-        tex = _sample_texture(mat.metallic_rough_map, uv)
+        tex = _sample_texture(mat.metallic_rough_map, uv, closest_repeat=mat.metallic_rough_sampling == "closest_repeat")
         # glTF convention: G = roughness, B = metallic
-        out["roughness"] = (tex[..., 1].astype(np.float32) / 255.0) * mat.roughness * 2
-        out["metallic"]  = (tex[..., 2].astype(np.float32) / 255.0) * max(mat.metallic, 1.0)
+        out["roughness"] = (tex[..., 1].astype(np.float32) / 255.0) * mat.roughness
+        out["metallic"]  = (tex[..., 2].astype(np.float32) / 255.0) * mat.metallic
+    for channel in ("roughness", "metallic"):
+        if channel in mat.data_maps:
+            tex = _sample_texture(mat.data_maps[channel], uv, closest_repeat=True)
+            out[channel] = (tex[..., 0].astype(np.float32) / 255.0) * getattr(mat, channel)
     if mat.ao_map is not None:
         tex = _sample_texture(mat.ao_map, uv)
         out["ao"] = (tex[..., 0:1].astype(np.float32) / 255.0)
@@ -372,7 +386,7 @@ def _resolve(name: str, mat_value, override: dict | None):
 
 
 def _shade_pixels(N, V, L, light_color, mat: Material,
-                  override: dict | None = None) -> np.ndarray:
+                  override: dict | None = None, parts: dict | None = None) -> np.ndarray:
     """Direct lighting from one light. N, V, L are unit-length per pixel."""
     H = _normalize(L + V)
     nl = np.clip(_dot(N, L), 0.0, 1.0)
@@ -406,6 +420,7 @@ def _shade_pixels(N, V, L, light_color, mat: Material,
     diff = kD * base / math.pi
 
     direct = (diff + spec) * light_color * nl
+    diffuse_part, specular_part = diff * light_color * nl, spec * light_color * nl
 
     # Clear-coat layer (achromatic dielectric on top).
     if mat.clear_coat > 0:
@@ -416,12 +431,16 @@ def _shade_pixels(N, V, L, light_color, mat: Material,
         spec_cc = F_cc * D_cc * G_cc / (4.0 * nl * nv + 1e-5)
         # Below the clearcoat the energy is attenuated by 1-F_cc.
         direct = direct * (1.0 - F_cc) + spec_cc * light_color * nl
+        diffuse_part *= 1.0 - F_cc
+        specular_part = specular_part * (1.0 - F_cc) + spec_cc * light_color * nl
 
+    if parts is not None:
+        parts.update(diffuse=diffuse_part, specular=specular_part)
     return direct
 
 
 def _ibl_indirect(N, V, mat: Material, env: Environment,
-                  override: dict | None = None) -> np.ndarray:
+                  override: dict | None = None, parts: dict | None = None) -> np.ndarray:
     """Crude split-sum approximation: diffuse irradiance ≈ env(N),
     specular ≈ env(reflect(-V, N)) blurred by roughness."""
     base = _resolve("base_color",
@@ -466,7 +485,11 @@ def _ibl_indirect(N, V, mat: Material, env: Environment,
         cc_blur = mat.clear_coat_roughness
         cc_env = cc_env * (1.0 - cc_blur) + cc_env_blur * cc_blur
         indirect = indirect * (1.0 - cc_F) + cc_env * cc_F
+        diffuse *= 1.0 - cc_F
+        specular = specular * (1.0 - cc_F) + cc_env * cc_F
 
+    if parts is not None:
+        parts.update(diffuse=diffuse, specular=specular)
     return indirect
 
 
@@ -612,7 +635,7 @@ class Mesh:
     verts:     np.ndarray
     faces:     np.ndarray
     face_mats: np.ndarray | None = None
-    # Per-vertex normals are computed on demand from face normals if absent.
+    # Authored per-vertex normals; absent/zero normals use flat face shading.
     vert_normals: np.ndarray | None = None
     # Per-vertex UVs for texture sampling (None ⇒ no UV channel).
     vert_uvs: np.ndarray | None = None
@@ -624,6 +647,8 @@ class Mesh:
     vert_part_ids: np.ndarray | None = None       # (N,) uint8
     part_names:    list[str]  | None = None       # part_id → original name
     part_pivots:   np.ndarray | None = None       # (P, 3) float32 world pivot
+    topology: dict | None = None  # Editable polygon/corner source; triangles are compiled.
+    corner_tangents: np.ndarray | None = None  # Derived render-only (M, 3, 4); never authored.
 
 
 # --- BVH acceleration structure ------------------------------------------
@@ -788,6 +813,58 @@ def _world_transform(obj: MeshObject) -> tuple[np.ndarray, np.ndarray, np.ndarra
     return verts, n.astype(np.float32), centers.astype(np.float32)
 
 
+def _transform_normals(normals: np.ndarray, linear: np.ndarray) -> np.ndarray:
+    """Transform row-vector normals by inverse transpose, preserving zero fallbacks."""
+    try:
+        transformed = np.asarray(normals) @ np.linalg.inv(linear)
+    except np.linalg.LinAlgError:
+        return np.zeros_like(normals)
+    lengths = np.linalg.norm(transformed, axis=-1, keepdims=True)
+    valid = np.isfinite(transformed).all(axis=-1, keepdims=True) & (lengths > 1e-12)
+    return np.divide(transformed, lengths, out=np.zeros_like(transformed), where=valid)
+
+
+def _shading_normals(obj: MeshObject, face_indices: np.ndarray,
+                     u: np.ndarray, v: np.ndarray, fallback: np.ndarray) -> np.ndarray:
+    """Interpolate authored normals; keep geometric/polygon normals for flat surfaces."""
+    if obj.mesh.vert_normals is None:
+        return fallback
+    linear = _euler_rot(*obj.rotation) @ np.diag(obj.scale)
+    normals = _transform_normals(obj.mesh.vert_normals, linear)
+    corners = normals[obj.mesh.faces[face_indices]]
+    interpolated = (corners[:, 0] * (1 - u - v)[:, None]
+                    + corners[:, 1] * u[:, None] + corners[:, 2] * v[:, None])
+    lengths = np.linalg.norm(interpolated, axis=1, keepdims=True)
+    return np.divide(interpolated, lengths, out=fallback.copy(), where=lengths > 1e-12)
+
+
+def _mapped_normals(obj, mat, face_indices, uvs, normals, verts_w, bary_u=None, bary_v=None):
+    """Apply linear RGB normal maps using interpolated MikkTSpace corners."""
+    if mat.normal_map is None or uvs is None or obj.mesh.vert_uvs is None:
+        return normals
+    from .mesh_tangents import corner_tangents, transform
+    linear = _euler_rot(*obj.rotation) @ np.diag(obj.scale)
+    corners = transform(corner_tangents(obj.mesh)[face_indices], linear)
+    if bary_u is None:
+        bary_u = np.full(len(face_indices), 1 / 3)
+        bary_v = np.full(len(face_indices), 1 / 3)
+    weights = np.stack((1 - bary_u - bary_v, bary_u, bary_v), axis=1)
+    frame = np.sum(corners * weights[..., None], axis=1)
+    tangent = frame[:, :3]
+    valid = np.linalg.norm(tangent, axis=1) > 1e-12
+    # Preserve the interpolated tangent's length and direction, matching the
+    # normal-map shader contract; normalize only the resulting mapped normal.
+    bitangent = np.cross(normals, tangent) * frame[:, 3, None]
+    uv = uvs * np.asarray(mat.uv_scale) + np.asarray(mat.uv_offset)
+    tex = _sample_texture(mat.normal_map, uv, closest_repeat=mat.normal_sampling == "closest_repeat")
+    direction = tex[:, :3].astype(np.float32) / 255.0 * 2 - 1
+    mapped = (tangent * direction[:, 0, None] + bitangent * direction[:, 1, None]
+              + normals * direction[:, 2, None])
+    lengths = np.linalg.norm(mapped, axis=1, keepdims=True)
+    valid &= np.isfinite(mapped).all(axis=1) & (lengths[:, 0] > 1e-12)
+    return np.divide(mapped, lengths, out=normals.copy(), where=valid[:, None])
+
+
 # --- Möller–Trumbore ray–triangle (vectorised over triangles) ------------
 
 def _intersect_rays_mesh_brute(ray_o: np.ndarray, ray_d: np.ndarray,
@@ -897,7 +974,11 @@ def _intersect_rays_mesh(ray_o: np.ndarray, ray_d: np.ndarray,
 def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                 cam_dist: float = 3.5, cam_yaw: float = 0.4, cam_pitch: float = 0.25,
                 wireframe: bool = False, wireframe_width: float = 1.0,
-                transparent_bg: bool = False) -> bytes:
+                transparent_bg: bool = False,
+                cam_target: Tuple[float, float, float] = (0., 0., 0.),
+                hit_output: dict | None = None,
+                ortho_scale: float | None = None,
+                pass_output: dict | None = None) -> bytes:
     """Render a MeshObject with Cook-Torrance PBR + IBL. Returns RGBA bytes.
 
     When ``transparent_bg`` is True, pixels that don't hit the mesh
@@ -911,7 +992,10 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
                         cam_dist * sp_,
                         cam_dist * cp_ * cy_], dtype=np.float32)
     look = -cam_pos / max(np.linalg.norm(cam_pos), 1e-8)
+    cam_pos += np.asarray(cam_target, dtype=np.float32)
     up_w = np.array([0, 1, 0], dtype=np.float32)
+    if abs(look[1]) > 0.9999:
+        up_w = np.array([0, 0, -1], dtype=np.float32)
     right = np.cross(look, up_w); right /= max(np.linalg.norm(right), 1e-8)
     up = np.cross(right, look)
 
@@ -928,6 +1012,12 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     rd = rd / np.maximum(np.linalg.norm(rd, axis=-1, keepdims=True), 1e-8)
     rd_flat = rd.reshape(-1, 3)
     ro_flat = np.broadcast_to(cam_pos, rd_flat.shape).copy()
+    if ortho_scale is not None:
+        if not math.isfinite(ortho_scale) or ortho_scale <= 0:
+            raise ValueError("Orthographic scale must be positive and finite")
+        offset = (u[..., None] * aspect * right + v[..., None] * up) * ortho_scale / 2
+        ro_flat += offset.reshape(-1, 3)
+        rd_flat = np.broadcast_to(look, rd_flat.shape).copy()
 
     # Mesh world geom + intersect.
     verts_w, face_normals, face_centers = _world_transform(obj)
@@ -938,10 +1028,18 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
     bvh = _cached_bvh_for(obj, verts_w)
     t_min, face_idx, bary_u, bary_v = _intersect_rays_mesh(
         ro_flat, rd_flat, verts_w, obj.mesh.faces, bvh=bvh)
+    if hit_output is not None:
+        hit_output["face_index"] = face_idx.reshape(h, w).copy()
+        hit_output["depth"] = t_min.reshape(h, w).copy()
+        hit_output["barycentric_u"] = bary_u.reshape(h, w)
+        hit_output["barycentric_v"] = bary_v.reshape(h, w)
+        hit_output["ray_origin"] = ro_flat.reshape(h, w, 3)
+        hit_output["ray_direction"] = rd_flat.reshape(h, w, 3)
     hit_mask = face_idx >= 0
 
     # Shade hit pixels.
     color_buf = np.zeros((w * h, 3), dtype=np.float32)
+    passes = {name: np.zeros_like(color_buf) for name in ("diffuse", "specular", "emission", "normal")} if pass_output is not None else None
 
     # Background — environment along the view ray, unless the caller
     # wants the bg punched out for compositing.
@@ -951,11 +1049,8 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
 
     if hit_mask.any():
         fidx = face_idx[hit_mask]
-        N = face_normals[fidx]
-        # Flip normals if back-facing (front-facing only).
+        N = _shading_normals(obj, fidx, bary_u[hit_mask], bary_v[hit_mask], face_normals[fidx])
         V = -rd_flat[hit_mask]
-        n_dot_v = np.sum(N * V, axis=-1, keepdims=True)
-        N = np.where(n_dot_v < 0, -N, N)
 
         # Material per-face.
         if obj.mesh.face_mats is not None:
@@ -987,25 +1082,48 @@ def render_mesh(w: int, h: int, obj: MeshObject, env: Environment,
             # Sample texture maps at the hit UVs (where available).
             tex_override = _sample_material_textures(
                 mat, uvs_hit[mask] if uvs_hit is not None else None)
-            Nm, Vm = N[mask], V[mask]
+            Nm = _mapped_normals(obj, mat, fidx[mask],
+                                 uvs_hit[mask] if uvs_hit is not None else None,
+                                 N[mask], verts_w, bary_u[hit_mask][mask], bary_v[hit_mask][mask])
+            Vm = V[mask]
+            Nm = np.where(np.sum(Nm * Vm, axis=1, keepdims=True) < 0, -Nm, Nm)
+            key_parts, fill_parts, indirect_parts = {}, {}, {}
             dk = _shade_pixels(Nm, Vm,
                                np.broadcast_to(L_key, Nm.shape),
                                np.array(env.sun_color, dtype=np.float32) * 0.5,
-                               mat, tex_override)
+                               mat, tex_override, key_parts if passes is not None else None)
             df = _shade_pixels(Nm, Vm,
                                np.broadcast_to(L_fill, Nm.shape),
                                np.array(env.fill_color, dtype=np.float32),
-                               mat, tex_override)
-            ind = _ibl_indirect(Nm, Vm, mat, env, tex_override)
+                               mat, tex_override, fill_parts if passes is not None else None)
+            ind = _ibl_indirect(Nm, Vm, mat, env, tex_override, indirect_parts if passes is not None else None)
             emiss = np.array(mat.emissive, dtype=np.float32)
             if tex_override and "emissive" in tex_override:
                 emiss = emiss + tex_override["emissive"]
             # AO multiplies the indirect term.
             ao = tex_override.get("ao", 1.0) if tex_override else 1.0
+            if env.authored_lights is not None:
+                from .scene_lighting import direct
+                points = ro_flat[hit_mask][mask] + rd_flat[hit_mask][mask] * t_min[hit_mask][mask, None]
+                dk = direct(env, points, Nm, Vm, mat, tex_override, obj, verts_w, bvh, key_parts if passes is not None else None)
+                df = 0
+                fill_parts = {"diffuse": 0, "specular": 0}
             shaded[mask] = dk + df + ind * ao + emiss
+            if passes is not None:
+                indices = np.flatnonzero(hit_mask)[mask]
+                for channel in ("diffuse", "specular"):
+                    passes[channel][indices] = key_parts[channel] + fill_parts[channel] + indirect_parts[channel] * ao
+                passes["emission"][indices] = emiss
+                passes["normal"][indices] = Nm
             if tex_override and "alpha" in tex_override:
                 hit_alpha[mask] = tex_override["alpha"]
         color_buf[hit_mask] = shaded
+
+    if pass_output is not None:
+        pass_output.update({k: v.reshape(h, w, 3).copy() for k, v in passes.items()})
+        pass_output["beauty_linear"] = color_buf.reshape(h, w, 3).copy()
+        pass_output["depth"] = (t_min * (rd_flat @ look)).reshape(h, w).copy()
+        pass_output["mask"] = hit_mask.reshape(h, w).copy()
 
     # Wireframe overlay (rasterised after shading).
     if wireframe:
@@ -1248,6 +1366,47 @@ def cube_mesh(size: float = 1.0) -> Mesh:
     return Mesh(verts=v, faces=f)
 
 
+def cylinder_mesh(radius: float = 1.0, height: float = 2.0, segs: int = 32) -> Mesh:
+    """Capped Y-up cylinder with a UV seam and separate flat cap normals.
+
+    Radius and height are model-space dimensions. The side uses a full-width
+    UV strip; cap discs occupy separate islands above that strip.
+    """
+    if isinstance(segs, bool) or not isinstance(segs, int) or not 3 <= segs <= 4096:
+        raise ValueError("cylinder segments must be an integer between 3 and 4096")
+    if not math.isfinite(radius) or not math.isfinite(height) or radius <= 0 or height <= 0:
+        raise ValueError("cylinder radius and height must be finite and positive")
+    verts, normals, uvs, faces = [], [], [], []
+    for i in range(segs + 1):
+        angle = 2 * math.pi * i / segs
+        c, sn = math.cos(angle), math.sin(angle)
+        for y, v in ((-height / 2, 0.), (height / 2, .5)):
+            verts.append((radius * c, y, radius * sn))
+            normals.append((c, 0., sn))
+            uvs.append((i / segs, v))
+    for i in range(segs):
+        b, t, bn, tn = 2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 3
+        faces.extend(((b, t, bn), (t, tn, bn)))
+    for sign, center_u in ((-1, .25), (1, .75)):
+        center = len(verts)
+        verts.append((0., sign * height / 2, 0.))
+        normals.append((0., float(sign), 0.))
+        uvs.append((center_u, .75))
+        for i in range(segs):
+            angle = 2 * math.pi * i / segs
+            c, sn = math.cos(angle), math.sin(angle)
+            verts.append((radius * c, sign * height / 2, radius * sn))
+            normals.append((0., float(sign), 0.))
+            uvs.append((center_u + .24 * c, .75 + .24 * sn))
+        for i in range(segs):
+            a, b = center + 1 + i, center + 1 + (i + 1) % segs
+            faces.append((center, a, b) if sign < 0 else (center, b, a))
+    return Mesh(verts=np.asarray(verts, dtype=np.float32),
+                faces=np.asarray(faces, dtype=np.int32),
+                vert_normals=np.asarray(normals, dtype=np.float32),
+                vert_uvs=np.asarray(uvs, dtype=np.float32))
+
+
 def torus_mesh(R: float = 1.0, r: float = 0.30, major: int = 24, minor: int = 16) -> Mesh:
     verts = []
     for i in range(major + 1):
@@ -1290,17 +1449,43 @@ def plane_mesh(w: float = 2.0, h: float = 2.0, segs: int = 2) -> Mesh:
                 faces=np.array(faces, dtype=np.int32))
 
 
-def cone_mesh(radius: float = 1.0, height: float = 1.5, segs: int = 18) -> Mesh:
+def cone_mesh(radius: float = 1.0, height: float = 1.5, segs: int = 18,
+              radius2: float = 0.0) -> Mesh:
+    """Y-up cone (``radius2 == 0``) or frustum (``radius2 > 0``) with its base at y=0.
+
+    Vertex layout: apex/top centre 0, base centre 1, base ring 2..n+1 and,
+    for a frustum, top ring n+2..2n+1. Ring vertex ``i`` sits at angle
+    2*pi*i/n on (cos, y, sin). The apex layout (and its legacy winding) is
+    unchanged so the ``MESH_LIBRARY["Cone"]`` preset renders identically;
+    frustum triangles wind outward.
+    """
+    for name, value in (("radius", radius), ("radius2", radius2)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+            raise ValueError(f"cone {name} must be a finite number >= 0")
+    if radius == 0 and radius2 == 0:
+        raise ValueError("cone radius and radius2 cannot both be zero")
     verts = [(0.0, height, 0.0), (0.0, 0.0, 0.0)]
     for s in range(segs):
         th = 2 * math.pi * s / segs
         verts.append((radius * math.cos(th), 0.0, radius * math.sin(th)))
     faces = []
-    for s in range(segs):
-        i0 = 2 + s
-        i1 = 2 + (s + 1) % segs
-        faces.append((0, i0, i1))     # side
-        faces.append((1, i1, i0))     # base
+    if radius2 == 0:
+        for s in range(segs):
+            i0 = 2 + s
+            i1 = 2 + (s + 1) % segs
+            faces.append((0, i0, i1))     # side
+            faces.append((1, i1, i0))     # base
+    else:
+        for s in range(segs):
+            th = 2 * math.pi * s / segs
+            verts.append((radius2 * math.cos(th), height, radius2 * math.sin(th)))
+        for s in range(segs):
+            b0, b1 = 2 + s, 2 + (s + 1) % segs
+            t0, t1 = b0 + segs, b1 + segs
+            faces.append((b0, t0, b1))    # side, outward
+            faces.append((b1, t0, t1))
+            faces.append((1, b0, b1))     # base fan (-Y)
+            faces.append((0, t1, t0))     # top fan (+Y)
     return Mesh(verts=np.array(verts, dtype=np.float32),
                 faces=np.array(faces, dtype=np.int32))
 
@@ -1433,6 +1618,7 @@ def _panel_quad(width: float, depth: float, mat_index: int,
 MESH_LIBRARY: dict[str, callable] = {
     "Sphere":     lambda: sphere_mesh(),
     "Cube":       lambda: cube_mesh(),
+    "Cylinder":   lambda: cylinder_mesh(),
     "Torus":      lambda: torus_mesh(),
     "Plane":      lambda: plane_mesh(),
     "Cone":       lambda: cone_mesh(),
@@ -1978,10 +2164,8 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
 
             hit_global = alive_idx[hit]
             fi = fidx[hit]
-            N = face_normals[fi]
+            N = _shading_normals(obj, fi, bu[hit], bv[hit], face_normals[fi])
             V = -rd_a[hit]
-            nv = np.sum(N * V, axis=-1, keepdims=True)
-            N = np.where(nv < 0, -N, N)
             hit_p = ro[hit] + rd_a[hit] * t_min[hit][:, None]
 
             # Material lookup (per-face).
@@ -2005,6 +2189,9 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
             for m in np.unique(mat_idx):
                 mask = mat_idx == m
                 mat = obj.materials[m] if m < len(obj.materials) else obj.materials[0]
+                N[mask] = _mapped_normals(obj, mat, fi[mask],
+                                          uvs_hit[mask] if uvs_hit is not None else None,
+                                          N[mask], verts_w, bu[hit][mask], bv[hit][mask])
                 ov = _sample_material_textures(
                     mat, uvs_hit[mask] if uvs_hit is not None else None)
                 b_arr = _resolve("base_color", np.array(mat.base_color, dtype=np.float32), ov)
@@ -2025,6 +2212,8 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
                 else:
                     emiss[mask] = e_v
 
+            N = np.where(np.sum(N * V, axis=1, keepdims=True) < 0, -N, N)
+
             # Emission contributes once per path step.
             radiance[hit_global] += throughput[hit_global] * emiss
 
@@ -2040,11 +2229,20 @@ def render_path_traced(w: int, h: int, obj: MeshObject, env: Environment,
             F = F0 + (1.0 - F0) * np.power(1.0 - nv_clip, 5)
             p_spec = np.clip(F.mean(axis=-1, keepdims=True), 0.05, 0.95)
 
-            # --- Direct sun NEE (shadow ray) ---
+            if env.authored_lights is not None:
+                from .scene_lighting import direct
+                for m in np.unique(mat_idx):
+                    mask = mat_idx == m
+                    mat = obj.materials[m] if m < len(obj.materials) else obj.materials[0]
+                    ov = _sample_material_textures(mat, uvs_hit[mask] if uvs_hit is not None else None)
+                    amount = direct(env, hit_p[mask], N[mask], V[mask], mat, ov, obj, verts_w, bvh)
+                    radiance[hit_global[mask]] += throughput[hit_global[mask]] * amount
+
+            # --- Direct studio sun NEE (shadow ray) ---
             L = np.broadcast_to(sun_dir, N.shape)
             nl = np.clip(np.sum(N * L, axis=-1, keepdims=True), 0.0, 1.0)
             lit = (nl[:, 0] > 0.0)
-            if lit.any():
+            if env.authored_lights is None and lit.any():
                 shadow_o = hit_p[lit] + N[lit] * 1e-3
                 shadow_d = np.broadcast_to(sun_dir, shadow_o.shape).copy()
                 _, sfi, _, _ = _intersect_rays_mesh(shadow_o, shadow_d,

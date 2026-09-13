@@ -8,5 +8,65 @@ This product includes software developed as part of the Elysium UI project
 logo are trademarks of Lamaute Labs LLC and are NOT licensed under the
 Apache License. See TRADEMARK.md for the brand-usage policy.
 
+
+MikkTSpace (vendored at 3e895b49d05ea07e4c2133156cfa94369e19e409)
+https://github.com/mmikk/MikkTSpace
+
+Copyright (C) 2011 by Morten S. Mikkelsen
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any damages
+arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+claim that you wrote the original software. If you use this software
+in a product, an acknowledgment in the product documentation would be
+appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+
+AccessKit macOS adapter (accesskit_macos 0.17.4, vendored and MODIFIED; upstream
+commit c1bd2d610615a244fd9e8bba0a6c3aecbfe46821, path platforms/macos)
+https://github.com/AccessKit/accesskit
+
+Copyright 2022 The AccessKit Authors. All rights reserved.
+Portions Copyright 2015 The Chromium Authors (see LICENSE.chromium).
+
+Licensed under either the Apache License, Version 2.0 or the MIT License, at
+your option; both texts ship next to the sources in
+elysium-native/vendor/accesskit_macos/. The Elysium copy is altered: the
+upstream `setAccessibilityValue:` no-op is forwarded as a SetValue action for
+enabled, editable plain-text controls. The change is described in
+elysium-native/vendor/accesskit_macos/ELYSIUM-PATCH.md. The MIT text follows.
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
 The elysiumui.com website, its design, and its content are proprietary to
 Lamaute Labs LLC and are not part of this open-source distribution.

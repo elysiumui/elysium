@@ -26,7 +26,11 @@ The in-app agent: a chat session backed by a model with access to
 
 | Symbol | Purpose |
 |---|---|
-| `bridge.connect()` | Connect to a running Designer's Aether socket |
+| `bridge.AetherBridge(designer, port=8183)` | Loopback HTTP server the Designer opens; `/tool` returns acknowledged receipts |
+| `execution.Operations` | Idempotent command journal: `submit()`, `read()`, `cancel()`, `cancel_all()`, `stats()` |
+| `execution.run_transaction()` | Checkpoint → dispatch → persist? → undo entry + revision, or rollback |
+| `execution.confirmation_required()` | The shared `requires_confirmation` × `TrustMode` policy |
+| `ToolError(code, message, details=)` | Structured handler failure; `ToolResult.warnings` carries nested `error` reports |
 
 ## Tool catalog
 

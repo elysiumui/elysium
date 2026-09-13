@@ -341,11 +341,11 @@ class Mesh3DDelegate:
         try:
             from elysium.render import pbr as _pbr
             import tempfile, hashlib, os
-            if str(value).startswith("file:"):
-                mesh = _pbr.import_mesh_from_file(str(value).split(":", 1)[1])
-            else:
-                fac = _pbr.MESH_LIBRARY.get(str(value))
-                mesh = fac() if fac else None
+            from elysium.render import mesh_document as _mesh_document
+            try:
+                mesh = _mesh_document.resolve(str(value))
+            except ValueError:
+                mesh = None
             if mesh is not None:
                 mat = _pbr.Material()
                 obj = _pbr.MeshObject(mesh=mesh, materials=[mat])

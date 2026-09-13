@@ -1,0 +1,17 @@
+# Owned packed metallic/roughness images
+
+Material slots support an owned `metallic_roughness_image`, imported with public `material.slot_image_set(id, slot_id, path, channel="metallic_roughness")`. Empty path clears only that image. In native Materials, choose the slot, cycle Image channel to Metal/Rough, enter Image path, and Load image. The existing PNG/JPEG import limits, embedded PNG ownership, validation and content cache apply. No external source image is needed after saving.
+
+Packed pixels are linear data: green/255 times the surface roughness factor, blue/255 times the metallic factor. Red and alpha are ignored. Owned maps use Closest/Repeat. Existing path-backed maps keep their sampler but use these corrected factors: the previous implementation doubled roughness and forced metallic multipliers to at least one. Independent roughness or metallic images override their corresponding packed channel; clearing an independent override restores the packed channel. Geometry, UVs, other image channels and material values are preserved.
+
+The channel and factor semantics follow the [Khronos glTF PBR material schema](https://raw.githubusercontent.com/KhronosGroup/glTF/main/specification/2.0/schema/material.pbrMetallicRoughness.schema.json). This checkpoint does not claim glTF interchange acceptance or full radiometric equivalence.
+
+## Independent acceptance fixture
+
+Use separate copies of the GUI and Aether material-image cube: five Hull faces and a flat top Red face, with its existing four-color base image and projected UVs. Set Red roughness to .5 and metallic to .25. Import a 16×16 RGB PNG with every pixel (7,64,192) into Metal/Rough. Native Undo exactly restores the pre-import state; Redo, Save, Quit and clean reopening preserve all inspected source, normal and material data. Repeat the edits through the public commands in the independent Aether project. Both results match exactly.
+
+In the separate Blender material cube, load this packed PNG into Image Texture using Non-Color, Closest, Repeat and Flat. Connect Color to Separate Color in RGB mode. Connect Green to Math Multiply with second input .5, then Principled Roughness. Connect Blue to a separate Math Multiply with second input .25, then Principled Metallic. Retain the existing Base Color link. Save in Blender. A read-only extractor verifies the saved links, factors, pixels, geometry, oriented faces, edges, material assignments, shading flags and UVs.
+
+Native roughness evaluates to .125490203499794 and metallic to .1882352977991104. The largest difference from the independent Blender image/channel/factor calculation is 1.4901161193847656e-8 (gate 1e-6); top-face UV error is 5.960464477539063e-8 (gate 1e-6). Native Export App to a new folder, no close object, size 128, scale 1, end 0, hold 0 preserves the exact material table and editable source. Its nonempty frame differs from the base-only fixture. All 14 matrix checks pass.
+
+The before-fix diagnostic is preserved: expected roughness .125490196 and metallic .188235294, but previous values were .250980407 and .752941191. The after-fix diagnostic passes. Tests cover zero/partial/full multipliers, ignored R/A, repeat sampling, independent-channel precedence/restoration and persistence/export of all five image channels. 520 relevant framework and 271 Designer tests pass. Matched-lighting image comparison and broader material-family acceptance remain open.

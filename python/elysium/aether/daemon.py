@@ -14,13 +14,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator, Callable
 
+from .execution import confirmation_required, designer_context, run_transaction
 from .providers import Provider, make_provider
 from .session import Session
 from .system_prompt import build as build_system_prompt
 from .tools import REGISTRY
 from .types import (Done, Message, MessageDelta, SideEffect, StreamEvent,
-                      ThinkingDelta, ToolCall, ToolCallEvent, ToolResult,
-                      TrustMode)
+                      ThinkingDelta, ToolCall, ToolCallEvent, ToolResult)
 
 
 @dataclass
@@ -133,31 +133,32 @@ class Daemon:
                                   "ts": time.time()})
             return res
 
-        # Confirmation gate.
-        needs_confirm = (
-            tool.requires_confirmation == "always" or
-            (tool.requires_confirmation == "destructive"
-             and tool.side_effect == SideEffect.DESTRUCTIVE) or
-            (self.session.trust == TrustMode.CAUTIOUS
-             and tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE))
-        )
+        # Confirmation gate — the one shared policy (execution.confirmation_required).
+        needs_confirm = confirmation_required(tool, self.session.trust, confirmed=False)
         if needs_confirm and not self.approve_callback(call, tool.requires_confirmation):
             res = ToolResult(id=call.id, ok=False,
                               error="user_rejected")
             self._broadcast(StepEvent("tool_result", _serialize_event(res)))
             return res
+        confirmed = True
 
-        # Auto-snapshot before write/destructive.
-        snap_id = None
+        # Every write is a transaction: checkpoint first (a checkpoint
+        # failure aborts before the handler runs), roll back on failure.
+        # Headless CLI edits must also be durable before acknowledgement.
+        persist = getattr(self.session.designer, "dispatch_persistent_tool", None)
         if tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE):
-            try:
-                snap = self.session.snapshots.capture(
-                    self.session, action=call.name)
-                snap_id = snap.id
-            except Exception: pass
-
-        res = REGISTRY.dispatch(call, self.session)
-        if snap_id: res.snapshot_id = snap_id
+            if persist is not None:
+                res = persist(call, self.session, REGISTRY, confirmed=confirmed)
+            else:
+                res = run_transaction(self.session.designer, self.session, tool, call,
+                                      registry=REGISTRY, persist=False, confirmed=confirmed)
+        else:
+            # READ / NONE tools read the same document a write writes:
+            # dispatch them inside the Designer's own context so the
+            # assets they resolve are this document's (execution.designer_context).
+            with designer_context(self.session.designer):
+                res = REGISTRY.dispatch(call, self.session, confirmed=confirmed)
+        snap_id = res.snapshot_id
         self._broadcast(StepEvent("tool_result", _serialize_event(res)))
         self.session.audit({"kind": "tool_call", "tool": call.name,
                               "args": call.args, "ok": res.ok,
@@ -179,15 +180,21 @@ class Daemon:
 
 def _serialize_result(res: ToolResult) -> str:
     if res.ok:
-        return json.dumps({"ok": True, "value": _truncate(res.value),
-                            "snapshot": res.snapshot_id})
-    return json.dumps({"ok": False, "error": res.error})
+        out = {"ok": True, "value": _truncate(res.value), "snapshot": res.snapshot_id}
+    else:
+        out = {"ok": False, "error": res.error}
+    if res.warnings:
+        out["warnings"] = res.warnings
+    return json.dumps(out)
 
 
 def _serialize_event(res: ToolResult) -> dict:
-    return {"id": res.id, "ok": res.ok,
-            "value": _truncate(res.value),
-            "error": res.error, "snapshot": res.snapshot_id}
+    out = {"id": res.id, "ok": res.ok,
+           "value": _truncate(res.value),
+           "error": res.error, "snapshot": res.snapshot_id}
+    if res.warnings:
+        out["warnings"] = res.warnings
+    return out
 
 
 def _truncate(v, limit: int = 4000):

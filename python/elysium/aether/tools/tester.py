@@ -37,6 +37,7 @@ def tester_probe(session, scenarios: list[str]) -> dict:
     description="Lock in the current canvas snapshot as the visual "
                 "baseline for `screenshot_baseline` probes.",
     input_schema={"type": "object", "properties": {}},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def tester_set_baseline(session) -> dict:
     from .. import tester as tt
@@ -51,6 +52,7 @@ def tester_set_baseline(session) -> dict:
     input_schema={"type": "object",
                    "properties": {"session_file": {"type": "string"}},
                    "required": ["session_file"]},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def tester_replay(session, session_file: str) -> dict:
     import json

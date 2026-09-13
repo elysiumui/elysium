@@ -86,6 +86,7 @@ def agent_list_presets() -> dict:
     input_schema={"type": "object",
                    "properties": {"module": {"type": "string"}},
                    "required": ["module"]},
+    side_effect=SideEffect.DESTRUCTIVE, undoable=False, requires_confirmation="destructive",
 )
 def dev_reload_module(module: str) -> dict:
     """Aggressive hot-reload: remove every tool currently registered from
@@ -117,6 +118,7 @@ def dev_reload_module(module: str) -> dict:
                 "Designer's class lives under, plus a sample of candidate "
                 "module names from sys.modules.",
     input_schema={"type": "object", "properties": {}},
+    side_effect=SideEffect.READ, undoable=False,
 )
 def dev_designer_module_info(session) -> dict:
     import sys
@@ -139,6 +141,7 @@ def dev_designer_module_info(session) -> dict:
                                    "keys": {"type": "array",
                                              "items": {"type": "string"}}},
                    "required": ["id"]},
+    side_effect=SideEffect.READ, undoable=False,
 )
 def dev_dump_placement_attrs(session, id: str,
                               keys: list[str] | None = None) -> dict:
@@ -182,6 +185,7 @@ def dev_dump_placement_attrs(session, id: str,
     input_schema={"type": "object",
                    "properties": {"name": {"type": "string"}},
                    "required": ["name"]},
+    side_effect=SideEffect.READ, undoable=False,
 )
 def dev_dump_tool(name: str) -> dict:
     from . import REGISTRY
@@ -211,6 +215,7 @@ def dev_dump_tool(name: str) -> dict:
                 "flight state (placements, selection, animation clock) is "
                 "preserved.",
     input_schema={"type": "object", "properties": {}},
+    side_effect=SideEffect.DESTRUCTIVE, undoable=False, requires_confirmation="destructive",
 )
 def dev_reload_designer_module(session) -> dict:
     import importlib, sys
@@ -358,23 +363,37 @@ def dev_reload_designer_module(session) -> dict:
     input_schema={"type": "object",
                    "properties": {"code": {"type": "string"}},
                    "required": ["code"]},
+    side_effect=SideEffect.DESTRUCTIVE, undoable=False, requires_confirmation="always",
 )
 def dev_eval(session, code: str) -> dict:
+    """Compile first (``eval`` mode, falling back to ``exec`` only when the
+    expression compile fails), so a genuine syntax error is reported with
+    its line instead of being swallowed, and runtime failures become a
+    structured ``eval_failed`` ToolError (a failed transaction rolls the
+    document back)."""
+    import traceback
     from elysium.render import pbr
     from elysium.render import designer_preview as dp
+    from ..types import ToolError
     ctx = {"session": session, "designer": session.designer,
            "pbr": pbr, "dp": dp}
     try:
-        val = eval(code, {"__builtins__": __builtins__}, ctx)
-        return {"value": repr(val)[:4000]}
+        compiled, mode = compile(code, "<dev.eval>", "eval"), "eval"
     except SyntaxError:
         try:
-            exec(code, {"__builtins__": __builtins__}, ctx)
-            return {"value": "<exec ok>", "locals_keys": sorted(ctx.keys())}
-        except Exception as e:
-            return {"error": f"{type(e).__name__}: {e}"}
+            compiled, mode = compile(code, "<dev.eval>", "exec"), "exec"
+        except SyntaxError as e:
+            raise ToolError("syntax_error", f"{e.msg} (line {e.lineno})",
+                            details={"offset": e.offset, "text": e.text}) from e
+    try:
+        if mode == "eval":
+            val = eval(compiled, {"__builtins__": __builtins__}, ctx)
+            return {"value": repr(val)[:4000]}
+        exec(compiled, {"__builtins__": __builtins__}, ctx)
+        return {"value": "<exec ok>", "locals_keys": sorted(ctx.keys())}
     except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}"}
+        raise ToolError("eval_failed", f"{type(e).__name__}: {e}",
+                        details={"traceback": traceback.format_exc()[-2000:]}) from e
 
 
 @register_tool(
@@ -382,6 +401,7 @@ def dev_eval(session, code: str) -> dict:
     description="Capture a quick snapshot of every Python thread's current "
                 "stack so we can see if the render thread is blocked.",
     input_schema={"type": "object", "properties": {}},
+    side_effect=SideEffect.READ, undoable=False,
 )
 def dev_thread_dump() -> dict:
     import sys, traceback
@@ -401,6 +421,7 @@ def dev_thread_dump() -> dict:
     input_schema={"type": "object",
                    "properties": {"names": {"type": "array",
                                               "items": {"type": "string"}}}},
+    side_effect=SideEffect.READ, undoable=False,
 )
 def dev_probe_designer(session, names: list[str] | None = None) -> dict:
     cls = type(session.designer)
@@ -510,6 +531,7 @@ def dev_probe_designer(session, names: list[str] | None = None) -> dict:
         },
         "required": ["name", "summary", "severity"],
     },
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def agent_report_capability_gap(session, name: str, summary: str,
                                   severity: str,

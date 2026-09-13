@@ -1,0 +1,13 @@
+# Curved-surface tangent-space normal maps
+
+Native scene preview, CPU path tracing and desktop export use MikkTSpace corner tangents for tangent-space normal images. Source triangles and quads are submitted independently; source n-gons use the existing polygon triangulation. Tangents respect UV and normal boundaries. Each render triangle retains its three corner tangent directions and handedness, including after scene flattening, parenting and reflected/nonuniform transforms.
+
+The renderer interpolates transformed corner tangents at the hit barycentric coordinates, reconstructs the bitangent from the shading normal and handedness, and normalizes the final mapped direction. It does not replace the interpolated tangent with a triangle derivative or orthogonalize it again per pixel. Degenerate UV triangles retain their original shading normal. Normal images remain linear RGB, OpenGL convention, strength one; alternate conventions, spaces and strengths are not certified.
+
+Tangent data is derived, not serialized authoring data. A content-keyed cache includes geometry, normals, UVs and source topology, with at most eight entries and 16 MiB total retained arrays. Geometry or UV edits invalidate the entry. Flattened scenes carry the already transformed frames without merging unrelated objects' tangent boundaries.
+
+New native spheres use Blender-oriented latitude/longitude coordinates, a back-meridian seam, and an independent midpoint longitude at each polar triangle. Existing saved sphere UVs remain authored data and are not silently migrated. Create a fresh sphere through the Sculpting shelf or `mesh.primitive_create` to obtain the corrected default coordinates.
+
+The native binding uses the unmodified, permissively licensed MikkTSpace sources by Morten S. Mikkelsen at revision `3e895b49d05ea07e4c2133156cfa94369e19e409`. Source headers and NOTICE preserve attribution and license. Elysium's C/Rust adapter validates corner counts, finite data, array dimensions and a two-million-corner limit before calling the library.
+
+The saved GUI/API/Blender sphere fixture has 1,984 corners. UV error is 1.8848644e-7, tangent-vector error 4.2411853e-6 and mapped-normal error 4.0856138e-6. Direction comparisons use the existing 1e-5 normal arithmetic allowance. The original 1e-6 geometry comparison still fails; this sphere passes only the separately approved analytic construction bound. Upstream Mikk and Blender's implementation on identical read-only Blender input differ by 2.594249e-6; the stricter diagnostic 1e-6 result is retained. This does not certify matched rendered Blender shading, every curved topology, alternative normal-map settings or full material-family parity.

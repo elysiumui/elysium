@@ -99,6 +99,11 @@ impl PyWindow {
         self.handle.close();
     }
 
+    /// Update the native window title safely from any Python thread.
+    fn set_title(&self, title: String) {
+        self.handle.request_set_title(title);
+    }
+
     /// (x, y) in window-local logical pixels, or `None` if the cursor is
     /// outside the window. Read each animation frame from Python.
     #[getter]
@@ -138,6 +143,20 @@ impl PyWindow {
             .mouse()
             .press_count
             .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// Origin of the last left press, retained after a fast drag/release.
+    #[getter]
+    fn left_press_position(&self) -> Option<(i32, i32)> {
+        use std::sync::atomic::Ordering;
+        let mouse = self.handle.mouse();
+        if mouse.press_count.load(Ordering::Acquire) == 0 {
+            return None;
+        }
+        Some((
+            mouse.left_press_x.load(Ordering::Acquire),
+            mouse.left_press_y.load(Ordering::Acquire),
+        ))
     }
 
     #[getter]
@@ -205,6 +224,12 @@ impl PyWindow {
         };
         let h = self.handle.clone();
         py.allow_threads(move || h.wait_for_input(d, since))
+    }
+
+    /// Wake an idle frame loop parked in `wait_for_input` (e.g. after a worker
+    /// enqueued UI work). Counts as an input event for `input_seq`.
+    fn wake(&self) {
+        self.handle.notify_input()
     }
 
     /// Display scale factor for the screen this window is on — 1.0 at 100%,
@@ -319,12 +344,20 @@ impl PyWindow {
         root_id: u64,
         nodes: Vec<pyo3::Bound<'_, pyo3::types::PyDict>>,
     ) -> PyResult<()> {
-        let mut by_id: std::collections::HashMap<u64, ely_platform::a11y::A11yNode> =
-            Default::default();
-        let mut parents: std::collections::HashMap<u64, Vec<u64>> = Default::default();
+        let mut entries = Vec::new();
         for d in nodes {
-            let id: u64 = d.get_item("id")?.unwrap().extract()?;
-            let role: String = d.get_item("role")?.unwrap().extract()?;
+            let id: u64 = d
+                .get_item("id")?
+                .ok_or_else(|| {
+                    pyo3::exceptions::PyValueError::new_err("Accessibility node requires id")
+                })?
+                .extract()?;
+            let role: String = d
+                .get_item("role")?
+                .ok_or_else(|| {
+                    pyo3::exceptions::PyValueError::new_err("Accessibility node requires role")
+                })?
+                .extract()?;
             let label = d
                 .get_item("label")
                 .ok()
@@ -342,52 +375,47 @@ impl PyWindow {
                 .and_then(|v| v.extract::<String>().ok());
             let bounds: (f32, f32, f32, f32) = d
                 .get_item("bounds")?
-                .map(|v| v.extract().unwrap_or((0.0, 0.0, 0.0, 0.0)))
+                .map(|v| v.extract())
+                .transpose()?
                 .unwrap_or((0.0, 0.0, 0.0, 0.0));
             let kids: Vec<u64> = d
                 .get_item("children")?
-                .map(|v| v.extract().unwrap_or_default())
+                .map(|v| v.extract())
+                .transpose()?
                 .unwrap_or_default();
-            parents.insert(id, kids);
-            by_id.insert(
-                id,
+            entries.push((
                 ely_platform::a11y::A11yNode {
                     id,
                     role,
                     label,
                     description: desc,
                     shortcut: sc,
+                    value: d
+                        .get_item("value")?
+                        .and_then(|v| v.extract::<String>().ok()),
+                    disabled: d
+                        .get_item("disabled")?
+                        .and_then(|v| v.extract::<bool>().ok())
+                        .unwrap_or(false),
+                    selected: d
+                        .get_item("selected")?
+                        .and_then(|v| v.extract::<bool>().ok()),
+                    read_only: d
+                        .get_item("read_only")?
+                        .and_then(|v| v.extract::<bool>().ok())
+                        .unwrap_or(false),
                     bounds,
                     children: Vec::new(),
                 },
-            );
+                kids,
+            ));
         }
-        fn build(
-            id: u64,
-            by_id: &std::collections::HashMap<u64, ely_platform::a11y::A11yNode>,
-            parents: &std::collections::HashMap<u64, Vec<u64>>,
-        ) -> ely_platform::a11y::A11yNode {
-            let mut node = by_id
-                .get(&id)
-                .cloned()
-                .unwrap_or(ely_platform::a11y::A11yNode {
-                    id,
-                    role: "group".into(),
-                    label: None,
-                    description: None,
-                    shortcut: None,
-                    bounds: (0.0, 0.0, 0.0, 0.0),
-                    children: Vec::new(),
-                });
-            if let Some(kids) = parents.get(&id) {
-                node.children = kids.iter().map(|k| build(*k, by_id, parents)).collect();
-            }
-            node
-        }
-        let tree = ely_platform::a11y::A11yTree {
-            root: Some(build(root_id, &by_id, &parents)),
-        };
-        self.handle.a11y().publish(tree);
+        let tree = ely_platform::a11y::A11yTree::from_flat(root_id, entries)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        self.handle
+            .a11y()
+            .publish(tree)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
         Ok(())
     }
 
@@ -409,6 +437,12 @@ impl PyWindow {
     /// Drain this once per frame and dispatch to your hook handlers.
     fn poll_a11y_action(&self) -> Option<(u64, String)> {
         self.handle.a11y().pop_action()
+    }
+
+    /// Poll an assistive action including its optional text value. SetValue
+    /// updates the application's field draft; normal validation still applies.
+    fn poll_a11y_event(&self) -> Option<(u64, String, Option<String>)> {
+        self.handle.a11y().pop_event()
     }
 
     /// Push a target tween into render-thread animation `slot`. Easing
