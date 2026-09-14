@@ -22,6 +22,14 @@ run_async(fetch())                           # asyncio on a background loop
 `FrameLoop(window, on_frame)` drains the dispatcher then calls `on_frame(dt)`
 each tick — call `window.post(fn)` from any thread.
 
+An idle frame loop parks in the native `wait_for_input`, which only OS input
+can interrupt — so posted work would otherwise wait for the next timer tick.
+`UiDispatcher.set_wake(fn)` names a callable to run after every enqueue, and
+`window.ui_dispatcher()` installs `window.wake()` there automatically when the
+native build provides it (`Window.wake()` counts as an input event, bumping
+`input_seq`). Older native builds without `wake` fall back to the timer-driven
+drain; nothing else changes.
+
 ## Multi-window depth
 
 ```python
@@ -53,6 +61,8 @@ tray.on("quit", app.quit); tray.create()     # main thread; tray.poll() each fra
 keys = native.HotKeys()
 keys.register(native.CTRL | native.SHIFT, "KeyR", reload)   # keys.poll() each frame
 ```
+
+`single_instance` holds an advisory file lock (`elysium-instance-<id>-<hash>.lock` in the user's temp directory) for the life of the process; the OS releases it on exit or crash, and a second process of the same user is refused immediately.
 
 `native.capabilities()` reports per-platform support. Tray + global hotkeys are
 macOS/Windows (Linux is GTK-free by design); notifications work everywhere

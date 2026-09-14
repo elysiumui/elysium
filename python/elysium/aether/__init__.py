@@ -8,7 +8,7 @@ operations to the registry.
 from __future__ import annotations
 
 from .types import (
-    Message, ToolCall, ToolResult, StreamEvent,
+    Message, ToolCall, ToolResult, ToolError, StreamEvent,
     ThinkingDelta, MessageDelta, Done,
     TrustMode, SideEffect,
 )
@@ -24,7 +24,7 @@ __all__ = [
     "Daemon", "Session", "Snapshot",
     "Provider", "AnthropicProvider", "OllamaProvider", "StubProvider",
     "Tool", "Registry", "REGISTRY", "register_tool",
-    "Message", "ToolCall", "ToolResult", "StreamEvent",
+    "Message", "ToolCall", "ToolResult", "ToolError", "StreamEvent",
     "ThinkingDelta", "MessageDelta", "Done",
     "TrustMode", "SideEffect",
     "build_manifest", "report_capability_gap",

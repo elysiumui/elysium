@@ -67,7 +67,8 @@ impl TextureCache {
                 return None;
             }
         };
-        let data = unsafe { skia_safe::Data::new_bytes(&bytes) };
+        // Encoded images decode lazily. Skia must own these bytes after this Vec drops.
+        let data = skia_safe::Data::new_copy(&bytes);
         let Some(image) = Image::from_encoded(data) else {
             let mut g = self.inner.write();
             g.failed
@@ -92,7 +93,8 @@ impl TextureCache {
     /// to push results back to the render thread, or by a caller that
     /// wants to keep a SkiaLayer in the cache as if it were a texture.
     pub fn populate_from_bytes(&self, key: &Path, encoded: &[u8]) -> bool {
-        let data = unsafe { skia_safe::Data::new_bytes(encoded) };
+        // The caller may reuse its input immediately after this method returns.
+        let data = skia_safe::Data::new_copy(encoded);
         let Some(image) = Image::from_encoded(data) else {
             return false;
         };
@@ -158,5 +160,30 @@ impl TextureCache {
             return Some(img.clone());
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod ownership_tests {
+    use super::*;
+    #[test]
+    fn cached_image_owns_encoded_bytes_after_caller_reuses_buffer() {
+        let original: &[u8] = &[
+            137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 2, 0, 0, 0, 2,
+            8, 6, 0, 0, 0, 114, 182, 13, 36, 0, 0, 0, 21, 73, 68, 65, 84, 120, 156, 99, 252, 207,
+            192, 240, 159, 129, 129, 129, 129, 9, 68, 128, 48, 0, 31, 23, 2, 2, 2, 71, 179, 20, 0,
+            0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+        ];
+        let mut temporary = original.to_vec();
+        let cache = TextureCache::new();
+        let key = Path::new("test-owned-png");
+        assert!(cache.populate_from_bytes(key, &temporary));
+        temporary.fill(0); // Caller is free to reuse or drop its temporary buffer.
+        let image = cache.try_get(key).unwrap();
+        assert_eq!(image.encoded_data().unwrap().as_bytes(), original);
+        let mut layer = crate::skia_layer::SkiaLayer::with_cache(2, 2, Arc::new(cache));
+        assert!(layer.draw_image_file("test-owned-png", (0., 0., 2., 2.)));
+        assert!(layer.snapshot_bgra());
+        assert_eq!(&layer.pixels[..4], &[0, 0, 255, 255]);
     }
 }

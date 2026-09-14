@@ -35,7 +35,20 @@ class A11yPrefs:
 | Method | Purpose |
 |---|---|
 | `window.publish_a11y_tree(root_id, nodes)` | Publish the accessible tree |
-| `window.publish_a11y_focus(id)` | Tell the OS which node is focused |
+| `window.set_a11y_focus(id)` | Tell the OS which node is focused |
+
+## Assistive actions
+
+`window.poll_a11y_event()` returns `(node_id, action_name, value)` or `None`.
+Drain it on the UI thread and route actions only to current visible controls.
+Editable text fields and text areas advertise `SetValue`; its optional `value`
+is the complete replacement string. Update the field draft, then use the same
+validation and explicit Apply/submit behavior as keyboard input. Disabled and
+read-only fields must reject replacement.
+
+`window.poll_a11y_action()` remains available for legacy consumers and returns
+only `(node_id, action_name)`. Both methods drain the same queue, so choose one
+polling interface per window. The event method preserves replacement text.
 
 ## Auto-rendered details
 

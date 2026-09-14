@@ -14,8 +14,8 @@
 //!
 //! Gated to macOS by the `pub mod macos` declaration.
 
-use objc2::msg_send;
 use objc2::runtime::AnyObject;
+use objc2::{class, msg_send};
 use objc2::{Encode, Encoding, RefEncode};
 use std::ffi::c_void;
 
@@ -36,6 +36,35 @@ pub struct NSSize {
 pub struct NSRect {
     pub origin: NSPoint,
     pub size: NSSize,
+}
+
+/// Replace the fallback chrome reservation with NSScreen.visibleFrame.
+/// Called on the main thread. Cocoa reports logical points.
+pub unsafe fn refine_monitor_work_area(info: &mut crate::window::MonitorInfo) {
+    let screens: *mut AnyObject = msg_send![class!(NSScreen), screens];
+    if screens.is_null() {
+        return;
+    }
+    let count: usize = msg_send![screens, count];
+    if count == 0 {
+        return;
+    }
+    let primary: *mut AnyObject = msg_send![screens, objectAtIndex: 0usize];
+    let primary_frame: NSRect = msg_send![primary, frame];
+    for index in 0..count {
+        let screen: *mut AnyObject = msg_send![screens, objectAtIndex: index];
+        let frame: NSRect = msg_send![screen, frame];
+        let top = primary_frame.size.height - frame.origin.y - frame.size.height;
+        if (frame.origin.x - info.x as f64).abs() < 2.0 && (top - info.y as f64).abs() < 2.0 {
+            let visible: NSRect = msg_send![screen, visibleFrame];
+            info.work_x = visible.origin.x.round() as i32;
+            info.work_y =
+                (primary_frame.size.height - visible.origin.y - visible.size.height).round() as i32;
+            info.work_width = visible.size.width.round() as u32;
+            info.work_height = visible.size.height.round() as u32;
+            return;
+        }
+    }
 }
 
 unsafe impl Encode for NSPoint {
@@ -139,6 +168,73 @@ pub unsafe fn set_window_ignores_mouse(ns_view_ptr: *mut c_void, ignores: bool) 
         return;
     }
     let _: () = msg_send![window, setIgnoresMouseEvents: ignores];
+}
+
+/// Current cursor in top-left logical view coordinates, including when the
+/// window ignores events or moves underneath a stationary pointer.
+///
+/// # Safety
+/// Called on the main thread with a live NSView pointer.
+pub unsafe fn cursor_in_view(ns_view_ptr: *mut c_void) -> Option<(f64, f64)> {
+    if ns_view_ptr.is_null() {
+        return None;
+    }
+    let view = ns_view_ptr as *mut AnyObject;
+    let window: *mut AnyObject = msg_send![view, window];
+    if window.is_null() {
+        return None;
+    }
+    let point: NSPoint = msg_send![window, mouseLocationOutsideOfEventStream];
+    let nil_view: *mut AnyObject = std::ptr::null_mut();
+    let local: NSPoint = msg_send![view, convertPoint: point fromView: nil_view];
+    let bounds: NSRect = msg_send![view, bounds];
+    let flipped: bool = msg_send![view, isFlipped];
+    Some((
+        local.x - bounds.origin.x,
+        if flipped {
+            local.y - bounds.origin.y
+        } else {
+            bounds.size.height - local.y + bounds.origin.y
+        },
+    ))
+}
+
+/// Position carried by the current mouse-button event, rather than the
+/// separately polled global pointer. A moving shaped window may have changed
+/// its cached cursor since CursorMoved was delivered.
+///
+/// # Safety
+/// Called on the main thread with a live NSView pointer.
+pub unsafe fn button_event_cursor_in_view(ns_view_ptr: *mut c_void) -> Option<(f64, f64)> {
+    if ns_view_ptr.is_null() {
+        return None;
+    }
+    let view = ns_view_ptr as *mut AnyObject;
+    let window: *mut AnyObject = msg_send![view, window];
+    let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+    let event: *mut AnyObject = msg_send![app, currentEvent];
+    if window.is_null() || event.is_null() {
+        return None;
+    }
+    let event_window: *mut AnyObject = msg_send![event, window];
+    let kind: usize = msg_send![event, type];
+    // NSEvent left/right/other mouse-button down/up, excluding key events.
+    if event_window != window || !matches!(kind, 1 | 2 | 3 | 4 | 25 | 26) {
+        return None;
+    }
+    let point: NSPoint = msg_send![event, locationInWindow];
+    let nil_view: *mut AnyObject = std::ptr::null_mut();
+    let local: NSPoint = msg_send![view, convertPoint: point fromView: nil_view];
+    let bounds: NSRect = msg_send![view, bounds];
+    let flipped: bool = msg_send![view, isFlipped];
+    Some((
+        local.x - bounds.origin.x,
+        if flipped {
+            local.y - bounds.origin.y
+        } else {
+            bounds.size.height - local.y + bounds.origin.y
+        },
+    ))
 }
 
 /// Toggle NSWindow.hasShadow — useful to suppress the OS shadow on a

@@ -89,6 +89,11 @@ class _WindowProxy:
         return self._native.press_count
 
     @property
+    def left_press_position(self):
+        """Origin of the last left press, or None on older native builds."""
+        return getattr(self._native, "left_press_position", None)
+
+    @property
     def mouse_right_pressed(self) -> bool:
         """True while the secondary (right) mouse button is held down.
         Provided for context-menu / alternate-action UIs. Older native
@@ -195,6 +200,13 @@ class _WindowProxy:
             from elysium.concurrency import UiDispatcher, set_default_dispatcher
             d = self._ui_dispatcher = UiDispatcher()
             set_default_dispatcher(d)
+            # A frame loop parked in `wait_for_input` only wakes for native
+            # input; let a worker's enqueue count as input so posted work
+            # runs promptly. Feature-detected like set_minimized: older
+            # native builds without `wake` keep the timer-driven drain.
+            wake = getattr(self._native, "wake", None)
+            if callable(wake):
+                d.set_wake(wake)
         return d
 
     def post(self, fn, *args, **kwargs) -> None:

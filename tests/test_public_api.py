@@ -52,6 +52,11 @@ PUBLIC_MODULES = [
     "elysium.charts",
     "elysium.commands",
     "elysium.styling",
+    "elysium.render",
+    "elysium.scene_identity",
+    "elysium.scene_code",
+    "elysium.scene_player",
+    "elysium.project_code",
 ]
 
 _SNAPSHOT = Path(__file__).parent / "_api_surface.json"

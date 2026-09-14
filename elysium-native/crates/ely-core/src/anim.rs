@@ -56,7 +56,7 @@ impl TransformValue {
 struct SlotState {
     from: TransformValue,
     to: TransformValue,
-    start: Instant,
+    start: f64,
     duration: f32,
     easing: Easing,
     /// Resolved snapshot of the most recent evaluation. Kept so Python
@@ -66,13 +66,25 @@ struct SlotState {
 
 pub struct AnimRegistry {
     slots: Mutex<HashMap<u32, SlotState>>,
+    clock: Mutex<Arc<dyn Fn() -> f64 + Send + Sync>>,
 }
 
 impl AnimRegistry {
     pub fn new() -> Arc<Self> {
+        let started = Instant::now();
         Arc::new(Self {
             slots: Mutex::new(HashMap::new()),
+            clock: Mutex::new(Arc::new(move || started.elapsed().as_secs_f64())),
         })
+    }
+
+    /// Attach application simulation time before any animation is authored.
+    pub fn set_clock(&self, clock: Arc<dyn Fn() -> f64 + Send + Sync>) {
+        *self.clock.lock() = clock;
+    }
+
+    fn now(&self) -> f64 {
+        (self.clock.lock())()
     }
 
     /// Push (or replace) a target for `slot`. Animation starts from the
@@ -89,7 +101,7 @@ impl AnimRegistry {
             SlotState {
                 from,
                 to,
-                start: Instant::now(),
+                start: self.now(),
                 duration: duration_secs.max(1e-3),
                 easing,
                 current: from,
@@ -106,7 +118,7 @@ impl AnimRegistry {
             SlotState {
                 from: v,
                 to: v,
-                start: Instant::now(),
+                start: self.now(),
                 duration: 1e-3,
                 easing: Easing::Linear,
                 current: v,
@@ -119,7 +131,7 @@ impl AnimRegistry {
     pub fn evaluate(&self, slot: u32) -> Option<TransformValue> {
         let mut g = self.slots.lock();
         let s = g.get_mut(&slot)?;
-        let t = s.start.elapsed().as_secs_f32() / s.duration;
+        let t = (self.now() - s.start).max(0.0) as f32 / s.duration;
         let t = t.clamp(0.0, 1.0);
         let e = apply_easing(s.easing, t);
         let v = TransformValue {
@@ -183,6 +195,28 @@ fn apply_easing(e: Easing, t: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn application_time_freezes_and_resumes_native_transforms() {
+        let r = AnimRegistry::new();
+        let time = Arc::new(Mutex::new(0.0));
+        let source = time.clone();
+        r.set_clock(Arc::new(move || *source.lock()));
+        r.set_target(
+            1,
+            TransformValue {
+                tx: 100.0,
+                ..TransformValue::IDENT
+            },
+            1.0,
+            Easing::Linear,
+        );
+        *time.lock() = 0.25;
+        assert_eq!(r.evaluate(1).unwrap().tx, 25.0);
+        assert_eq!(r.evaluate(1).unwrap().tx, 25.0);
+        *time.lock() = 0.5;
+        assert_eq!(r.evaluate(1).unwrap().tx, 50.0);
+    }
 
     #[test]
     fn ident_value() {

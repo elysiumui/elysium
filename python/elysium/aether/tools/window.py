@@ -124,6 +124,7 @@ def window_read(session) -> dict:
     input_schema={"type": "object",
                    "properties": {"zoom": {"type": "number"}},
                    "required": ["zoom"]},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def view_set_zoom(session, zoom: float) -> dict:
     d = session.designer

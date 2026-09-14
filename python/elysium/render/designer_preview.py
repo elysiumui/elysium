@@ -23,6 +23,23 @@ from pathlib import Path
 from typing import Any
 
 
+def _scene_mesh_resolves(placement) -> bool:
+    """True when the scene renderer can obtain this placement's geometry.
+
+    Non-mesh placements are always renderable; a Mesh3D whose key cannot be
+    resolved is not, and the scene path has no per-placement fallback of its
+    own (it composes one shared buffer), so the caller drops it.
+    """
+    if getattr(placement, "kind", None) != "Mesh3D":
+        return True
+    from . import mesh_document
+    try:
+        mesh_document.resolve(getattr(placement, "mesh_kind", "") or "")
+    except ValueError:      # the documented "missing mesh asset" failure
+        return False
+    return True
+
+
 def paint_designer_png(designer) -> bytes:
     """Render the Designer's live placement state to a PNG matching the
     declared window_doc size. Skips Designer chrome — this is the
@@ -31,6 +48,30 @@ def paint_designer_png(designer) -> bytes:
 
     w = int(getattr(designer.window_doc, "w", 800))
     h = int(getattr(designer.window_doc, "h", 600))
+    if getattr(designer.window_doc, "scene_view", False):
+        from . import scene, scene_animation, pbr
+        import time
+        view = getattr(designer, '_scene_view', None)
+        placements = designer.placements
+        if view is not None and getattr(view, 'play_start', None) is not None:
+            frame = int((time.monotonic() - view.play_start) * 60) % 145
+            placements = scene_animation.pose(placements, frame)
+        from . import collections
+        # A preview must render whatever it can. A placement whose mesh key
+        # no longer resolves — a legacy document naming a mesh it does not
+        # carry, an import whose file moved — is dropped rather than allowed
+        # to raise: this function answers GET /snapshot, and the 2D branch
+        # below has always degraded the same way (it substitutes a preset).
+        # Tools stay strict; only the picture is best-effort.
+        placements = [q for q in placements if _scene_mesh_resolves(q)]
+        rgba, _ = scene.render(
+            placements, max(2, w), max(2, h),
+            **scene.camera(getattr(designer.window_doc, 'scene_camera', None)),
+            shading=getattr(view, 'shading', getattr(designer.window_doc, 'scene_shading', 'solid')), grid=False,
+            lighting=getattr(designer.window_doc, 'scene_lighting', None),
+            excluded=collections.excluded_entities(designer.window_doc, placements))
+        return pbr.rgba_to_png(rgba, max(2, w), max(2, h))
+
     layer = _n.SkiaLayer(w, h)
 
     bg = tuple(getattr(designer.window_doc, "bg_color", (0, 0, 0, 0)))
@@ -38,10 +79,12 @@ def paint_designer_png(designer) -> bytes:
                  (bg[3] / 255.0) if len(bg) >= 4 else 1.0)
 
     dl = _n.DisplayList()
+    rect = getattr(designer, "_window_rect", lambda: (0, 0, w, h))()
+    origin = rect[:2]
     for p in designer.placements:
         if getattr(p, "is_hotspot", False):
             continue
-        _paint_placement(dl, p, designer)
+        _paint_placement(dl, p, designer, origin)
     layer.execute(dl)
     return layer.encode_png()
 
@@ -50,17 +93,19 @@ def paint_designer_png(designer) -> bytes:
 # Per-placement dispatch.
 # ---------------------------------------------------------------------------
 
-def _paint_placement(dl, p, designer) -> None:
+def _paint_placement(dl, p, designer, origin=(0, 0)) -> None:
     # Apply runtime animation transform if any (so the user sees the
     # current frame of the playing timeline, not just the resting pose).
-    ax = p.x + getattr(p, "_t_dx", 0.0)
-    ay = p.y + getattr(p, "_t_dy", 0.0)
+    if not getattr(p, "visible", True) or (getattr(p, "props", None) or {}).get("hidden"):
+        return
+    ax = p.x - origin[0] + getattr(p, "_t_dx", 0.0)
+    ay = p.y - origin[1] + getattr(p, "_t_dy", 0.0)
     alpha = getattr(p, "_t_opacity", 1.0)
     if alpha <= 0.01: return     # fully transparent placements skip
 
     kind = p.kind
     if kind == "Mesh3D":
-        _paint_mesh3d(dl, p, ax, ay, alpha)
+        _paint_mesh3d(dl, p, ax, ay, alpha, designer)
         # Composite the placement's PaintMask overlay (if any) on top of
         # the rendered mesh, the same way Designer._paint_one_placement
         # does in the live window — without this the snapshot doesn't
@@ -216,7 +261,7 @@ def _part_is_flappable(part_names, keywords: tuple[str, ...] | None = None) -> b
     return False
 
 
-def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
+def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float, designer=None) -> None:
     """Path-trace / render the Mesh3D placement through pbr.render_mesh
     and stamp the resulting bytes into the display list."""
     try:
@@ -225,8 +270,10 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
         dl.fill_path(_round_d(ax, ay, p.w, p.h, 4),
                       _alpha_color((90, 90, 110, 255), alpha))
         return
+    from . import mesh_materials, layout_lighting, mesh_document
+    light_context = layout_lighting.context(p, getattr(designer, "window_doc", None), getattr(designer, "placements", None))
     _parts_tex = getattr(p, "mesh_part_textures", None) or {}
-    key = (p.mesh_kind, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
+    key = (layout_lighting.key(light_context), mesh_materials.preview_key(p), p.mesh_kind, p.pbr_preset, p.pbr_metallic, p.pbr_roughness,
             p.pbr_clearcoat, p.pbr_clearcoat_roughness,
             getattr(p, "pbr_albedo_map", ""),
             getattr(p, "mesh_yaw", 0.4), getattr(p, "mesh_pitch", 0.25),
@@ -242,11 +289,13 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
         return
 
     # First-time render — go through the framework. Heavy but cached.
-    # Generic mesh path: either an external file or a MESH_LIBRARY name.
+    # Generic mesh path: a file import, a document-owned asset or a preset name.
     # A texture is always applied as `mat.albedo_map` on the existing
     # geometry — it must never swap the mesh itself.
     try:
-        if p.mesh_kind.startswith("file:"):
+        if "materials3d" in getattr(p, "props", {}):
+            obj = mesh_materials.render_object(p, legacy_flap=True)
+        elif p.mesh_kind.startswith("file:"):
             # Imported mesh (.obj / .gltf / .glb / .3ds).
             mesh_path = p.mesh_kind.split(":", 1)[1]
             mesh = pbr_engine.import_mesh_from_file(mesh_path)
@@ -311,18 +360,13 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
                     mat.normal_map = nrm
                 obj = pbr_engine.MeshObject(mesh=mesh, materials=[mat])
         else:
-            # Case-insensitive lookup: saved skins sometimes have
-            # `mesh_kind` lowercased ("butterfly") while the library
-            # keys are CamelCase. Falling back to Sphere silently
-            # rendered a sphere over the user's butterfly — match the
-            # key by name regardless of case.
-            _lib = pbr_engine.MESH_LIBRARY
-            _factory = _lib.get(p.mesh_kind)
-            if _factory is None:
-                for _k, _v in _lib.items():
-                    if _k.lower() == p.mesh_kind.lower():
-                        _factory = _v; break
-            mesh = (_factory or _lib["Sphere"])()
+            # Document-owned assets first, then the preset library (matched
+            # case-insensitively: saved skins sometimes have `mesh_kind`
+            # lowercased). Unknown names keep the silent Sphere fallback.
+            try:
+                mesh = mesh_document.resolve(p.mesh_kind)
+            except ValueError:
+                mesh = pbr_engine.MESH_LIBRARY["Sphere"]()
             # Generic flap: any rigged mesh exposing "wing" parts flaps.
             if (getattr(mesh, "part_names", None)
                     and _part_is_flappable(mesh.part_names)):
@@ -373,14 +417,11 @@ def _paint_mesh3d(dl, p, ax: float, ay: float, alpha: float) -> None:
                 if nrm:
                     mat.normal_map = nrm
                 obj = pbr_engine.MeshObject(mesh=mesh, materials=[mat])
-        # Studio lookup from the window_doc if accessible.
-        studio_name = getattr(p, "_studio_override", None)
-        env = pbr_engine.to_environment(
-            pbr_engine.STUDIOS.get(studio_name or "Default Soft Studio",
-                                     pbr_engine.STUDIOS["Default Soft Studio"]))
+        obj, env, camera_target = layout_lighting.prepare(obj, light_context)
         size = min(384, max(64, int(min(p.w, p.h))))
         rgba = pbr_engine.render_mesh(
             size, size, obj, env,
+            cam_target=camera_target,
             cam_yaw=getattr(p, "mesh_yaw", 0.4),
             cam_pitch=getattr(p, "mesh_pitch", 0.25),
             cam_dist=getattr(p, "mesh_dist", 3.5),

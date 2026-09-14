@@ -98,11 +98,24 @@ def main(argv: list[str] | None = None) -> int:
         # GUI without an LLM in the loop.
         "call", "snapshot", "state", "logs", "watch", "health",
         "pause", "resume", "stop", "status", "pace", "send",
+        "op", "cancel",
     ])
     ae.add_argument("--message", "-m", default=None,
-                    help="chat: prompt text. call: tool name (with --args).")
+                    help="chat: prompt text. call: tool name (with --args). "
+                         "op/cancel: the operation id (or use --id).")
     ae.add_argument("--args", default="{}",
                     help="JSON object of tool arguments for `call`.")
+    ae.add_argument("--id", default=None,
+                    help="call: idempotent request id (default: a fresh "
+                         "cli-<uuid> per invocation; reuse it to retry safely). "
+                         "op/cancel: the operation id.")
+    ae.add_argument("--confirm", action="store_true",
+                    help="call: confirm a tool that requires confirmation "
+                         "(destructive / always / cautious trust).")
+    ae.add_argument("--wait", type=float, default=25.0,
+                    help="call: seconds to wait for the receipt before "
+                         "giving up (polls GET /operations/<id> after a 202 "
+                         "or a transport timeout; never resubmits). Default 25.")
     ae.add_argument("--out",  default=None,
                     help="snapshot: file to write the PNG to (default stdout).")
     ae.add_argument("--skin",  default=None,
@@ -213,7 +226,8 @@ def _aether_cli(args) -> int:
     from elysium import aether
     # --- Bridge (talks to a running Designer's HTTP server) ----------
     if args.action in ("call", "snapshot", "state", "logs", "watch", "health",
-                        "pause", "resume", "stop", "status", "pace", "send"):
+                        "pause", "resume", "stop", "status", "pace", "send",
+                        "op", "cancel"):
         return _aether_bridge_cli(args)
 
     if args.action == "tools":
@@ -264,38 +278,51 @@ def _aether_chat_repl(args) -> int:
     session  = aether.Session(designer=designer, designer_models=MODELS)
     daemon   = aether.Daemon(session, provider=args.provider)
 
-    async def go() -> None:
+    async def go() -> int:
         if args.message:
-            await _drive_one(daemon, args.message)
-            return
+            return 0 if await _drive_one(daemon, args.message) else 1
         # Interactive REPL.
         print("aether REPL — Ctrl-D to exit")
+        successful = True
         while True:
             try: line = input("you> ")
             except EOFError: break
             if not line.strip(): continue
-            await _drive_one(daemon, line)
+            successful = await _drive_one(daemon, line) and successful
+        return 0 if successful else 1
 
-    asyncio.run(go())
-    return 0
+    return asyncio.run(go())
 
 
-async def _drive_one(daemon, user_text: str) -> None:
+async def _drive_one(daemon, user_text: str) -> bool:
+    import asyncio
     q = daemon.subscribe()
-    task = __import__("asyncio").create_task(daemon.turn(user_text))
+    task = asyncio.create_task(daemon.turn(user_text))
+    successful = True
     try:
         while True:
-            ev = await __import__("asyncio").wait_for(q.get(), timeout=0.5)
+            try:
+                ev = await asyncio.wait_for(q.get(), timeout=0.5)
+            except asyncio.TimeoutError:
+                if task.done():
+                    break
+                continue
             _print_event(ev)
-            if ev.kind == "done": break
-            if ev.kind == "error": break
-    except __import__("asyncio").TimeoutError:
-        if task.done(): return
+            if ev.kind == "tool_result" and not ev.payload.get("ok"):
+                successful = False
+            if ev.kind == "done":
+                break
+            if ev.kind == "error":
+                successful = False
+                break
     finally:
         daemon.unsubscribe(q)
-        if not task.done():
-            try: await task
-            except Exception: pass
+        try:
+            await task
+        except Exception as exc:
+            print(f"\n[err] {exc}", flush=True)
+            successful = False
+    return successful
 
 
 def _print_event(ev) -> None:
@@ -323,9 +350,23 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
+# Longest single /tool request the CLI issues. The bridge answers 202 once
+# this elapses; the CLI then polls the receipt for the rest of --wait.
+_BRIDGE_ACK_WAIT_S = 25.0
+# How much longer than the ack wait it asked for the socket waits for the
+# bridge's answer before the reply counts as lost. Note this can outlive
+# the whole --wait budget (default 25 s + 5 s): a lost reply therefore
+# always earns at least one receipt poll, budget or not.
+_BRIDGE_TRANSPORT_GRACE_S = 5.0
+# Interval between GET /operations/<id> reads while a command is pending.
+_BRIDGE_POLL_INTERVAL_S = 0.5
+_TERMINAL_STATUSES = ("committed", "failed", "cancelled")
+
+
 def _aether_bridge_cli(args) -> int:
     """Talk to the running Designer's Aether HTTP bridge."""
-    import json, sys, urllib.request, urllib.error
+    import json, sys, time, urllib.request, urllib.error, uuid
+    from urllib.parse import quote
 
     base = args.bridge.rstrip("/")
 
@@ -409,6 +450,46 @@ def _aether_bridge_cli(args) -> int:
             _surface_bridge_state(None, paused_h, stopped_h)
             return raw.decode(errors="replace")
 
+    def _request(path: str, method: str = "GET", body: dict | None = None,
+                  timeout: float = 30.0):
+        """Like ``_req`` but returns ``(status_code, doc)``; a transport
+        failure returns ``(None, message)``."""
+        data = None
+        headers = {}
+        if body is not None:
+            data = json.dumps(body).encode()
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(f"{base}{path}", data=data,
+                                       method=method, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                raw, code = r.read(), r.status
+                paused_h  = r.headers.get("X-Aether-Paused")
+                stopped_h = r.headers.get("X-Aether-Stopped")
+        except urllib.error.HTTPError as e:
+            raw, code = e.read(), e.code
+            paused_h  = e.headers.get("X-Aether-Paused")  if e.headers else None
+            stopped_h = e.headers.get("X-Aether-Stopped") if e.headers else None
+        except (urllib.error.URLError, OSError) as e:      # incl. socket timeout
+            return None, str(e)
+        try: doc = json.loads(raw)
+        except Exception: doc = {"error": raw.decode(errors="replace")}
+        _surface_bridge_state(doc, paused_h, stopped_h)
+        return code, doc
+
+    def _status_of(doc) -> str | None:
+        return doc.get("status") if isinstance(doc, dict) else None
+
+    def _exit_for(doc) -> int:
+        st = _status_of(doc)
+        if st == "committed": return 0
+        if st in ("failed", "cancelled"): return 2
+        if st in ("queued", "running"): return 3
+        return 0 if isinstance(doc, dict) and doc.get("ok") else 2
+
+    def _operation_id() -> str | None:
+        return args.id or args.message
+
     if args.action == "health":
         r = _req("/health");  return 0 if r else 1
 
@@ -442,16 +523,102 @@ def _aether_bridge_cli(args) -> int:
 
     if args.action == "call":
         if not args.message:
-            print("usage: elysium aether call -m <tool.name> [--args '{...}']",
+            print("usage: elysium aether call -m <tool.name> [--args '{...}'] "
+                  "[--id ID] [--confirm] [--wait S]",
                   file=sys.stderr); return 1
         try: tool_args = json.loads(args.args)
         except json.JSONDecodeError as e:
             print(f"--args is not valid JSON: {e}", file=sys.stderr); return 1
-        r = _req("/tool", method="POST", body={"name": args.message,
-                                                 "args": tool_args})
-        if r is None: return 1
-        print(json.dumps(r, indent=2))
-        return 0 if r.get("ok") else 2
+        # Every call carries an idempotent id. On a 202 or a transport
+        # timeout we POLL the receipt — we never resubmit with a new id,
+        # so a slow write can't run twice.
+        request_id = args.id or f"cli-{uuid.uuid4().hex}"
+        receipt_path = f"/operations/{quote(request_id, safe='')}"
+        budget = max(float(args.wait), 0.0)
+        ack_wait = min(budget, _BRIDGE_ACK_WAIT_S)
+        body = {"id": request_id, "name": args.message, "args": tool_args,
+                "wait": ack_wait}
+        if args.confirm: body["confirm"] = True
+        deadline = time.monotonic() + budget
+        code, doc = _request("/tool", method="POST", body=body,
+                              timeout=ack_wait + _BRIDGE_TRANSPORT_GRACE_S)
+        # /tool answers with the receipt itself on 200/202/409; the
+        # 400/423/503 bodies carry no `status` and are not receipts.
+        receipt = doc if _status_of(doc) else None
+        delay = _BRIDGE_POLL_INTERVAL_S
+        not_journaled = False
+        if code is None:
+            # The *reply* was lost, not necessarily the command: the bridge
+            # journals a submit before it waits on it, so the receipt may
+            # already exist. Read it right away and at least once — the
+            # stalled socket has usually eaten the whole --wait budget by
+            # now, which must not turn a committed write into "unreachable".
+            print(f"bridge request failed ({doc}); polling receipt "
+                  f"{request_id} instead of resubmitting", file=sys.stderr)
+            deadline = max(deadline, time.monotonic() + _BRIDGE_POLL_INTERVAL_S)
+            delay = 0.0
+        pending = code is None or code == 202 or _status_of(doc) in ("queued", "running")
+        while pending and time.monotonic() < deadline:
+            time.sleep(min(delay, max(deadline - time.monotonic(), 0.0)))
+            delay = _BRIDGE_POLL_INTERVAL_S
+            # A receipt read is bridge-local metadata: answered in
+            # milliseconds, so a hung bridge must not hold each poll for
+            # the full 30 s default.
+            poll_code, poll_doc = _request(receipt_path,
+                                            timeout=_BRIDGE_TRANSPORT_GRACE_S)
+            if poll_code == 200:
+                code = poll_code
+                doc = receipt = poll_doc
+                pending = _status_of(doc) not in _TERMINAL_STATUSES
+            elif poll_code == 404 and receipt is None:
+                # The submit never reached the journal: nothing ran.
+                doc, not_journaled = poll_doc, True
+                break
+            elif poll_code == 404:
+                # We already held a receipt and the journal has since
+                # forgotten it (bridge restarted): that receipt is all we
+                # know, and it may well have run — never resubmit.
+                print(f"bridge no longer journals {request_id}; reporting "
+                      f"the last receipt it acknowledged", file=sys.stderr)
+                break
+            # Any other answer (still unreachable, 5xx): keep polling.
+            # `doc` keeps the last receipt we did get, so a bridge that
+            # vanishes mid-poll still exits 3 with it, not 1.
+        if code is None:
+            if not_journaled:
+                print(f"operation {request_id} is not journaled at {base}: "
+                      f"the submit never reached the bridge and nothing ran; "
+                      f"safe to resubmit (same --id is fine)", file=sys.stderr)
+            else:
+                print(f"bridge unreachable at {base}: {doc}\n"
+                      f"  is the Designer running with ELYSIUM_AETHER_BRIDGE=1?\n"
+                      f"  operation {request_id} may still be journaled: read it "
+                      f"with `elysium aether op --id {request_id}` or retry with "
+                      f"the same --id — never a new one", file=sys.stderr)
+            return 1
+        print(json.dumps(doc, indent=2))
+        return _exit_for(doc)
+
+    if args.action == "op":
+        rid = _operation_id()
+        if not rid:
+            print("usage: elysium aether op --id <operation id>", file=sys.stderr); return 1
+        code, doc = _request(f"/operations/{quote(rid, safe='')}")
+        if code is None:
+            print(f"bridge unreachable at {base}: {doc}", file=sys.stderr); return 1
+        print(json.dumps(doc, indent=2))
+        return _exit_for(doc) if code == 200 else 1
+
+    if args.action == "cancel":
+        rid = _operation_id()
+        if not rid:
+            print("usage: elysium aether cancel --id <operation id>", file=sys.stderr); return 1
+        code, doc = _request(f"/operations/{quote(rid, safe='')}/cancel", method="POST", body={})
+        if code is None:
+            print(f"bridge unreachable at {base}: {doc}", file=sys.stderr); return 1
+        print(json.dumps(doc, indent=2))
+        if code == 200: return 0
+        return 2 if code == 409 else 1
 
     if args.action in ("pause", "resume", "stop"):
         r = _req(f"/{args.action}", method="POST", body={})

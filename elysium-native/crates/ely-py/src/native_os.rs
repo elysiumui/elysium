@@ -11,16 +11,45 @@ use std::sync::OnceLock;
 
 // --- single instance (pure std, all platforms) -----------------------------
 
-// Holds the bound loopback listeners (one per app id) for the process
-// lifetime; while a port is occupied, other processes' bind() fails — a
-// dependency-free single-instance lock that auto-releases on process exit.
+// Held advisory file locks, one per app id, kept open for the process
+// lifetime so the lock stays held; the OS releases them when the process
+// exits (crash included). `std::fs::File::try_lock` is `flock` on Unix and
+// `LockFileEx` on Windows, so a *different* process is refused immediately.
+//
+// This used to bind a loopback TCP port derived from the id. That port lived
+// inside every OS's ephemeral range, so an unrelated outgoing connection that
+// happened to receive the same source port made bind() fail and the first
+// instance was wrongly refused (observed as a flaky test on macOS).
 static INSTANCE_LOCKS: OnceLock<
-    parking_lot::Mutex<std::collections::HashMap<String, std::net::TcpListener>>,
+    parking_lot::Mutex<std::collections::HashMap<String, std::fs::File>>,
 > = OnceLock::new();
+
+/// Lock file for `app_id`, in the temp directory, scoped to the current user
+/// (the user name is folded into the hash) so one user's instance never
+/// interferes with another's on a shared `/tmp`. The FNV-1a hash keeps the
+/// name short and filesystem-safe; a sanitised prefix keeps it recognisable.
+fn instance_lock_path(app_id: &str) -> std::path::PathBuf {
+    let user = std::env::var("USER")
+        .or_else(|_| std::env::var("LOGNAME"))
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_default();
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in user.bytes().chain([0u8]).chain(app_id.bytes()) {
+        h = (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
+    }
+    let prefix: String = app_id
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+        .take(48)
+        .collect();
+    std::env::temp_dir().join(format!("elysium-instance-{prefix}-{h:016x}.lock"))
+}
 
 /// Try to become the single instance for `app_id`. Returns true if this
 /// process acquired the lock (or already holds it for this id), false if
-/// another process holds it.
+/// another process holds it. If the lock file cannot be created or locked
+/// for any reason other than being held elsewhere, returns true so the app
+/// still starts (same fail-open policy as the Python wrapper).
 #[pyfunction]
 pub fn single_instance(app_id: &str) -> bool {
     let map = INSTANCE_LOCKS.get_or_init(|| parking_lot::Mutex::new(Default::default()));
@@ -28,18 +57,23 @@ pub fn single_instance(app_id: &str) -> bool {
     if guard.contains_key(app_id) {
         return true; // this process already holds it
     }
-    // Stable loopback port in the dynamic range, derived from the app id (FNV-1a).
-    let mut h: u32 = 2166136261;
-    for b in app_id.bytes() {
-        h = (h ^ b as u32).wrapping_mul(16777619);
-    }
-    let port = 49152 + (h % 16000) as u16;
-    match std::net::TcpListener::bind(("127.0.0.1", port)) {
-        Ok(listener) => {
-            guard.insert(app_id.to_string(), listener);
+    let file = match std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(instance_lock_path(app_id))
+    {
+        Ok(f) => f,
+        Err(_) => return true,
+    };
+    match file.try_lock() {
+        Ok(()) => {
+            guard.insert(app_id.to_string(), file);
             true
         }
-        Err(_) => false,
+        Err(std::fs::TryLockError::WouldBlock) => false,
+        Err(std::fs::TryLockError::Error(_)) => true,
     }
 }
 
@@ -259,4 +293,50 @@ pub fn capabilities() -> Vec<(String, bool)> {
         ("global_hotkeys".into(), native),
         ("power_events".into(), true), // via window.poll_lifecycle_event (Phase 0)
     ]
+}
+
+#[cfg(test)]
+mod single_instance_tests {
+    use super::*;
+
+    #[test]
+    fn lock_path_is_per_id_and_lives_in_the_temp_dir() {
+        let a = instance_lock_path("dev.elysium.test.path.A");
+        let b = instance_lock_path("dev.elysium.test.path.B");
+        assert_ne!(a, b);
+        assert_eq!(a, instance_lock_path("dev.elysium.test.path.A"));
+        assert!(a.starts_with(std::env::temp_dir()));
+        let name = a.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.starts_with("elysium-instance-dev.elysium.test.path.A-"));
+        assert!(name.ends_with(".lock"));
+    }
+
+    #[test]
+    fn lock_path_sanitises_the_id() {
+        let name = instance_lock_path("weird id/with:chars*")
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert!(!name.contains('/') && !name.contains(':') && !name.contains('*'));
+        assert!(!name.contains(' '));
+    }
+
+    #[test]
+    fn same_process_keeps_the_lock_and_a_second_handle_is_refused() {
+        let id = "dev.elysium.test.singleinstance.rust";
+        assert!(single_instance(id));
+        assert!(single_instance(id));
+        // Another open file description on the same path (what a second
+        // process would hold) must be refused while this process holds it.
+        let other = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(instance_lock_path(id))
+            .unwrap();
+        assert!(matches!(
+            other.try_lock(),
+            Err(std::fs::TryLockError::WouldBlock)
+        ));
+    }
 }

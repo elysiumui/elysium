@@ -92,6 +92,7 @@ def animation_delete_state(session, id: str, name: str) -> dict:
     name="animation.play",
     description="Start the global animation playhead.",
     input_schema={"type": "object", "properties": {}},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def animation_play(session) -> dict:
     session.designer.playing = True
@@ -105,6 +106,7 @@ def animation_play(session) -> dict:
     input_schema={"type": "object",
                    "properties": {"t": {"type": "number"}},
                    "required": ["t"]},
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def animation_set_playhead(session, t: float) -> dict:
     session.designer._play_clock = float(t)

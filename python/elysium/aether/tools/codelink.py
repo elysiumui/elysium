@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from . import register_tool
-from ..types import SideEffect
+from ..types import SideEffect, ToolError
 
 
 @register_tool(
@@ -13,6 +13,7 @@ from ..types import SideEffect
                    "properties": {"hook":       {"type":"string"},
                                    "window_var": {"type":"string"}},
                    "required": ["hook"]},
+    undoable=False,
 )
 def codelink_scaffold(session, hook: str, window_var: str = "win") -> dict:
     from elysium import codelink
@@ -38,7 +39,9 @@ def codelink_goto(session, hook: str) -> dict:
                                  scaffold_if_missing=True,
                                  known_hooks=session.designer._all_skin_hooks(),
                                  window_var="win")
-    return {"file": str(loc.file), "line": loc.line} if loc else {"ok": False}
+    if not loc:
+        raise ToolError("handler_not_found", f"no handler for hook {hook!r}")
+    return {"file": str(loc.file), "line": loc.line}
 
 
 @register_tool(

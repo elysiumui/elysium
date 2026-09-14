@@ -7,6 +7,234 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-13
+
+The native authoring release: everything the Designer needs to author 3D
+scenes natively — editable topology, primitives, a document-owned mesh store,
+scene transforms and hierarchy, materials, animation — plus a transactional
+Aether bridge. All additive under 1.x semver; see API stability.
+
+### Added — native 3D authoring
+
+- **Editable polygon topology** (`elysium.render.topology`): every mesh keeps a
+  durable polygon document with stable vertex/edge/face/corner ids, atomic
+  validation, and the Blender-parity operator set — extrude (region, individual
+  faces, vertices), inset, boundary fill, component deletion with loose-geometry
+  retention, edge loop/ring selection, loop cut (1–64 evenly spaced), edge
+  slide, bisect with optional cap, bridge edge loops, dissolve, vertex and edge
+  bevel/chamfer with multiple segments and a circular profile, merge at
+  center, proportional (soft-select) movement, selected-center rotate/scale,
+  distance welding, and component transforms in explicit Global/Local/Parent
+  coordinate frames.
+- **Parameterized native primitives** (`elysium.render.primitives`): Cube,
+  Sphere, Cylinder, Cone, Plane and Torus with the Blender defaults (cube size
+  2, sphere radius 1 / 16 rings / 32 segments, …), validated ranges, degenerate
+  triangle removal, outward winding, authored polygon connectivity, and the
+  public tools `mesh.primitive_create` / `mesh.primitive_update` /
+  `mesh.primitive_parameters` sharing one geometry builder.
+- **Persistent scene identity and mesh document** (`elysium.scene_identity`,
+  `elysium.render.mesh_document`): objects carry stable `entity:` ids that
+  survive undo, rollback and reopening; edited geometry is embedded in
+  `designer_layout.json` and reloads in a fresh process.
+- **Scene hierarchy and model-space transforms** (`elysium.render.scene`):
+  location in metres, XYZ Euler rotation in degrees, scale and a local pivot
+  evaluated as `T(location) T(pivot) Rz Ry Rx S T(-pivot)`; parenting with a
+  stored parent inverse, keep-world reparenting, cycle rejection, transform
+  groups, apply-transform that preserves UVs, normals, part pivots and child
+  world matrices (and flips winding on mirrors), and `detach_children` when a
+  parent is deleted. A shared depth-tested viewport renders every object
+  through one persisted camera with a 1 m perspective grid, coloured world axes
+  and orthographic axis views; the 2D layout stays a separate mode.
+- **Retained modifier stack** (`elysium.render.mesh_modifiers`): Mirror, Array,
+  Solidify, Subdivision (Catmull-Clark / simple), Edge Split and Weighted
+  Normals as a reorderable non-destructive stack with an atomic Apply.
+- **UV authoring** (`elysium.render.mesh_uv*`): retained per-corner UVs,
+  planar/cylindrical/spherical/cube projection, seams, pins, seam-driven
+  conformal unwrap, chart alignment and packing, texture-density
+  normalisation, rigid island stitch with seam preservation, and a
+  depth-tested UV checker with distortion diagnostics.
+- **Normals and tangents**: smooth/flat shading policies with sharp-edge and
+  selected-face authoring, custom normal direction editing, normal transfer
+  through taper, and MikkTSpace corner tangents (vendored C, zlib licence) for
+  tangent-space normal maps.
+- **Materials, lights and render passes**: retained material slots with
+  per-face assignment and per-slot previews; owned base-colour, packed,
+  roughness/metallic and tangent-space normal images embedded content-addressed
+  in the document; retained material colour graphs; persistent scene lights
+  connected to rendering and export; cancellable numerical render jobs
+  producing beauty/diffuse/specular/emission/normal/depth passes.
+- **Animation and playback**: named scene actions, isolated transform-channel
+  keys, free-handle Bezier curves, atomic multi-object/multi-channel key
+  edits, idle-clip export with authored timing, and configurable scene
+  playback. `App.playback_time`, `App.paused` and
+  `App.set_space_pause_enabled` expose the pausable application clock;
+  `elysium.scene_player.run` plays an exported scene bundle.
+- **Export and code-behind**: Python code-behind paired with exported scene
+  objects (`elysium.scene_code`, `elysium.project_code`), static local imports
+  copied into projects, safe packaging of non-identifier filenames, and atomic
+  app builds with staged output and safe cancellation.
+- **macOS accessibility**: native accessibility connected with preserved
+  control semantics, assistive `SetValue` text replacement routed into editable
+  controls through a vendored, patched `accesskit_macos` 0.17.4 (MIT /
+  Apache-2.0, see NOTICE), `window.poll_a11y_event()` returning
+  `(node_id, action, value)`, accessible-tree validation and native target
+  scaling.
+- `Window.set_title()`, `Window.left_press_position` (the press origin is
+  retained across fast drag/release events), and native Quit routed through
+  the application command queue so an in-flight Save or Undo finishes first.
+
+### Added — transactional Aether bridge (NP-01, NP-02)
+
+- **Every Aether command is acknowledged with a transactional receipt.**
+  `POST /tool` serialises reads and writes through the Designer's UI
+  dispatcher (`elysium.concurrency.UiDispatcher`, with an inline serialised
+  fallback when a Designer supplies none) and answers with a receipt whose
+  `status` is one of `queued | running | committed | failed | cancelled`, plus
+  `id`, `revision`, `attempts`, `snapshot` and `warnings`. Retrying a request
+  id never executes twice; a still-running operation answers `202` and stays
+  queryable at `GET /operations/<id>`; `POST /operations/<id>/cancel` withdraws
+  a queued operation; `/state` and `/status` report the document revision and
+  the queue; a `tool_result` SSE event is pushed when the command settles,
+  202s and cancellations included. `elysium aether call` gained `--id`,
+  `--confirm`, `--wait` and the `op` / `cancel` actions, and polls the receipt
+  instead of resubmitting when a reply is lost.
+- **`elysium.aether.ToolError`** for structured tool failures (`code`,
+  `message`, `details`); `ToolResult.warnings` surfaces nested diagnostics
+  without failing the call; `ToolResult.rollback_error` records a failed
+  rollback.
+- **Checkpoints record external assets.** Every checkpoint carries a SHA-256
+  manifest of the image, texture and imported-mesh files the document
+  references; `snapshot.restore` returns `missing_assets` / `changed_assets`,
+  bumps the revision and is undoable.
+- `Window.wake()` (native) and automatic `UiDispatcher.set_wake` installation
+  by `window.ui_dispatcher()`, so queued UI work wakes an idle frame loop.
+- Headless designer: whole-document `undo()` / `redo()`, and the
+  `transaction_context()` / `after_commit()` hooks that the shared transaction
+  core honours for every bridge, daemon and headless command.
+
+### Added — scene document, primitives and transforms (NP-03, NP-05, NP-06)
+
+- **Document-owned mesh assets** (`elysium.render.mesh_document.MeshStore`):
+  every designer document owns exactly the mesh revisions its placements
+  reference; `pbr.MESH_LIBRARY` is now read-only presets, plus a deprecated
+  read-through shim for the Designer's direct reads that mirrors every key a
+  live store holds (owned revisions and named registrations alike), lives
+  exactly as long as some live store holds the key, and never shadows a
+  genuine factory. Assets are
+  stored canonically (float32) and hashed; per-asset and document hashes are
+  written by `capture` and verified on load with a clear error, and
+  `scene.document_hash` reads them. `designer_layout.json` carries a
+  `document_version` (schema in `schemas/designer-layout-1.json`); imported
+  meshes are embedded at import time and legacy `file:` meshes migrate on
+  load; in-project `pbr_*_map` paths are saved project-relative, so a project
+  survives being moved and reopened in a fresh process with identical hashes.
+- **Primitive contract completed**: Cone `radius2` (a frustum when non-zero)
+  and Cone/Cylinder `cap_fill` (`ngon` / `trifan` / `nothing`); regeneration
+  is locked by a geometry hash, so UV, normal and material edits keep the
+  parameters editable; parameter metadata survives save, reopen, undo/redo
+  and duplication.
+- **Object-level transform spaces**: `scene.transform_set` / `transform_get`
+  accept `space` (`local` / `parent` / `world`), the new `scene.transform_delta`
+  applies gizmo-style moves, rotations and scales with axis, plane and
+  free-axis constraints in any space (rejecting shear without mutation), and
+  `scene.transform_apply` bakes any subset of location / rotation / scale.
+- **Scene collections** (`scene.collection_create/delete/assign/set`,
+  `scene.collections_get`) with nesting, visibility and exclusion honoured by
+  the viewport, export and render jobs; **named view presets**
+  (`scene.view_preset`), **camera bookmarks** and **orthographic reference
+  images**; solid shading honours explicit material-slot colours.
+
+### Changed
+
+- **Write tools are transactional everywhere.** A mutation whose checkpoint
+  cannot be created fails before the handler runs (the daemon previously
+  skipped the checkpoint silently); a failing handler — an interrupt included —
+  rolls the document, mesh assets and both history stacks back; invalid
+  arguments leave the revision unchanged. Tool input schemas are validated at
+  registration and arguments before dispatch, for every caller.
+- **Side-effect classification pass.** `dev.eval` is `destructive`, always
+  requires confirmation and reports failures (including syntax errors) as
+  failures; `dev.reload_module` / `dev.reload_designer_module` require
+  confirmation under the destructive policy; diagnostics (`dev.*_info`,
+  `dev.dump_*`, `dev.thread_dump`, `dev.probe_designer`, `texture.read_info`)
+  are `read`; transient or cache-only operations (`placement.select`,
+  `view.set_zoom`, `animation.play`, `run.start`, `texture.flush_caches`,
+  `mesh.save_landmarks`, …) are `none` and create no checkpoint or undo
+  entry; library-PNG writers are not undoable. See the regenerated tool
+  reference.
+- Bridge `423` responses distinguish `aether_stopped` from `aether_paused` and
+  carry `hint` / `since_last_call_s`; `pace_ms`, `last_call_target`, the
+  `tool_call` SSE event and `feedback_observed` are back; the default
+  acknowledgement wait is 25 s (was 120 s) so the CLI's 30 s client timeout
+  cannot fire first.
+- Primitive regeneration stays available after UV, normal and material edits;
+  `mesh.import` / `mesh.import_3d` embed geometry as owned assets (`mesh_key`
+  is the reusable `mesh_kind`; `mesh.import_3d`'s `mesh_name` is the filename
+  stem and is no longer registered as a mesh key); legacy `file:` meshes
+  migrate on load; in-project legacy `pbr_*_map` paths are saved
+  project-relative.
+- `mesh_document.resolve` — and `capture` / `snapshot_store` adoption — rank an
+  exact store key, then a read-only preset in any spelling, then a case variant
+  held by the current store alone; the process store's case variants are
+  matched only when it is the current store (the GUI Designer), never on
+  another document's behalf. `mesh.register_from_file` refuses a preset name in
+  any spelling (`mesh_document.is_preset_name`).
+- A command that shares the undo stacks with a running Designer frame thread
+  (no `_aether_dispatcher`) writes history wholesale, together with the
+  document, and reports a user undo or redo it discarded as a `history`
+  warning on the receipt.
+- The `ely-py` build dependency `cc` is unpinned from `=1.4.0` to `1` (there is
+  no tracked `Cargo.lock`, so the exact pin blocked fresh resolves).
+- `window.publish_a11y_tree` validates the flat node list and raises
+  `ValueError` (duplicate ids, repeated or cyclic children, missing child or
+  root, orphan nodes, depth > 128, non-finite or negative bounds, missing
+  id/role, reserved `u64::MAX` id) instead of silently substituting defaults;
+  the previously published tree stays live after a rejected publish.
+- The Aether tool registry validates every call against the tool's declared
+  JSON schema before dispatch and reports a returned `{"error": ...}` as a
+  failed call; `jsonschema` is a new runtime dependency.
+- Pillow ≥ 12.3.0 is required (thirteen advisories against earlier versions,
+  including heap out-of-bounds writes, decompression-bomb bypasses and a
+  Windows command injection).
+
+### Fixed
+
+- Bridge operation receipts could be read while being updated from the frame
+  thread; `is_busy` was cleared while an operation was still queued; a stopped
+  bridge left queued operations stuck at `queued`; `dev.eval` swallowed the
+  original `SyntaxError`.
+- `HeadlessDesigner` lacked `_select_placement`, so `mesh.primitive_create` and
+  `scene.group_create` failed headlessly; `mesh_document.restore` no longer
+  republishes preset names into the global library; `mesh.register_from_file`
+  names survive undo, rollback and snapshot restore.
+- Importing `cube.obj` / `sphere.obj` through `mesh.import_3d` no longer
+  hijacks the `Cube` / `Sphere` preset for every placement (and, on the
+  context-less GUI path, for every document in the process); the checkpoint no
+  longer persists the import as the preset asset, and viewport, preview and
+  export agree on every spelling of a mesh key.
+- Render jobs own a private snapshot store, so a geometry edit committed during
+  a long render no longer evicts the revision being rendered.
+- The source distribution now ships the vendored, patched `accesskit_macos`
+  crate. `elysium-native/Cargo.toml` patches crates.io with it unconditionally
+  and cargo's resolver is target-agnostic, so every platform reads that path at
+  resolve time; because the crate sits outside the packaged crate directory it
+  was absent from the sdist, and building from source failed everywhere with
+  `failed to load source for dependency accesskit_macos`.
+- **`elysium.native.single_instance` no longer refuses the first instance at
+  random.** The lock was a loopback TCP port derived from the app id, inside
+  every OS's ephemeral port range, so any unrelated outgoing connection that
+  happened to get that source port made the bind fail and the app believed it
+  was already running (seen as an intermittent test failure on macOS). It is
+  now an advisory file lock in the user's temp directory (`flock` /
+  `LockFileEx`), released by the OS on exit or crash; the public
+  `single_instance(app_id) -> bool` contract is unchanged.
+- Texture-cache image ownership: Skia now owns encoded bytes after the caller's
+  buffer is dropped (corrupted-PNG regression in exported apps).
+- `elysium aether` (the CLI chat driver) returns a non-zero exit code when a
+  tool call fails, and no longer aborts a slow turn after 0.5 s of silence.
+- Designer snapshots are faithful and read-only (`run.snapshot` no longer
+  saves the layout as a side effect).
+
 ## [1.2.1] - 2026-08-05
 
 ### Fixed

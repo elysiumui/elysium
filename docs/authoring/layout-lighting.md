@@ -1,0 +1,11 @@
+# Layout and Designer snapshot lighting
+
+Mesh thumbnails in native Layout, its PNG cache and public Layout snapshots evaluate the saved scene lights and studio choice. Their cache keys include light state and the object's full world transform, including its parent chain. Parent rotation, reflection and nonuniform scaling are baked into positions, normals and corner tangents. The thumbnail camera orbits the transformed local origin. Each Layout thumbnail renders its object independently; use 3D Scene for inter-object shadows and scene composition.
+
+Opening Rendering > Light > Edit scene lights preserves the current workspace. Layout/3D Scene and Solid/Material/Checker shading persist in the project. `scene.view_get` reads them; `scene.view_set` takes `view: layout|scene` and optional `shading: solid|material|checker`. Invalid settings reject before mutation. `scene.camera_set` continues to enable 3D Scene by its existing contract.
+
+`GET /snapshot` and `run.snapshot` render current Designer content. In 3D Scene this includes the current scene camera, shading, lights and active playback pose. In Layout it includes thumbnails and app-window-relative placement positions, excluding hidden placements and editor chrome. The screenshot uses declared app-window dimensions; it is not an OS screenshot. Layout thumbnails have individual preview cameras, so their projection differs intentionally from the shared scene camera.
+
+`run.snapshot` no longer saves the project or renders an obsolete disk document. Its response includes `source: designer`, `view: scene|layout`, PNG bytes and base64. It does not claim to capture a separate running application. Live verification preserves both saved document SHA-256 and nanosecond modification time.
+
+Validation: independently authored GUI/public-command fixtures produce pixel-identical Layout and scene snapshots. A front point light at (0,0,3), power 100, lights the cube; all lights disabled with zero ambient produces black surfaces; native Undo restores the lit result. Clean reopening retains light state and Material shading. The initial clipped Layout snapshot is retained with the corrected whole-object output. Matched Blender rendered illumination, broader emitter shapes, soft-shadow convergence and production render settings remain open.

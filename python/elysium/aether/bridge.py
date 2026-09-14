@@ -7,13 +7,28 @@ operating from a shell — can drive the live canvas through it.
 
 Endpoints (all 127.0.0.1-only)
 ------------------------------
-``GET  /state``            placement list + window doc summary
+``GET  /state``            placement list + window doc summary + revision
 ``GET  /tools``            tool registry catalog
 ``GET  /snapshot``         current canvas as PNG
 ``GET  /logs?n=200``       recent menu_status + audit log entries
 ``GET  /events`` (SSE)     stream of bridge activity
-``POST /tool``             {name, args} → invoke a registered tool
+``GET  /status``           control state, busy flag, operation queue depth
+``GET  /operations/<id>``  receipt of an acknowledged command (never gated)
+``POST /tool``             {id?, name, args, confirm?, wait?} → receipt
+``POST /operations/<id>/cancel``  cancel a still-queued command (never gated)
 ``POST /chat``             {message, provider?} → run an Aether turn
+``POST /pause|/resume|/stop|/pace|/feedback``  user control
+
+Every ``/tool`` call is an acknowledged, idempotent operation: the reply is
+the receipt (``status`` queued|running|committed|failed|cancelled, ``id``,
+``revision``, ``attempts``, ``snapshot``, ``warnings``). Retrying the same
+``id`` never executes twice. Status codes: 200 committed; 202 still pending
+after ``wait`` seconds (poll ``GET /operations/<id>``); 400 failed / bad
+request; 409 confirmation required (resubmit with ``confirm: true`` and a
+new id) or a client cancel; 423 paused/stopped; 503 journal full.
+``/events`` carries one ``tool_call`` per command and one ``tool_result``
+when it settles — also after a 202, and for cancellations. ``/status``
+derives ``busy`` from the journal (queued + running > 0).
 
 Safety: bind on loopback only; no authentication beyond that (the user
 owns every process listening on their loopback). When you ship the
@@ -33,11 +48,37 @@ from pathlib import Path
 from typing import Any
 
 
+def _status_for(result: dict) -> int:
+    """HTTP status for an operation receipt (see module docstring)."""
+    status = result.get("status")
+    error = str(result.get("error") or "")
+    reason = str(result.get("reason") or "")
+    if status == "committed":
+        return 200
+    if status == "cancelled":
+        return 423 if reason.startswith("aether_") else 409
+    if status == "failed":
+        if error.startswith("confirmation_required"):
+            return 409
+        if reason.startswith("aether_") or error.startswith("aether_"):
+            return 423
+        return 400
+    return 202          # queued | running
+
+
 class AetherBridge:
     def __init__(self, designer, port: int = 8183) -> None:
         self.designer = designer
         self.port = port
         self.session = None        # lazy — only when first request lands
+        # Default acknowledgement wait: the in-repo client (cli.py) times
+        # out its socket at 30 s, so a 202 must land before that.
+        self.ack_timeout_s = 25.0
+        from .execution import Operations
+        self.operations = Operations(designer, self._ensure_session,
+                                     self.control_reason,
+                                     on_activity=self._set_busy)
+        self._ready = threading.Event()
         self.daemon  = None
         self.event_queue: queue.Queue = queue.Queue(maxsize=2000)
         self.started = False
@@ -60,6 +101,14 @@ class AetherBridge:
         # to the human driver via the SSE event stream).
         self.feedback_inbox: list[str] = []
         self._feedback_lock = threading.Lock()
+        # Operation ids whose tool_call/tool_result pair has been claimed.
+        # The receipt's `attempts` cannot answer "am I the first request for
+        # this command?": inline execution runs the whole command inside
+        # submit(), so a duplicate landing in that window bumps attempts to 2
+        # before *either* request reads the receipt and both would then skip
+        # the announcement — losing both SSE events and the feedback drain.
+        self._announced: set[str] = set()
+        self._announce_lock = threading.Lock()
         # Last control event the user issued — pause / resume / stop —
         # surfaced on every response so the agent always knows the
         # current state without polling /status.
@@ -68,16 +117,52 @@ class AetherBridge:
 
     # ------------------------------------------------------------------
     def start(self) -> None:
+        """Bind synchronously (so ``port=0`` resolves before we return),
+        then serve on a daemon thread."""
         if self.started: return
+        handler = self._handler_class()
+
+        class _Server(socketserver.ThreadingTCPServer):
+            allow_reuse_address = True
+            daemon_threads = True
+
+        try:
+            self._srv = _Server(("127.0.0.1", self.port), handler)
+        except OSError as e:
+            print(f"aether-bridge: port {self.port} unavailable: {e}",
+                  flush=True)
+            return
+        self.port = self._srv.server_address[1]
         self.started = True
-        threading.Thread(target=self._serve, daemon=True,
-                          name="aether-bridge").start()
+        self._thread = threading.Thread(target=self._srv.serve_forever,
+                                        daemon=True, name="aether-bridge")
+        self._thread.start()
+        self._ready.set()
         print(f"aether-bridge: listening on http://127.0.0.1:{self.port}",
               flush=True)
 
     def stop(self) -> None:
         srv = getattr(self, "_srv", None)
-        if srv is not None: srv.shutdown()
+        if srv is None: return
+        srv.shutdown()
+        srv.server_close()
+        thread = getattr(self, "_thread", None)
+        if thread is not None:
+            thread.join(timeout=2)
+        self.started = False
+        self._ready.clear()
+
+    # --- control state seen by the operation journal -------------------
+    def control_reason(self) -> str | None:
+        """Why new commands are refused right now (``None`` = go ahead)."""
+        if self.stopped: return "aether_stopped"
+        if self.paused:  return "aether_paused"
+        return None
+
+    def _set_busy(self, active: bool) -> None:
+        # Maintained by Operations.on_activity: True while any command is
+        # queued or running, regardless of which HTTP request is waiting.
+        self.is_busy = bool(active)
 
     # --- user-controlled run state ----------------------------------
     def set_paused(self, value: bool) -> None:
@@ -90,9 +175,11 @@ class AetherBridge:
                            "ts": self.last_control_ts})
 
     def hard_stop(self) -> None:
-        """Abort everything — drain feedback inbox, cancel chat turn."""
+        """Abort everything — drain feedback inbox, cancel chat turn,
+        cancel every still-queued command (their receipts say why)."""
         self.stopped = True
         self.paused  = True
+        self.operations.cancel_all("aether_stopped")
         with self._feedback_lock: self.feedback_inbox.clear()
         if self.daemon: self.daemon.pause()
         self.last_control_action = "stop"
@@ -122,6 +209,16 @@ class AetherBridge:
         self._push_event({"kind": "user_feedback",
                            "payload": {"text": text},
                            "ts": time.time()})
+
+    def claim_announcement(self, request_id: str) -> bool:
+        """True for exactly one caller per operation id, whatever the
+        arrival order: that caller drains the feedback inbox and pushes the
+        command's ``tool_call``/``tool_result`` events."""
+        with self._announce_lock:
+            if request_id in self._announced:
+                return False
+            self._announced.add(request_id)
+            return True
 
     def drain_feedback(self) -> list[str]:
         with self._feedback_lock:
@@ -184,11 +281,24 @@ class AetherBridge:
         except queue.Full: pass
 
     # ------------------------------------------------------------------
-    def _serve(self) -> None:
+    def _handler_class(self):
         bridge = self
 
         class H(http.server.BaseHTTPRequestHandler):
             def log_message(self, *a, **k): pass
+
+            def _locked(self):
+                """``(423, body)`` while the user has paused/stopped the
+                agent, else ``None``. Bodies distinguish the two states
+                and carry a hint so a stopped client knows what to do."""
+                if bridge.stopped:
+                    return 423, {"error": "aether_stopped",
+                                 "hint": "POST /resume to give control back"}
+                if bridge.paused:
+                    return 423, {"error": "aether_paused",
+                                 "hint": "POST /resume to continue",
+                                 "since_last_call_s": time.time() - bridge.last_call_ts}
+                return None
 
             def _json(self, code: int, body) -> None:
                 # Inject the bridge's current control state into EVERY
@@ -220,6 +330,16 @@ class AetherBridge:
             # --- GET --------------------------------------------------
             def do_GET(self):
                 try:
+                    if self.path.startswith("/operations/"):
+                        # Never gated: a stopped client must be able to
+                        # learn its command was cancelled (bridge-local
+                        # metadata, no Designer access).
+                        from urllib.parse import unquote
+                        try:
+                            result = bridge.operations.read(unquote(self.path[len("/operations/"):]))
+                        except KeyError:
+                            return self._json(404, {"error": "unknown operation"})
+                        return self._json(200, result)
                     if self.path == "/state":     return self._state()
                     if self.path == "/tools":     return self._tools()
                     if self.path == "/snapshot":  return self._snapshot()
@@ -259,6 +379,11 @@ class AetherBridge:
                     body = self.rfile.read(n).decode("utf-8") if n else "{}"
                     payload = json.loads(body or "{}")
                     if self.path == "/tool":      return self._tool(payload)
+                    if (self.path.startswith("/operations/")
+                            and self.path.endswith("/cancel")):
+                        from urllib.parse import unquote
+                        rid = self.path[len("/operations/"):-len("/cancel")]
+                        return self._cancel(unquote(rid))
                     if self.path == "/chat":      return self._chat(payload)
                     if self.path == "/_debug/in_app_chat":
                         # Drive the Designer's IN-APP _send_aether_prompt
@@ -296,47 +421,41 @@ class AetherBridge:
 
             # --- handlers ---------------------------------------------
             def _state(self):
-                d = bridge.designer
-                bridge._ensure_session()
-                placements = []
-                for p in d.placements:
-                    placements.append({
-                        "id":   bridge.session.id_for(p),
-                        "kind": p.kind, "name": p.name,
-                        "x": p.x, "y": p.y, "w": p.w, "h": p.h,
-                        "hook": (p.props or {}).get("hook"),
-                        "states": [s.name for s in p.states],
-                    })
-                return self._json(200, {
-                    "skin_path":  str(d.skin_path),
-                    "window":     d.window_doc.to_json(),
-                    "placements": placements,
-                    "selection":  {"kind": d.sel_kind, "idx": d.sel_idx},
-                    "playing":    d.playing,
-                    "menu_status": getattr(d, "menu_status", ""),
-                })
+                def collect():
+                    d = bridge.designer
+                    session = bridge._ensure_session()
+                    return {
+                        "skin_path": str(d.skin_path),
+                        "window": d.window_doc.to_json(),
+                        "placements": [{"id": session.id_for(p), "kind": p.kind,
+                            "name": p.name, "x": p.x, "y": p.y, "w": p.w, "h": p.h,
+                            "hook": (p.props or {}).get("hook"),
+                            "states": [state.name for state in p.states]}
+                            for p in d.placements],
+                        "selection": {"kind": d.sel_kind, "idx": d.sel_idx},
+                        "playing": d.playing,
+                        "revision": getattr(d, "_document_revision", 0),
+                        "menu_status": getattr(d, "menu_status", ""),
+                    }
+                locked = self._locked()
+                if locked: return self._json(*locked)
+                return self._json(200, bridge.operations.invoke_read(collect))
 
             def _tools(self):
                 from elysium import aether
                 cat = [{"name": t.name, "description": t.description,
                          "input_schema": t.input_schema,
                          "side_effect": t.side_effect.value,
-                         "undoable": t.undoable}
+                         "undoable": t.undoable,
+                         "requires_confirmation": t.requires_confirmation}
                         for t in aether.REGISTRY.all()]
                 return self._json(200, {"tools": cat, "count": len(cat)})
 
             def _snapshot(self):
-                # Prefer the rich designer-preview that knows about
-                # Mesh3D / PBRSphere / components / animations; fall
-                # back to the reduced .esk compiler only when the
-                # designer-preview helper isn't available.
-                try:
-                    from elysium.render.designer_preview import paint_designer_png
-                    png = paint_designer_png(bridge.designer)
-                except Exception as e:
-                    from elysium.render.preview import paint_skin_png
-                    bridge.designer.save_layout()
-                    png = paint_skin_png(bridge.designer.skin_path)
+                locked = self._locked()
+                if locked: return self._json(*locked)
+                from elysium.render.designer_preview import paint_designer_png
+                png = bridge.operations.invoke_read(lambda: paint_designer_png(bridge.designer))
                 self._png(png)
 
             def _logs(self):
@@ -375,85 +494,92 @@ class AetherBridge:
                     return
 
             def _tool(self, payload):
-                from elysium import aether
-                from elysium.aether.types import ToolCall, SideEffect
-                # Pause / stop gates — return 423 Locked when the user
-                # has taken control. We 423 EVERY tool (including reads)
-                # because pause means "fully hands off"; the agent
-                # should not even snoop the canvas state mid-pause.
-                tool_name = payload.get("name", "")
-                tool = aether.REGISTRY.get(tool_name)
-                if bridge.stopped:
-                    return self._json(423, {"error": "aether_stopped",
-                        "hint": "POST /resume to give control back"})
-                if bridge.paused:
-                    return self._json(423, {"error": "aether_paused",
-                        "hint": "POST /resume to continue",
-                        "since_last_call_s":
-                            time.time() - bridge.last_call_ts})
-                session = bridge._ensure_session()
-                args = payload.get("args", {}) or {}
-                call_id = payload.get("id") or f"bridge-{int(time.time()*1000)}"
-                if tool is None:
-                    return self._json(404, {"error": f"unknown tool {tool_name}"})
-                # Surface any queued user feedback as the result of an
-                # invisible "agent.read_feedback" prepended to this call.
-                drained = bridge.drain_feedback()
-                if drained:
-                    bridge._push_event({"kind": "feedback_observed",
-                        "payload": {"messages": drained},
-                        "ts": time.time()})
-                # Auto-snapshot for write/destructive (mirrors daemon).
-                snap_id = None
-                if tool.side_effect in (SideEffect.WRITE, SideEffect.DESTRUCTIVE):
-                    try:
-                        snap = session.snapshots.capture(session,
-                            action=f"bridge:{tool_name}")
-                        snap_id = snap.id
-                    except Exception: pass
-                # Visual feedback: tell the Designer overlay what target
-                # the agent is touching.
-                bridge.is_busy = True
-                bridge.last_call_name = tool_name
-                bridge.last_call_target = str(args.get("id") or "")
-                bridge.last_call_ts = time.time()
-                call = ToolCall(id=call_id, name=tool_name, args=args)
-                bridge._push_event({"kind": "tool_call",
-                                      "payload": {"id": call_id,
-                                                    "name": tool_name,
+                from concurrent.futures import CancelledError, TimeoutError
+                locked = self._locked()
+                if locked: return self._json(*locked)
+                # `wait` is transport-only (never part of the idempotency
+                # signature): how long this request blocks for the receipt.
+                try:
+                    wait = float(payload.get("wait", bridge.ack_timeout_s)
+                                 if isinstance(payload, dict) else bridge.ack_timeout_s)
+                except (TypeError, ValueError):
+                    return self._json(400, {"ok": False, "error": "wait must be a number"})
+                wait = min(max(wait, 0.0), 120.0)
+                try:
+                    request_id, future = bridge.operations.submit(payload)
+                except (ValueError, TypeError) as exc:
+                    return self._json(400, {"ok": False, "error": str(exc)})
+                except RuntimeError as exc:
+                    return self._json(503, {"ok": False, "error": str(exc),
+                                            "retry_after_s": 5})
+                first = bridge.claim_announcement(request_id)
+                drained: list[str] = []
+                if first:
+                    drained = bridge.drain_feedback()
+                    if drained:
+                        bridge._push_event({"kind": "feedback_observed",
+                                            "payload": {"messages": drained},
+                                            "ts": time.time()})
+                    args = payload.get("args") or {}
+                    bridge.last_call_name = payload.get("name", "")
+                    bridge.last_call_target = (str(args.get("id") or "")
+                                               if isinstance(args, dict) else "")
+                    bridge.last_call_ts = time.time()
+                    bridge._push_event({"kind": "tool_call",
+                                        "payload": {"id": request_id,
+                                                    "name": bridge.last_call_name,
                                                     "args": args,
                                                     "target": bridge.last_call_target,
                                                     "pending_feedback": drained},
-                                      "ts": time.time()})
-                res = aether.REGISTRY.dispatch(call, session)
-                if snap_id: res.snapshot_id = snap_id
-                # Optional pacing so the user can see each call happen.
-                if bridge.pace_ms > 0: time.sleep(bridge.pace_ms / 1000.0)
-                bridge.is_busy = False
-                session.audit({"kind": "tool_call", "tool": tool_name,
-                                 "args": args, "ok": res.ok,
-                                 "value": res.value, "error": res.error,
-                                 "snapshot_id": snap_id, "ts": time.time(),
-                                 "source": "bridge"})
-                bridge._push_event({"kind": "tool_result",
-                                      "payload": {"id": call_id,
-                                                    "ok": res.ok,
-                                                    "value": res.value,
-                                                    "error": res.error,
-                                                    "snapshot": snap_id},
-                                      "ts": time.time()})
-                return self._json(200 if res.ok else 400, {
-                    "ok": res.ok, "value": res.value,
-                    "error": res.error, "snapshot": snap_id,
-                    "feedback_observed": drained,
-                })
+                                        "ts": bridge.last_call_ts})
+                    # The matching tool_result is pushed the moment the
+                    # command settles — committed, failed or cancelled —
+                    # whether or not this request is still waiting (a 202
+                    # outlives it). Registered after the tool_call push so
+                    # the stream stays ordered; a retry registers nothing,
+                    # so every command announces exactly one result.
+                    bridge.operations.on_terminal(
+                        request_id,
+                        lambda receipt, drained=drained: bridge._push_event(
+                            {"kind": "tool_result",
+                             "payload": {**receipt, "feedback_observed": drained},
+                             "ts": time.time()}))
+                try:
+                    future.result(timeout=wait)
+                except TimeoutError:
+                    # Operation remains queryable and idempotent. A client
+                    # must not blindly retry a mutation with a new id.
+                    return self._json(202, bridge.operations.read(request_id))
+                except CancelledError:
+                    pass
+                # Always answer with the *live* receipt (a retry bumps
+                # `attempts` after the future's own snapshot was taken).
+                result = bridge.operations.read(request_id)
+                # Pacing is a *viewing* aid: it delays the reply on this
+                # HTTP thread after the commit, never the frame thread.
+                if bridge.pace_ms > 0:
+                    time.sleep(bridge.pace_ms / 1000)
+                result = {**result, "feedback_observed": drained}
+                return self._json(_status_for(result), result)
+
+            def _cancel(self, request_id):
+                try:
+                    receipt = bridge.operations.cancel(request_id, "client")
+                except KeyError:
+                    return self._json(404, {"error": "unknown operation"})
+                code = 200 if receipt.get("status") == "cancelled" else 409
+                return self._json(code, receipt)
 
             # --- control / introspection ----------------------------
             def _status(self):
+                stats = bridge.operations.stats()
                 return self._json(200, {
                     "paused": bridge.paused,
                     "stopped": bridge.stopped,
-                    "busy":   bridge.is_busy,
+                    # Derived from the same journal read as `operations`,
+                    # so the two can never disagree: the is_busy flag the
+                    # Designer paints follows the receipt by a callback.
+                    "busy":   stats["queued"] + stats["running"] > 0,
                     "pace_ms": bridge.pace_ms,
                     "last_call": {
                         "name":   bridge.last_call_name,
@@ -461,6 +587,7 @@ class AetherBridge:
                         "ts":     bridge.last_call_ts,
                     },
                     "feedback_pending": len(bridge.feedback_inbox),
+                    "operations": stats,
                 })
 
             def _control(self, action):
@@ -499,13 +626,4 @@ class AetherBridge:
                 threading.Thread(target=worker, daemon=True).start()
                 return self._json(202, {"queued": True, "message": msg})
 
-        class _Server(socketserver.ThreadingTCPServer):
-            allow_reuse_address = True
-            daemon_threads = True
-
-        try:
-            self._srv = _Server(("127.0.0.1", self.port), H)
-            self._srv.serve_forever()
-        except OSError as e:
-            print(f"aether-bridge: port {self.port} unavailable: {e}",
-                  flush=True)
+        return H

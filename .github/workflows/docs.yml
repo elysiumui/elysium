@@ -11,6 +11,7 @@ on:
       - docs/**
       - python/elysium/**
       - mkdocs.yml
+      - scripts/gen_aether_tool_reference.py
       - .github/workflows/docs.yml
   workflow_dispatch:
 
@@ -41,6 +42,14 @@ jobs:
       - name: Install MkDocs + plugins
         run: |
           pip install mkdocs-material mkdocstrings[python] pymdown-extensions
+
+      - name: Generate Aether tool reference partial
+        # Keeps docs/api/aether-tools.partial.md in sync with
+        # python/elysium/aether/tools/*.py on every build, exactly as
+        # docs-designer.yml does for its copy, so the published catalog
+        # cannot drift from shipping code. The script is pure AST and
+        # needs no package install.
+        run: python scripts/gen_aether_tool_reference.py
 
       - name: Build site
         run: mkdocs build --strict --site-dir site

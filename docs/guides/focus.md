@@ -108,7 +108,7 @@ def update_ring():
 
 Focus changes also drive screen-reader announcements when a11y is
 enabled (see [Accessibility](accessibility.md)). Each `on_focus`
-hook fires `window.publish_a11y_focus(id)` automatically when the
+hook fires `window.set_a11y_focus(id)` automatically when the
 framework's a11y bridge is on.
 
 ## Disabled placements

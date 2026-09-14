@@ -166,3 +166,34 @@ def test_frameloop_uses_default_dispatcher_when_none():
     set_default_dispatcher(d)
     fl = FrameLoop(on_frame=lambda dt: None)
     assert fl.dispatcher is d
+
+
+# --- window proxy wires the native waker -----------------------------------
+
+def test_window_proxy_installs_native_wake_on_dispatcher():
+    from elysium._window_ext import _WindowProxy
+
+    class _FakeNative:
+        """Stands in for the native window: `wake()` is the binding over
+        `notify_input`, bumping the input sequence."""
+        def __init__(self):
+            self.input_seq = 0
+        def wake(self):
+            self.input_seq += 1
+
+    native = _FakeNative()
+    win = _WindowProxy(native)
+    d = win.ui_dispatcher()
+    assert win.ui_dispatcher() is d
+    win.post(lambda: None)
+    assert native.input_seq == 1
+    d.invoke(lambda: 2)
+    assert native.input_seq == 2
+    assert d.drain() == 2
+
+    class _OldNative:      # predates Window.wake: no error, no wake
+        pass
+
+    old = _WindowProxy(_OldNative())
+    old.post(lambda: None)
+    assert old.ui_dispatcher().drain() == 1

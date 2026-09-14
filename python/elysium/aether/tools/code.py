@@ -41,6 +41,7 @@ def code_read_file(session, path: str) -> dict:
                    "required": ["path", "content"]},
     side_effect=SideEffect.DESTRUCTIVE,
     requires_confirmation="destructive",
+    undoable=False,
 )
 def code_write_file(session, path: str, content: str,
                      mode: str = "overwrite") -> dict:
@@ -64,6 +65,7 @@ def code_write_file(session, path: str, content: str,
                                    "replace":{"type":"string"},
                                    "count":{"type":"integer"}},
                    "required": ["path","find","replace"]},
+    undoable=False,
 )
 def code_patch(session, path: str, find: str, replace: str,
                 count: int = 1) -> dict:

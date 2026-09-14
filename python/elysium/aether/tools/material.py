@@ -118,7 +118,7 @@ def material_set_part_texture(session, id: str, part: str, path: str) -> dict:
                 "texture slots (albedo / metallic_rough / normal / ao / "
                 "emissive), all per-part textures, the texture-layer "
                 "stack, the painted PaintMask, and resets PBR knobs to "
-                "neutral. Use to revert before restarting a texturing "
+                "neutral. Removes authored material slots and their owned images. Use to revert before restarting a texturing "
                 "workflow from scratch.",
     input_schema={"type": "object",
                    "properties": {"id": {"type": "string"}},
@@ -129,6 +129,9 @@ def material_clear(session, id: str) -> dict:
     p = session.lookup(id)
     designer = session.designer
     cleared: list = []
+    if "materials3d" in getattr(p, "props", {}):
+        p.props.pop("materials3d")
+        cleared.append("materials3d")
     # PBR texture slots: empty path = no binding.
     for slot in ("albedo", "metallic_rough", "normal", "ao", "emissive"):
         field = "pbr_" + slot + "_map"
@@ -198,3 +201,87 @@ def material_read(session, id: str) -> dict:
         "clear_coat":  getattr(p, "pbr_clearcoat", 0.0),
         "clear_coat_roughness": getattr(p, "pbr_clearcoat_roughness", 0.0),
     }
+
+
+_SLOT_VALUES = {"type":"object", "additionalProperties":False, "properties":{
+    **{key:{"type":"number", "minimum":0, "maximum":1} for key in ('metallic','roughness','specular','clear_coat','clear_coat_roughness')},
+    **{key:{"type":"array","items":{"type":"number","minimum":0,"maximum":maximum},"minItems":3,"maxItems":3} for key,maximum in [('base_color',1),('emissive',64)]},
+}}
+
+
+@register_tool(name="material.slots_get", description="Read stable object-local material slots and source face-to-slot assignments. Null parameters inherit the existing object material.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"}},"required":["id"]}, side_effect=SideEffect.READ, undoable=False)
+def slots_get(session, id):
+    from ...render import mesh_materials
+    return mesh_materials.read(session.lookup(id))
+
+
+@register_tool(name="material.slot_add", description="Add a named material slot with linear RGB surface parameters. Existing face assignments and object material are preserved. At most 64 slots per object.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"name":{"type":"string"},"values":_SLOT_VALUES},"required":["id"]})
+def slot_add(session, id, name="Material", values=None):
+    from ...render import mesh_materials
+    return mesh_materials.add(session.lookup(id), name, values)
+
+
+@register_tool(name="material.slot_update", description="Rename a stable material slot or update linear RGB surface parameters. Explicit parameters replace inherited object binding for this slot; other slots and assignments stay unchanged.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"name":{"type":"string"},"values":_SLOT_VALUES},"required":["id","slot_id"]})
+def slot_update(session, id, slot_id, name=None, values=None):
+    from ...render import mesh_materials
+    return mesh_materials.update(session.lookup(id), slot_id, name=name, values=values)
+
+
+@register_tool(name="material.faces_assign", description="Assign the selected stable source face identities to an existing material slot. Geometry, UVs, normals and other face assignments are preserved; validates the retained modifier stack before publication.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"face_ids":{"type":"array","items":{"type":"string"},"minItems":1,"uniqueItems":True}},"required":["id","slot_id","face_ids"]})
+def faces_assign(session, id, slot_id, face_ids):
+    from ...render import mesh_materials
+    return mesh_materials.assign(session.lookup(id), face_ids, slot_id)
+
+
+@register_tool(name="material.slot_remove", description="Remove an unused material slot; used slots and the last slot reject. Reindexes later face indices while preserving their stable slot identities and appearance.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"}},"required":["id","slot_id"]})
+def slot_remove(session, id, slot_id):
+    from ...render import mesh_materials
+    return mesh_materials.remove(session.lookup(id), slot_id)
+
+
+@register_tool(name="material.slot_image_set", description="Import a single PNG/JPEG (at most 2048x2048, 16 MiB) as this material slot's owned image for base_color (default), roughness, metallic, normal or metallic_roughness. Stored in the editable project and native export; Base color uses sRGB RGB; roughness/metallic use linear red-channel data; normal uses linear RGB tangent-space directions at strength 1; metallic_roughness uses linear G=roughness and B=metallic. Individual scalar maps override their packed channel. Closest sampling, repeat UVs, opaque surface; color/scalar images multiply their matching surface values; normal images alter shading without editing geometry. Empty path clears the image override. Other surfaces and source attributes remain unchanged.", input_schema={"type":"object","additionalProperties":False,"properties":{"id":{"type":"string"},"slot_id":{"type":"string"},"path":{"type":"string"},"channel":{"enum":["base_color","roughness","metallic","normal","metallic_roughness"]}},"required":["id","slot_id","path"]})
+def slot_image_set(session, id, slot_id, path, channel="base_color"):
+    from ...render import mesh_materials
+    return mesh_materials.set_image(session.lookup(id), slot_id, path, channel)
+
+
+_GRAPH_TARGET = {"id":{"type":"string"},"slot_id":{"type":"string"}}
+_GRAPH_NODE = {**_GRAPH_TARGET,"node_id":{"type":"string"}}
+
+def _graph_change(session,id,slot_id,operation,*args,**kwargs):
+    from ...render import material_graph,mesh_materials
+    p=session.lookup(id)
+    graph=mesh_materials.graph_read(p,slot_id)['graph']
+    graph=getattr(material_graph,operation)(graph,*args,**kwargs)
+    node_id=None
+    if isinstance(graph,tuple):graph,node_id=graph
+    mesh_materials.graph_set(p,slot_id,graph)
+    result=mesh_materials.graph_read(p,slot_id)
+    if node_id:result['node_id']=node_id
+    return result
+
+
+@register_tool(name="material.color_graph_get",description="Read the retained color graph and evaluated linear RGB output for a material slot. Null output keeps surface fields.",input_schema={"type":"object","additionalProperties":False,"properties":_GRAPH_TARGET,"required":["id","slot_id"]},side_effect=SideEffect.READ,undoable=False)
+def color_graph_get(session,id,slot_id):
+    from ...render import mesh_materials
+    return mesh_materials.graph_read(session.lookup(id),slot_id)
+
+
+@register_tool(name="material.color_node_add",description="Add a persistent Color, Value, Add, Multiply or Mix node (maximum 64). Values must be from 0 to 1; computed results are clamped to that range. Missing A/B inputs default to zero/one. New nodes do not change the surface until an output is chosen.",input_schema={"type":"object","additionalProperties":False,"properties":{**_GRAPH_TARGET,"kind":{"enum":["Color","Value","Add","Multiply","Mix"]}},"required":["id","slot_id","kind"]})
+def color_node_add(session,id,slot_id,kind):
+    return _graph_change(session,id,slot_id,'add',kind)
+
+
+@register_tool(name="material.color_node_update",description="Edit a color node's name/value or replace its input links. Color value is linear RGB; Value and Mix factor are scalars from 0 to 1. Inputs map a/b to current node IDs. Missing nodes, cycles, invalid kinds and values reject atomically, including disconnected nodes.",input_schema={"type":"object","additionalProperties":False,"properties":{**_GRAPH_NODE,"name":{"type":"string"},"value":{"anyOf":[{"type":"number"},{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3}]},"inputs":{"type":"object","additionalProperties":False,"properties":{"a":{"type":"string"},"b":{"type":"string"}}}},"required":["id","slot_id","node_id"]})
+def color_node_update(session,id,slot_id,node_id,name=None,value=None,inputs=None):
+    return _graph_change(session,id,slot_id,'update',node_id,name=name,value=value,inputs=inputs)
+
+
+@register_tool(name="material.color_output_set",description="Use a node's evaluated linear RGB as this slot's base color, before its image multiplier. A Value output broadcasts to RGB. Null node_id clears the graph output and restores surface fields.",input_schema={"type":"object","additionalProperties":False,"properties":{**_GRAPH_TARGET,"node_id":{"type":["string","null"]}},"required":["id","slot_id","node_id"]})
+def color_output_set(session,id,slot_id,node_id):
+    return _graph_change(session,id,slot_id,'output',node_id)
+
+
+@register_tool(name="material.color_node_remove",description="Remove a node and its referencing links. Missing inputs revert to zero/one; removing the output restores surface fields. Other source geometry and material data stay unchanged.",input_schema={"type":"object","additionalProperties":False,"properties":_GRAPH_NODE,"required":["id","slot_id","node_id"]})
+def color_node_remove(session,id,slot_id,node_id):
+    return _graph_change(session,id,slot_id,'remove',node_id)

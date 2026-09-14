@@ -17,24 +17,37 @@ from ..types import SideEffect
 )
 def mesh_import(session, path: str, x: float = 100, y: float = 100,
                  w: float = 300, h: float = 300) -> dict:
+    from pathlib import Path as _Path
+    from elysium.render import mesh_document, pbr as _pbr
     designer = session.designer
+    src = _Path(path).expanduser()
+    if not src.is_file():
+        raise FileNotFoundError(f"3D model not found: {src}")
+    # Geometry is embedded as a document-owned asset at import time, so the
+    # project stays portable once the source file moves or disappears.
+    mesh = _pbr.import_mesh_from_file(src)
     P = session.designer_models.Placement
     p = P(kind="Mesh3D", x=x, y=y, w=w, h=h,
           name=designer._assign_name("Mesh3D"))
-    p.mesh_kind = f"file:{path}"
+    key = mesh_document.bind(p, mesh, label=src.stem)
+    p.props = dict(p.props or {})
+    p.props["import_source"] = {"name": src.name, "path": str(src.resolve())}
     designer.placements.append(p)
-    return {"placement_id": session.id_for(p)}
+    return {"placement_id": session.id_for(p), "mesh_key": key}
 
 
 @register_tool(
     name="mesh.import_3d",
     description="Import a 3D model file (.3ds / .obj / .gltf / .glb / .fbx): "
                 "the same one-action flow as File → Import 3D Model… in the "
-                "Designer. Parses the file, registers it in the mesh library "
-                "under its filename stem, and adds a Mesh3D placement centered "
-                "on the canvas. Returns the new placement's id, the mesh "
-                "library name, and the triangle / vertex counts so the caller "
-                "can confirm the import succeeded.",
+                "Designer. Parses the file and embeds the geometry as a "
+                "document-owned asset bound to a new Mesh3D placement centered "
+                "on the canvas. Returns the new placement's id, the owned "
+                "`mesh_key` (the reusable mesh_kind for further placements), "
+                "`mesh_name` (the filename stem the placement is named after; "
+                "informational, never a mesh_kind — a stem like `cube` cannot "
+                "shadow the Cube preset), and the triangle / vertex counts so "
+                "the caller can confirm the import succeeded.",
     input_schema={"type": "object",
                    "properties": {"path": {"type": "string"},
                                    "w": {"type": "number"},
@@ -52,20 +65,9 @@ def mesh_import_3d(session, path: str,
     src = _Path(path).expanduser()
     if not src.is_file():
         raise FileNotFoundError(f"3D model not found: {src}")
+    from elysium.render import mesh_document
     mesh = _pbr.import_mesh_from_file(src)
     name = src.stem
-    # Store the placement with `mesh_kind = "file:<abs path>"` so the
-    # render path loads straight from disk every time and doesn't
-    # depend on the in-memory MESH_LIBRARY (which gets wiped whenever
-    # elysium.render.pbr is hot-reloaded: that used to silently
-    # downgrade imported butterflies to a Sphere fallback).
-    abs_path = str(src.resolve())
-    mesh_kind = f"file:{abs_path}"
-    # Also cache the parsed mesh in MESH_LIBRARY under the file stem +
-    # the file: key, so synchronous lookups during the same session
-    # skip the re-parse cost.
-    _pbr.MESH_LIBRARY[name] = lambda m=mesh: m
-    _pbr.MESH_LIBRARY[mesh_kind] = lambda m=mesh: m
     P = session.designer_models.Placement
     win = designer.window_doc
     placement = P(
@@ -74,8 +76,14 @@ def mesh_import_3d(session, path: str,
         w=float(w), h=float(h),
         name=designer._assign_name(name) if hasattr(designer, "_assign_name") else name,
         props={},
-        mesh_kind=mesh_kind,
     )
+    # The parsed geometry becomes a document-owned asset; the document no
+    # longer depends on the file staying at its import path. The owned key
+    # is the only handle: registering the stem as a named key would let
+    # cube.obj shadow the Cube preset for every placement (and, without a
+    # document context, for every document in the process).
+    mesh_document.bind(placement, mesh, label=name)
+    placement.props["import_source"] = {"name": src.name, "path": str(src.resolve())}
     # Imported meshes are normalized to a unit cube; pull the camera in.
     placement.mesh_dist = 1.2
     designer.placements.append(placement)
@@ -83,6 +91,7 @@ def mesh_import_3d(session, path: str,
                              f"{len(mesh.verts)} verts)")
     return {"placement_id": session.id_for(placement),
             "mesh_name": name,
+            "mesh_key": placement.mesh_kind,
             "tris": int(len(mesh.faces)),
             "verts": int(len(mesh.verts)),
             "parts": list(mesh.part_names) if mesh.part_names else None}
@@ -91,11 +100,14 @@ def mesh_import_3d(session, path: str,
 @register_tool(
     name="mesh.register_from_file",
     description="Load a .3ds / .obj / .gltf / .glb / .fbx and register it "
-                "in the MESH_LIBRARY under `name` *without* creating a new "
-                "placement. Use this on launch when a saved .esk references "
-                "a named mesh (e.g. 'butterfly') that the fresh process has "
-                "not yet loaded: calling this rebinds the name so the "
-                "existing Mesh3D placement starts rendering again.",
+                "in the document's mesh store under `name` *without* creating a "
+                "new placement (the Designer's library lookups see the name "
+                "too, case-insensitively). `name` must not be a read-only "
+                "preset (Sphere, Cube, Cylinder, Torus, Plane, Cone) in any "
+                "spelling. Use this on launch when a saved .esk references a "
+                "named mesh (e.g. 'butterfly') that the fresh process has not "
+                "yet loaded: calling this rebinds the name so the existing "
+                "Mesh3D placement starts rendering again.",
     input_schema={"type": "object",
                    "properties": {"path": {"type": "string"},
                                    "name": {"type": "string"}},
@@ -107,8 +119,14 @@ def mesh_register_from_file(session, path: str, name: str) -> dict:
     src = _Path(path).expanduser()
     if not src.is_file():
         raise FileNotFoundError(f"3D model not found: {src}")
+    from elysium.render import mesh_document
+    if mesh_document.is_preset_name(name):
+        # A case variant would resolve for its exact spelling only while
+        # every other spelling (and the Designer's library scan) kept the
+        # preset: viewport and export would disagree.
+        raise ValueError(f"{name!r} is a read-only preset name; register the mesh under another name")
     mesh = _pbr.import_mesh_from_file(src)
-    _pbr.MESH_LIBRARY[name] = (lambda m=mesh: m)
+    mesh_document.default_store().put(name, mesh)
     # Flush mesh caches so the renderer picks up the new binding next frame.
     designer = session.designer
     for cache_attr in ("_mesh_cache", "_mesh_bytes_cache", "_pbr_cache"):
@@ -129,7 +147,7 @@ def mesh_register_from_file(session, path: str, name: str) -> dict:
                 "  - 'planar_xy'   : project along +Z onto XY plane.\n"
                 "  - 'cylindrical' : wrap around the Y axis (u=angle, v=height).\n"
                 "  - 'spherical'   : wrap around origin (u=longitude, v=latitude).\n"
-                "Mutates the cached mesh object's `vert_uvs` in place. Does NOT "
+                "Writes an owned mesh revision with retained per-corner UVs. Does NOT "
                 "alter vertices, faces, normals, rigging, or part ids: the "
                 "model's geometry stays identical. Returns the new per-part UV "
                 "bbox so callers can re-render or rebuild atlases against it.",
@@ -147,55 +165,13 @@ def mesh_register_from_file(session, path: str, name: str) -> dict:
 def mesh_uv_unwrap(session, id: str, mode: str,
                     yaw: float = 0.0, pitch: float = 0.0) -> dict:
     """Re-compute mesh UVs from a projection. Geometry untouched."""
-    import math
-    import numpy as _np
-    from elysium.render import pbr as _pbr
+    from elysium.render import mesh_uv, mesh_document
     p = session.lookup(id)
-    if p.kind != "Mesh3D":
-        raise ValueError(f"mesh.uv_unwrap: kind={p.kind!r} (need Mesh3D)")
-    # Pull the mesh the same way the renderer does.
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
-    v = mesh.verts.astype(_np.float32)
-    n = v.shape[0]
-    mode = mode.lower()
-    if mode in ("planar", "planar_xy", "camera"):
-        if mode == "planar_xy":
-            ax_u = _np.array([1.0, 0.0, 0.0], dtype=_np.float32)
-            ax_v = _np.array([0.0, 1.0, 0.0], dtype=_np.float32)
-        else:
-            cy, sy = math.cos(yaw), math.sin(yaw)
-            cp, sp = math.cos(pitch), math.sin(pitch)
-            # Camera-look direction.
-            look = _np.array([-cp * sy, -sp, -cp * cy], dtype=_np.float32)
-            up   = _np.array([0.0, 1.0, 0.0], dtype=_np.float32)
-            right = _np.cross(look, up); right /= max(_np.linalg.norm(right), 1e-8)
-            up_real = _np.cross(right, look)
-            ax_u, ax_v = right, up_real
-        u = v @ ax_u
-        w = v @ ax_v
-        u = (u - u.min()) / max(u.max() - u.min(), 1e-6)
-        w = (w - w.min()) / max(w.max() - w.min(), 1e-6)
-        uvs = _np.stack([u, w], axis=-1)
-    elif mode == "cylindrical":
-        # u = atan2(z, x) / 2π; v = (y - ymin) / (ymax - ymin)
-        u = (_np.arctan2(v[:, 2], v[:, 0]) + math.pi) / (2.0 * math.pi)
-        h = v[:, 1]
-        w = (h - h.min()) / max(h.max() - h.min(), 1e-6)
-        uvs = _np.stack([u, w], axis=-1)
-    elif mode == "spherical":
-        L = _np.linalg.norm(v, axis=-1) + 1e-8
-        u = (_np.arctan2(v[:, 2], v[:, 0]) + math.pi) / (2.0 * math.pi)
-        w = _np.arccos(_np.clip(v[:, 1] / L, -1.0, 1.0)) / math.pi
-        uvs = _np.stack([u, w], axis=-1)
-    else:
-        raise ValueError(f"unknown uv_unwrap mode: {mode!r}")
-    mesh.vert_uvs = uvs.astype(_np.float32)
-    # Rebind in MESH_LIBRARY so subsequent renders see the new UVs.
-    if not p.mesh_kind.startswith("file:"):
-        _pbr.MESH_LIBRARY[p.mesh_kind] = (lambda m=mesh: m)
+    result = mesh_uv.project(p, mode, yaw=yaw, pitch=pitch)
+    mesh = mesh_document.resolve(p.mesh_kind)
+    uvs = mesh.vert_uvs
+    n = len(mesh.verts)
+    mode = result["mode"]
     # Flush mesh caches so the next paint re-renders with the new UVs.
     designer = session.designer
     for ca in ("_mesh_cache", "_mesh_bytes_cache", "_pbr_cache"):
@@ -242,6 +218,9 @@ def mesh_uv_unwrap(session, id: str, mode: str,
         },
         "required": ["id", "src", "name"],
     },
+    # The albedo binding is undone with the document; the atlas PNG this
+    # writes to ~/.elysium/textures stays behind.
+    undoable=False,
 )
 def material_project_photo(session, id: str, src: str, name: str,
                             yaw: float | None = None,
@@ -287,10 +266,8 @@ def material_project_photo(session, id: str, src: str, name: str,
     up = _np.cross(right, look)
     fov = math.radians(38.0)
     f = 1.0 / math.tan(fov * 0.5)
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
+    from elysium.render import mesh_document
+    mesh = mesh_document.resolve(p.mesh_kind)
     if mesh.vert_uvs is None:
         raise ValueError("mesh has no UVs: call mesh.uv_unwrap first")
     verts = mesh.verts.astype(_np.float32)
@@ -445,6 +422,8 @@ def material_project_photo(session, id: str, src: str, name: str,
         },
         "required": ["id", "src", "name"],
     },
+    # Same as material.project_photo: the library atlas outlives an undo.
+    undoable=False,
 )
 def material_project_per_part(session, id: str, src: str, name: str,
                                 yaw: float = 0.0, pitch: float = 0.0,
@@ -462,10 +441,8 @@ def material_project_per_part(session, id: str, src: str, name: str,
         raise ValueError(f"project_per_part: kind={p.kind!r} (need Mesh3D)")
     photo = _np.array(_PIL.open(src).convert("RGBA"), dtype=_np.uint8)
     pH, pW = photo.shape[:2]
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
+    from elysium.render import mesh_document
+    mesh = mesh_document.resolve(p.mesh_kind)
     if mesh.vert_uvs is None:
         raise ValueError("mesh has no UVs: call mesh.uv_unwrap first")
     if mesh.part_names is None or mesh.vert_part_ids is None:
@@ -700,10 +677,8 @@ def mesh_read_part_render_bbox(session, id: str) -> dict:
     p = session.lookup(id)
     if p.kind != "Mesh3D":
         raise ValueError(f"read_part_render_bbox: kind={p.kind!r} (need Mesh3D)")
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        mesh = _pbr.MESH_LIBRARY[p.mesh_kind]()
+    from elysium.render import mesh_document
+    mesh = mesh_document.resolve(p.mesh_kind)
     if mesh.part_names is None or mesh.vert_part_ids is None:
         return {"parts": [], "reason": "mesh has no parts"}
     yaw   = float(getattr(p, "mesh_yaw",   0.4))
@@ -765,13 +740,11 @@ def mesh_read_parts(session, id: str) -> dict:
     p = session.lookup(id)
     if not getattr(p, "mesh_kind", None):
         return {"parts": []}
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        factory = _pbr.MESH_LIBRARY.get(p.mesh_kind)
-        if not factory:
-            return {"parts": []}
-        mesh = factory()
+    from elysium.render import mesh_document
+    try:
+        mesh = mesh_document.resolve(p.mesh_kind)
+    except ValueError:
+        return {"parts": []}
     if not mesh.part_names:
         return {"parts": []}
     import numpy as _np
@@ -801,13 +774,11 @@ def mesh_read_uv_bbox(session, id: str) -> dict:
     p = session.lookup(id)
     if not getattr(p, "mesh_kind", None):
         return {"parts": []}
-    if p.mesh_kind.startswith("file:"):
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
-    else:
-        factory = _pbr.MESH_LIBRARY.get(p.mesh_kind)
-        if not factory:
-            return {"parts": []}
-        mesh = factory()
+    from elysium.render import mesh_document
+    try:
+        mesh = mesh_document.resolve(p.mesh_kind)
+    except ValueError:
+        return {"parts": []}
     if mesh.vert_uvs is None or mesh.vert_part_ids is None or not mesh.part_names:
         return {"parts": []}
     out = []
@@ -882,7 +853,9 @@ def mesh_toggle_wireframe(session, id: str) -> dict:
                                    "max_bounces":{"type":"integer"},
                                    "denoise":{"type":"boolean"}},
                    "required": ["id"]},
-    side_effect=SideEffect.READ,        # writes to disk but not to the project
+    # Selects the placement and writes a render to .elysium/renders/:
+    # transient view state + an out-of-project file, never the document.
+    side_effect=SideEffect.NONE,
     undoable=False,
 )
 def mesh_render_final(session, id: str, samples: int = 12,
@@ -909,30 +882,15 @@ def _build_mesh_for_placement(p):
     build for this placement, including the per-part wing-flap rig and
     any face_mats assignment. Materials are left as the cheap default
     since the mapper only needs hits, not shading."""
-    from elysium.render import pbr as _pbr
-    if p.mesh_kind.startswith("file:"):
+    from elysium.render import mesh_document, pbr as _pbr
+    # resolve() covers file imports, document-owned assets and (case-
+    # insensitively) the read-only preset library.
+    mesh = mesh_document.resolve(p.mesh_kind)
+    if p.mesh_kind.startswith("file:") or (
+            getattr(mesh, "part_names", None)
+            and any("wing" in n.lower() for n in mesh.part_names)):
         from elysium.render.designer_preview import _flap_imported_wings
-        mesh = _pbr.import_mesh_from_file(p.mesh_kind.split(":", 1)[1])
         mesh = _flap_imported_wings(mesh, getattr(p, "mesh_flap", 0.0))
-    else:
-        # MESH_LIBRARY keys are CamelCase ("Butterfly") but some saved
-        # placements have lowercased mesh_kind ("butterfly"). The live
-        # render path tolerates this via a cache hit; we look it up
-        # case-insensitively so a fresh build doesn't KeyError.
-        lib = _pbr.MESH_LIBRARY
-        factory = lib.get(p.mesh_kind)
-        if factory is None:
-            for k, v in lib.items():
-                if k.lower() == p.mesh_kind.lower():
-                    factory = v; break
-        if factory is None:
-            raise KeyError(f"mesh_kind {p.mesh_kind!r} not in MESH_LIBRARY "
-                            f"(have {list(lib.keys())})")
-        mesh = factory()
-        if (getattr(mesh, "part_names", None)
-                and any("wing" in n.lower() for n in mesh.part_names)):
-            from elysium.render.designer_preview import _flap_imported_wings
-            mesh = _flap_imported_wings(mesh, getattr(p, "mesh_flap", 0.0))
     obj = _pbr.MeshObject(mesh=mesh, materials=[_pbr.Material()])
     return mesh, obj
 
@@ -1006,7 +964,9 @@ def _cached_visible_alpha_mask(p) -> tuple:
         },
         "required": ["id"],
     },
-    side_effect=SideEffect.READ,
+    # Writes the mask PNG to the ~/.elysium/object_masks cache (or to the
+    # caller's `out` path); the document itself is untouched.
+    side_effect=SideEffect.NONE,
     undoable=False,
 )
 def mesh_render_part_mask(session, id: str,
@@ -2784,6 +2744,7 @@ def _landmark_dir():
         },
         "required": ["name", "landmarks"],
     },
+    side_effect=SideEffect.NONE, undoable=False,
 )
 def mesh_save_landmarks(session, name: str, landmarks: list,
                          meta: dict | None = None) -> dict:
