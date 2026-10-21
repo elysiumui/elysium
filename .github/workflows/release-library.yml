@@ -63,6 +63,11 @@ jobs:
             libwayland-dev libxkbcommon-dev libfontconfig1-dev \
             libgl1-mesa-dev libegl1-mesa-dev
 
+      # Gitignored and fetched here; pyproject's `include` puts it in the wheel.
+      - name: WebView2 loader (Windows wheel)
+        if: runner.os == 'Windows'
+        run: python scripts/fetch-webview2-loader.py
+
       - name: Build wheel (manylinux on Linux, native elsewhere)
         uses: PyO3/maturin-action@v1
         with:
@@ -139,6 +144,14 @@ jobs:
                   f"{getattr(elysium, '_import_error', 'unknown')}")
           from elysium._native import _native as n
           print("native extension loaded OK, version", n.__version__)
+          import sys
+          if sys.platform == "win32":
+              from pathlib import Path
+              import elysium.webview as wv
+              loader = Path(wv.__file__).with_name("_win") / "x64" / "WebView2Loader.dll"
+              if not loader.is_file():
+                  raise SystemExit(f"::error::the Windows wheel does not ship {loader}")
+              print("WebView2 loader packaged:", loader)
           PY
 
       - name: Upload wheel artifact

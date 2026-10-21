@@ -19,7 +19,7 @@ import pytest
 PROBE = Path(__file__).with_name("_webview_probe.py")
 
 # Platforms whose engine backend is exercised live in CI.
-LIVE_PLATFORMS = ("darwin", "linux")
+LIVE_PLATFORMS = ("darwin", "linux", "win32")
 
 pytestmark = pytest.mark.skipif(
     sys.platform not in LIVE_PLATFORMS,

@@ -41,3 +41,6 @@ site/
 .claude/settings.local.json
 .claude/projects/
 .coverage
+
+# WebView2 loader, fetched at build time by scripts/fetch-webview2-loader.py
+python/elysium/webview/_win/

@@ -281,3 +281,50 @@ def test_wait_times_out():
 
     with pytest.raises(TimeoutError):
         _objc.wait(concurrent.futures.Future(), 0.05)
+
+
+# --- Windows (WebView2) COM plumbing --------------------------------------------------
+
+windows_only = pytest.mark.skipif(sys.platform != "win32", reason="WebView2 COM")
+
+
+@windows_only
+def test_com_handler_query_interface_and_refcount():
+    import ctypes
+    from ctypes import POINTER, byref, c_void_p
+    from elysium.webview import windows as w
+
+    calls = []
+    handler = w._Handler("ICoreWebView2CapturePreviewCompletedHandler", "hr", calls.append)
+    ptr = handler.ptr
+
+    out = c_void_p()
+    own = ctypes.create_string_buffer(w._iid(w.IIDS["ICoreWebView2CapturePreviewCompletedHandler"]), 16)
+    other = ctypes.create_string_buffer(w._iid(w.IIDS["ICoreWebView2_21"]), 16)
+    qi = lambda iid: w._vcall(ptr, 0, ctypes.addressof(iid), byref(out),  # noqa: E731
+                              argtypes=(c_void_p, POINTER(c_void_p)))
+    assert qi(own) == 0 and out.value == ptr and handler.refs == 2
+    assert qi(other) == w._E_NOINTERFACE and not out.value
+
+    invoke = ctypes.WINFUNCTYPE(ctypes.c_int, c_void_p, ctypes.c_int)(
+        ctypes.cast(ptr, POINTER(POINTER(c_void_p)))[0][3])
+    assert invoke(ptr, 7) == 0 and calls == [7]
+
+    w._release(ptr)
+    handler.release()
+    assert ptr not in w._objects
+
+
+def test_webview2_abi_table_is_self_consistent():
+    from elysium.webview import _webview2_abi as abi
+    assert abi.SLOTS["ICoreWebView2"]["ExecuteScript"] == 29
+    for methods in abi.SLOTS.values():
+        assert all(slot >= 3 for slot in methods.values())     # 0-2 are IUnknown
+    assert all(len(iid) == 36 for iid in abi.IIDS.values())
+
+
+@windows_only
+def test_base_url_normalisation():
+    from elysium.webview.windows import _normalize
+    assert _normalize("HTTPS://App.Local") == "https://app.local/"
+    assert _normalize("https://app.local/x?y=1#frag") == "https://app.local/x?y=1"

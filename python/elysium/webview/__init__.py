@@ -3,6 +3,9 @@
 Wraps the platform-native browser engine:
   * macOS — ``WKWebView`` through the Objective-C runtime (pure ctypes),
     hosted in an off-screen window so pages keep animating.
+  * Windows — WebView2 through its COM API (pure ctypes), on its own STA
+    thread; needs the Evergreen WebView2 Runtime (ships with Windows 11,
+    installed by the Edge updater on Windows 10).
   * Linux — WebKitGTK 6.0 (GTK 4) through PyGObject, on its own GTK
     thread (``gir1.2-webkit-6.0``).
   * Elsewhere a no-op backend stands in (``WebView.available`` is False).
@@ -101,7 +104,8 @@ class WebView:
     @property
     def available(self) -> bool:
         """False when no engine could be loaded and every call is a no-op
-        (headless test runs, a missing WebKitGTK, no display)."""
+        (headless test runs, a missing WebKitGTK or WebView2 Runtime, no
+        display)."""
         return not isinstance(self._backend, _NullBackend)
 
     def close(self) -> None:
@@ -478,6 +482,12 @@ def _resolve_backend(view: WebView):
             return WkWebViewBackend(view)
         except Exception as e:
             print(f"WebView macOS backend unavailable: {e}", file=sys.stderr)
+    elif sys.platform == "win32":
+        try:
+            from .windows import WebView2Backend
+            return WebView2Backend(view)
+        except Exception as e:
+            print(f"WebView2 backend unavailable: {e}", file=sys.stderr)
     elif sys.platform.startswith("linux"):
         try:
             from .linux import WebKitGtkBackend
