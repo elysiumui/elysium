@@ -29,7 +29,9 @@ A WebView is **display and scripting only**: the page renders off-screen and is 
 |---|---|---|
 | macOS | `WKWebView` | nothing (system framework) |
 | Windows | none yet | `WebView.available` is `False` |
-| Linux | none yet | `WebView.available` is `False` |
+| Linux | WebKitGTK 6.0 (GTK 4) | `sudo apt-get install gir1.2-webkit-6.0 gir1.2-gtk-4.0 python3-gi` (Ubuntu 24.04+, Debian 13+) |
+
+On Linux, `python3-gi` provides PyGObject for the system interpreter. In a virtualenv, `pip install PyGObject` instead, which builds against `libgirepository-2.0-dev`, `libcairo2-dev` and `pkg-config`. The engine needs a display (X11, Wayland or Xvfb).
 
 Without an engine, a no-op backend stands in so code and tests can still construct a `WebView`. Check `wv.available` before relying on output.
 
@@ -61,6 +63,8 @@ Every method can be called from any thread.
 - **Inside a running `elysium.App`**, the app already turns the main thread, and frame callbacks run on worker threads, so nothing special is needed.
 - **In a plain script**, the blocking calls (`snapshot_rgba`, and awaiting `evaluate_js`/`wait_loaded` on the main thread) turn the main thread themselves. A script whose main thread is busy elsewhere calls `elysium.webview.pump(seconds)` to let the engine catch up.
 - **Ordering.** Call `App.run()` before blocking on a WebView from the main thread. Once a script has done that, the process can no longer start an App, and `App.run()` raises `ElysiumError`. Constructing a `WebView` before `App.run()` is fine.
+
+**Linux.** WebKitGTK runs on its own GTK thread (`elysium-webkitgtk`) with its own GLib main loop, so neither the app nor a script has to pump anything, and `pump()` just sleeps. The page is hosted in an undecorated, fully transparent window that takes no input: invisible on X11 and Xvfb, though a Wayland compositor may still list it.
 
 Call `wv.close()`, or use `with WebView(...) as wv:`, to destroy the engine view. Views still open at interpreter exit are closed automatically.
 
