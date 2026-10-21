@@ -7,6 +7,14 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+### Changed
+
+- The locked `anyio` (pulled in through the `ai` extra by `anthropic`,
+  `openai` and `httpx`) is 4.15.1, which fixes GHSA-82r6-8w77-94w6 (TLS host
+  names encoded with IDNA 2003, enabling certificate spoofing) and
+  GHSA-5p39-cfhj-2xmp (process-pool workers blocking on undrained stderr).
+  `typing-extensions` moves to 4.16.0 alongside it.
+
 ## [1.3.0] - 2026-09-13
 
 The native authoring release: everything the Designer needs to author 3D
