@@ -20,6 +20,15 @@ project adheres to [Semantic Versioning](https://semver.org) — see
   - the view is hosted in an off-screen window, so `requestAnimationFrame`
     and WebGL keep running;
   - snapshots come from `takeSnapshotWithConfiguration:`.
+- **WebView on Linux works** (`elysium.webview`). The WebKitGTK backend
+  targeted the 4.x API:
+  - script messages are a `JSCValue` in 6.0;
+  - snapshots are a `Gdk.Texture`, not a cairo surface;
+  - results were stringified instead of converted from JSON;
+  - nothing ran the GLib main loop, so every call hung.
+
+  It now runs on a dedicated GTK thread with its own GLib loop and is
+  verified on Ubuntu 24.04 under Xvfb by a new `webview-linux` CI job.
 - `WebView.expose` binds every exposed name, not just the first. It also
   works in a page that has already loaded. A handler that raises now
   rejects the JS Promise instead of leaving it pending.
@@ -51,9 +60,9 @@ project adheres to [Semantic Versioning](https://semver.org) — see
   draws the latest frame and requests the next one.
 - `WebView.background` is honoured (default opaque white; alpha 0 gives a
   transparent view). `_exposed` is no longer a constructor argument.
-- The Windows (pywebview) and Linux (WebKitGTK) WebView backends are
-  withdrawn until their rewrites land. They could not work as shipped, and
-  those platforms now get the no-op backend (`WebView.available` is False).
+- The Windows (pywebview) WebView backend is withdrawn until its rewrite
+  lands. It could not work as shipped, and Windows now gets the no-op
+  backend (`WebView.available` is False).
 
 ## [1.3.0] - 2026-09-13
 

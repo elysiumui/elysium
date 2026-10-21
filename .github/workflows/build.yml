@@ -60,6 +60,34 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --all-features
 
+  # The WebKitGTK WebView backend needs WebKitGTK 6.0 (Ubuntu 24.04+) and a
+  # display, neither of which the pytest matrix has. Its tests are pure
+  # Python, so this job uses the system interpreter with Debian's PyGObject
+  # instead of building the native wheel (`import elysium` tolerates that).
+  webview-linux:
+    name: webview (WebKitGTK, ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: WebKitGTK, PyGObject, Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-gi python3-pytest python3-numpy python3-pil python3-scipy python3-jsonschema \
+            gir1.2-webkit-6.0 gir1.2-gtk-4.0 xvfb xauth dbus-x11 libgl1-mesa-dri
+      - name: Run webview tests under Xvfb
+        env:
+          PYTHONPATH: python
+          GTK_A11Y: none
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+          # Ubuntu 24.04's AppArmor policy denies the user namespaces WebKit's
+          # bubblewrap sandbox needs on hosted runners.
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
+        run: |
+          dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24" \
+            /usr/bin/python3 -m pytest tests/test_webview.py tests/test_webview_live.py -v -rs -p no:cacheprovider
+
   python:
     name: pytest (${{ matrix.os }})
     needs: rust

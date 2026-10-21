@@ -3,6 +3,8 @@
 Wraps the platform-native browser engine:
   * macOS — ``WKWebView`` through the Objective-C runtime (pure ctypes),
     hosted in an off-screen window so pages keep animating.
+  * Linux — WebKitGTK 6.0 (GTK 4) through PyGObject, on its own GTK
+    thread (``gir1.2-webkit-6.0``).
   * Elsewhere a no-op backend stands in (``WebView.available`` is False).
 
 Public API
@@ -99,7 +101,7 @@ class WebView:
     @property
     def available(self) -> bool:
         """False when no engine could be loaded and every call is a no-op
-        (headless test runs, platforms without a backend)."""
+        (headless test runs, a missing WebKitGTK, no display)."""
         return not isinstance(self._backend, _NullBackend)
 
     def close(self) -> None:
@@ -476,6 +478,12 @@ def _resolve_backend(view: WebView):
             return WkWebViewBackend(view)
         except Exception as e:
             print(f"WebView macOS backend unavailable: {e}", file=sys.stderr)
+    elif sys.platform.startswith("linux"):
+        try:
+            from .linux import WebKitGtkBackend
+            return WebKitGtkBackend(view)
+        except Exception as e:
+            print(f"WebKitGTK backend unavailable: {e}", file=sys.stderr)
     else:
         print(f"WebView: no engine backend for {sys.platform} yet; "
               "the view renders nothing", file=sys.stderr)
@@ -505,6 +513,8 @@ class _NullBackend(_Backend):
 
 
 _live_views: "weakref.WeakSet[WebView]" = weakref.WeakSet()
+#: Run after every view is closed at exit (backends stop their engine threads).
+_shutdown_hooks: list[Callable[[], None]] = []
 
 
 @atexit.register
@@ -513,6 +523,11 @@ def _close_all() -> None:
     for view in list(_live_views):
         try:
             view.close()
+        except Exception:  # noqa: BLE001
+            pass
+    for hook in _shutdown_hooks:
+        try:
+            hook()
         except Exception:  # noqa: BLE001
             pass
 

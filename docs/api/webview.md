@@ -44,7 +44,7 @@ async def tour(dl, x, y, w, h):
 |---|---|
 | macOS | WKWebView (ctypes, off-screen window) |
 | Windows | none yet (`available` is False) |
-| Linux | none yet (`available` is False) |
+| Linux | WebKitGTK 6.0 via PyGObject (own GTK thread) |
 | Headless | No-op stub |
 
 ## Return values
