@@ -4,8 +4,12 @@ version = "0.1.0"
 description = "Language server for Elysium UI — hook completion, refactor, diagnostics."
 requires-python = ">=3.11"
 dependencies = [
-  "elysium",
-  "pygls>=1.3",
+  # The framework's PyPI distribution is `elysium-ui` (the import name
+  # stays `elysium`); `elysium` on PyPI is an unrelated, abandoned package.
+  "elysium-ui",
+  # The server is written against the pygls 1.x API (pygls.server,
+  # workspace.get_document, publish_diagnostics), which pygls 2 renamed.
+  "pygls>=1.3,<2",
 ]
 [project.scripts]
 elysium-lsp = "elysium_lsp.server:main"

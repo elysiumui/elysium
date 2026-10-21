@@ -131,7 +131,8 @@ jobs:
             libvulkan-dev mesa-vulkan-drivers
 
       - name: Install maturin & dev deps
-        run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pytest-cov pillow numpy
+        # pygls 1.x lets tests/test_lsp.py drive the language server for real.
+        run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pytest-cov pillow numpy "pygls>=1.3,<2"
 
       # Packaged into the Windows wheel (pyproject `include`), so the live
       # WebView tests below run against what users install.
