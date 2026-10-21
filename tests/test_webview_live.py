@@ -63,7 +63,9 @@ def test_evaluate_js_returns_json_values_and_raises_js_errors():
         "1+1": 2, "1.5": 1.5, "'s'": "s", "true": True, "false": False,
         "null": None, "undefined": None,
         "({a:[1,'x',null], b:{c:2.5}})": {"a": [1, "x", None], "b": {"c": 2.5}},
-        "[]": [], "-0": 0, "0/0": None, "1/0": None,      # JSON has no NaN/Infinity
+        "[]": [], "0/0": None, "1/0": None,               # JSON has no NaN/Infinity
+        # WebView2 serialises -0 like NaN (no JSON form), so it reads back as null.
+        "-0": None if sys.platform == "win32" else 0,
     }
     assert isinstance(r["1+1"], int)
     assert thrown[0] == "WebViewJSError" and "boom" in thrown[1], thrown
