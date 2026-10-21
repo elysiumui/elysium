@@ -37,6 +37,11 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Changed
 
+- The locked `anyio` (pulled in through the `ai` extra by `anthropic`,
+  `openai` and `httpx`) is 4.15.1, which fixes GHSA-82r6-8w77-94w6 (TLS host
+  names encoded with IDNA 2003, enabling certificate spoofing) and
+  GHSA-5p39-cfhj-2xmp (process-pool workers blocking on undrained stderr).
+  `typing-extensions` moves to 4.16.0 alongside it.
 - `WebView.evaluate_js` returns JSON-compatible values (integral numbers as
   `int`, `undefined` as `None`). It raises `WebViewJSError` for a thrown
   error and `WebViewTimeout` instead of quietly returning `None`. It waits
