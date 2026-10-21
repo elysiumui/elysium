@@ -37,7 +37,8 @@ try:
         TEXT_DOCUMENT_HOVER,
         WORKSPACE_SYMBOL,
         CodeLens, CodeLensParams, Command,
-        CompletionItem, CompletionItemKind, CompletionList, CompletionParams,
+        CompletionItem, CompletionItemKind, CompletionList, CompletionOptions,
+        CompletionParams,
         Diagnostic, DiagnosticSeverity, DefinitionParams, Hover, HoverParams,
         Location, MarkupContent, MarkupKind, Position, Range,
         WorkspaceSymbol, WorkspaceSymbolParams, SymbolKind,
@@ -45,8 +46,8 @@ try:
         DidSaveTextDocumentParams,
     )
 except ImportError:
-    print("elysium-lsp: pygls + lsprotocol are required. "
-          "Install with: pip install elysium-lsp[all]", file=sys.stderr)
+    print("elysium-lsp: pygls 1.x + lsprotocol are required. "
+          "Install with: pip install elysium-lsp", file=sys.stderr)
     raise
 
 
@@ -187,7 +188,7 @@ def on_save(ls: LanguageServer, params: DidSaveTextDocumentParams) -> None:
     _index_for(params.text_document.uri).rebuild()
 
 
-@server.feature(TEXT_DOCUMENT_COMPLETION, trigger_characters=['"', "."])
+@server.feature(TEXT_DOCUMENT_COMPLETION, CompletionOptions(trigger_characters=['"', "."]))
 def on_completion(ls: LanguageServer, params: CompletionParams) -> CompletionList:
     doc = ls.workspace.get_document(params.text_document.uri)
     line = doc.lines[params.position.line] if params.position.line < len(doc.lines) else ""

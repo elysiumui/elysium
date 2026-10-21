@@ -9,6 +9,16 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Fixed
 
+- **`elysium-lsp` installs and runs.**
+  - It depended on `elysium`, an unrelated and uninstallable PyPI project,
+    instead of `elysium-ui`, so `pip install` could never resolve it.
+  - Once installable, it pulled in pygls 2, which renamed the APIs the
+    server uses, so pygls is now pinned to `>=1.3,<2`.
+  - Completion was registered with a pygls 0.x keyword, which failed at
+    import.
+
+  `tests/test_lsp.py` now drives a real stdio session: completion and
+  hover against a sample `.esk`.
 - **WebView on macOS works** (`elysium.webview`): `evaluate_js` no longer
   crashes the interpreter, and snapshots now contain the rendered page,
   WebGL included, instead of a uniform grey. The Objective-C completion
