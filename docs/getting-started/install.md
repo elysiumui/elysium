@@ -1,7 +1,7 @@
 # Install
 
 ## Requirements
-- Python 3.10 or newer
+- Python 3.11 or newer
 - macOS 11+, Windows 10+, or Linux with Wayland or X11
 
 ## Stable

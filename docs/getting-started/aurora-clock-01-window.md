@@ -17,7 +17,7 @@ through to whatever is underneath.
 ## Prerequisites
 
 - Elysium installed: `pip install elysium-ui` (or `uv pip install elysium-ui`).
-- Python 3.10 or newer.
+- Python 3.11 or newer.
 - Verify with `python -c "import elysium; print(elysium.__version__)"`.
 
 If the import errors with "native extension not built", see

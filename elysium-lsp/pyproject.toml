@@ -2,7 +2,7 @@
 name = "elysium-lsp"
 version = "0.1.0"
 description = "Language server for Elysium UI — hook completion, refactor, diagnostics."
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "elysium",
   "pygls>=1.3",
