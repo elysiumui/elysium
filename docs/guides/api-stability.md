@@ -63,7 +63,7 @@ names are excluded from the semver guarantee; they graduate to stable — joinin
 
 ## Native ABI
 
-Wheels are built `abi3` for CPython ≥ 3.10, so a single wheel works across 3.10+
+Wheels are built `abi3` for CPython ≥ 3.11, so a single wheel works across 3.11+
 without recompilation. The compiled extension's version is surfaced as
 `elysium.__version__` and tracks the package version.
 

@@ -64,6 +64,19 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ### Changed
 
+- **Python 3.11 or newer is required** (was 3.10). Python 3.10 reached end
+  of life on 2026-10-04, and Pillow 13.0.0, the only release with the fixes
+  below, requires 3.11. Wheels are now `abi3` for CPython ≥ 3.11. Users on
+  3.10 keep resolving `elysium-ui` 1.3.x.
+- Pillow ≥ 13.0.0 is required. Nine advisories are fixed in 13.0.0 and
+  affect 12.3.0 and earlier, including a heap buffer overflow in the JPEG
+  decoder, out-of-bounds reads and writes in the TIFF and morphology code,
+  and unbounded recursion parsing PDF page trees: GHSA-8g5g-8vmr-9782,
+  GHSA-58r4-6rv3-gfh8, GHSA-65qm-jvmh-6pqg, GHSA-c6hw-5grf-ff96,
+  GHSA-p4wg-p73j-c528, GHSA-pchr-8j38-3x4p, GHSA-q45j-58j2-45rg,
+  GHSA-462x-pgg6-55fp, GHSA-vx6w-vv9f-6gvg.
+- The locked `certifi` is 2026.10.19, which drops the emSign root CAs whose
+  intermediate CA keys were compromised (GHSA-6q48-6c7w-9gw2).
 - The locked `anyio` (pulled in through the `ai` extra by `anthropic`,
   `openai` and `httpx`) is 4.15.1, which fixes GHSA-82r6-8w77-94w6 (TLS host
   names encoded with IDNA 2003, enabling certificate spoofing) and

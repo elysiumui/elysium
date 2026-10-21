@@ -3,7 +3,7 @@ name: Build library distro (wheels + sdist)
 # Builds platform-specific wheels of the `elysium` library plus a
 # universal sdist, ready for `pip install` or PyPI upload.
 #
-# maturin produces an abi3 wheel (Python ≥ 3.10) so each platform
+# maturin produces an abi3 wheel (Python ≥ 3.11) so each platform
 # needs just one wheel — not one per Python minor version.
 on:
   workflow_dispatch:
