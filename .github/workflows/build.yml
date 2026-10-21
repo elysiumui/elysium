@@ -88,6 +88,23 @@ jobs:
           dbus-run-session -- xvfb-run -a -s "-screen 0 1280x1024x24" \
             /usr/bin/python3 -m pytest tests/test_webview.py tests/test_webview_live.py -v -rs -p no:cacheprovider
 
+  # The WebView2 backend against the runner's Evergreen runtime, without
+  # building the native wheel (pure ctypes; `import elysium` tolerates that).
+  webview-windows:
+    name: webview (WebView2, windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with: { python-version: "3.11" }
+      - run: pip install pytest pillow numpy scipy jsonschema
+      - name: WebView2 loader (also verifies the COM vtable table against the SDK header)
+        run: python scripts/fetch-webview2-loader.py
+      - name: Run webview tests
+        env:
+          PYTHONPATH: python
+        run: python -m pytest tests/test_webview.py tests/test_webview_live.py -v -rs -p no:cacheprovider
+
   python:
     name: pytest (${{ matrix.os }})
     needs: rust
@@ -115,6 +132,12 @@ jobs:
 
       - name: Install maturin & dev deps
         run: pip install "maturin>=1.7,<2" pytest pytest-asyncio pytest-cov pillow numpy
+
+      # Packaged into the Windows wheel (pyproject `include`), so the live
+      # WebView tests below run against what users install.
+      - name: WebView2 loader
+        if: runner.os == 'Windows'
+        run: python scripts/fetch-webview2-loader.py
 
       # `maturin develop` needs an active virtualenv, which the setup-python
       # runner doesn't provide. Build a wheel and pip-install it instead —

@@ -28,7 +28,7 @@ A WebView is **display and scripting only**: the page renders off-screen and is 
 | OS | Engine | Install |
 |---|---|---|
 | macOS | `WKWebView` | nothing (system framework) |
-| Windows | none yet | `WebView.available` is `False` |
+| Windows | WebView2 (Edge) | the Evergreen WebView2 Runtime: ships with Windows 11, installed by the Edge updater on Windows 10 |
 | Linux | WebKitGTK 6.0 (GTK 4) | `sudo apt-get install gir1.2-webkit-6.0 gir1.2-gtk-4.0 python3-gi` (Ubuntu 24.04+, Debian 13+) |
 
 On Linux, `python3-gi` provides PyGObject for the system interpreter. In a virtualenv, `pip install PyGObject` instead, which builds against `libgirepository-2.0-dev`, `libcairo2-dev` and `pkg-config`. The engine needs a display (X11, Wayland or Xvfb).
@@ -37,7 +37,7 @@ Without an engine, a no-op backend stands in so code and tests can still constru
 
 ## Scripting
 
-`await wv.evaluate_js(code, timeout=5.0)` returns the completion value of `code` as JSON-compatible Python: strings, `int`/`float`, `bool`, `None` (for both `null` and `undefined`), lists and dicts. A thrown JavaScript error raises `WebViewJSError`, an engine that does not answer in time raises `WebViewTimeout`, and every other failure raises `WebViewError`. If a page is still loading, `evaluate_js` waits for it first, within the same timeout. Promises are not awaited: to get an async result, have the page store it and poll, or call back into Python through the bridge.
+`await wv.evaluate_js(code, timeout=5.0)` returns the completion value of `code` as JSON-compatible Python: strings, `int`/`float`, `bool`, `None` (for both `null` and `undefined`), lists and dicts. A thrown JavaScript error raises `WebViewJSError`, an engine that does not answer in time raises `WebViewTimeout`, and every other failure raises `WebViewError`. If a page is still loading, `evaluate_js` first waits for it (up to `elysium.webview.LOAD_TIMEOUT`, 30 s, which also covers the engine's first start), and then `timeout` bounds the evaluation itself. `NaN` and `Infinity` come back as `None`, as in JSON. On Windows `-0` does too, because WebView2 serialises it the same way. Promises are not awaited: to get an async result, have the page store it and poll, or call back into Python through the bridge.
 
 `await wv.wait_loaded()` waits for the latest `load_url`/`load_html`/`reload` and raises `WebViewError` if it failed.
 
@@ -63,6 +63,8 @@ Every method can be called from any thread.
 - **Inside a running `elysium.App`**, the app already turns the main thread, and frame callbacks run on worker threads, so nothing special is needed.
 - **In a plain script**, the blocking calls (`snapshot_rgba`, and awaiting `evaluate_js`/`wait_loaded` on the main thread) turn the main thread themselves. A script whose main thread is busy elsewhere calls `elysium.webview.pump(seconds)` to let the engine catch up.
 - **Ordering.** Call `App.run()` before blocking on a WebView from the main thread. Once a script has done that, the process can no longer start an App, and `App.run()` raises `ElysiumError`. Constructing a `WebView` before `App.run()` is fine.
+
+**Windows.** WebView2 runs on its own COM apartment thread (`elysium-webview2`) with its own message loop, so nothing needs pumping. Pages render in a tool window parked off-screen that never takes focus. Chromium's occlusion and background throttling are switched off through `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`, which the backend appends to and does not replace. Browser data lives under `%LOCALAPPDATA%\Elysium\WebView2\<executable name>`. Before WebView2 runtime 1.0.2210, `ExecuteScriptWithResult` is missing, so a thrown error comes back as `None` instead of raising.
 
 **Linux.** WebKitGTK runs on its own GTK thread (`elysium-webkitgtk`) with its own GLib main loop, so neither the app nor a script has to pump anything, and `pump()` just sleeps. The page is hosted in an undecorated, fully transparent window that takes no input: invisible on X11 and Xvfb, though a Wayland compositor may still list it.
 

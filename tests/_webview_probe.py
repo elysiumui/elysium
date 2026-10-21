@@ -74,7 +74,7 @@ def types() -> dict:
     wv = make()
     wv.load_html(BARE_PAGE, "https://probe.local/")
     exprs = ["1+1", "1.5", "'s'", "true", "false", "null", "undefined",
-             "({a:[1,'x',null], b:{c:2.5}})", "[]", "-0"]
+             "({a:[1,'x',null], b:{c:2.5}})", "[]", "-0", "0/0", "1/0"]
 
     async def go():
         await wv.wait_loaded()

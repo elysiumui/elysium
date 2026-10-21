@@ -84,6 +84,10 @@ include              = [
     # (workspace `exclude`), so cargo does not carry it into the sdist and
     # the sdist then fails to resolve anywhere. Ship it explicitly.
     { path = "elysium-native/vendor/accesskit_macos/**/*", format = "sdist" },
+    # WebView2Loader.dll (+ its licence) for the Windows WebView backend.
+    # Fetched at build time by scripts/fetch-webview2-loader.py and
+    # gitignored, so maturin would otherwise leave it out of the wheel.
+    { path = "python/elysium/webview/_win/**/*", format = "wheel" },
 ]
 # strip = true   (disabled — conflicts with maturin develop's implicit
 # --include-debuginfo; re-enable for release wheels via env override.)

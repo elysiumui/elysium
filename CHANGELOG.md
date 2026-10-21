@@ -29,6 +29,24 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
   It now runs on a dedicated GTK thread with its own GLib loop and is
   verified on Ubuntu 24.04 under Xvfb by a new `webview-linux` CI job.
+- **WebView on Windows works** (`elysium.webview`). The pywebview backend
+  never started pywebview's GUI loop, never exposed the bridge API, and
+  called a screenshot method pywebview does not have. It is replaced by a
+  pure-ctypes WebView2 COM backend:
+  - its own STA thread and message loop, with the view in an off-screen
+    tool window;
+  - `ExecuteScriptWithResult` for JSON values and JS errors;
+  - `CapturePreview` for frames;
+  - `AddScriptToExecuteOnDocumentCreated` plus `WebMessageReceived` for the
+    bridge;
+  - `load_html(base_url=...)` served at its base URL so the page keeps
+    that origin.
+
+  The Windows wheel ships `WebView2Loader.dll` (BSD-licensed, from the
+  pinned Microsoft.Web.WebView2 SDK; see NOTICE), fetched at build time by
+  `scripts/fetch-webview2-loader.py`. That script also checks every COM
+  vtable slot the backend uses against the SDK header. pywebview is no
+  longer used.
 - `WebView.expose` binds every exposed name, not just the first. It also
   works in a page that has already loaded. A handler that raises now
   rejects the JS Promise instead of leaving it pending.
@@ -60,9 +78,6 @@ project adheres to [Semantic Versioning](https://semver.org) — see
   draws the latest frame and requests the next one.
 - `WebView.background` is honoured (default opaque white; alpha 0 gives a
   transparent view). `_exposed` is no longer a constructor argument.
-- The Windows (pywebview) WebView backend is withdrawn until its rewrite
-  lands. It could not work as shipped, and Windows now gets the no-op
-  backend (`WebView.available` is False).
 
 ## [1.3.0] - 2026-09-13
 
