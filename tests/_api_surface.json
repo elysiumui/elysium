@@ -411,6 +411,14 @@
     "studio_light",
     "with_alpha"
   ],
+  "elysium.webview": [
+    "Frame",
+    "WebView",
+    "WebViewError",
+    "WebViewJSError",
+    "WebViewTimeout",
+    "pump"
+  ],
   "elysium.windowing": [
     "WindowManager"
   ]

@@ -7,6 +7,34 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+### Fixed
+
+- **WebView on macOS works** (`elysium.webview`): `evaluate_js` no longer
+  crashes the interpreter, and snapshots now contain the rendered page,
+  WebGL included, instead of a uniform grey. The Objective-C completion
+  blocks were malformed (the class was read through the wrong pointer and
+  the copy helpers were NULL), and `CALayer renderInContext:` cannot see
+  WKWebView's out-of-process content. The backend is rewritten:
+  - typed `objc_msgSend` prototypes and well-formed blocks;
+  - every WebKit call happens on the main thread;
+  - the view is hosted in an off-screen window, so `requestAnimationFrame`
+    and WebGL keep running;
+  - snapshots come from `takeSnapshotWithConfiguration:`.
+- `WebView.expose` binds every exposed name, not just the first. It also
+  works in a page that has already loaded. A handler that raises now
+  rejects the JS Promise instead of leaving it pending.
+
+### Added
+
+- `elysium.webview`:
+  - `WebView.wait_loaded()`, `available`, `latest_frame()`,
+    `request_snapshot()`, `resize()`, `close()` and context-manager support;
+  - `Frame`, the `WebViewError` / `WebViewJSError` / `WebViewTimeout`
+    errors, and `pump()`.
+  - `elysium.webview` is now part of the locked public API surface.
+- `App.run()` raises `ElysiumError` if a WebView call has already created
+  the macOS application object (instead of a winit panic).
+
 ### Changed
 
 - The locked `anyio` (pulled in through the `ai` extra by `anthropic`,
@@ -14,6 +42,18 @@ project adheres to [Semantic Versioning](https://semver.org) — see
   names encoded with IDNA 2003, enabling certificate spoofing) and
   GHSA-5p39-cfhj-2xmp (process-pool workers blocking on undrained stderr).
   `typing-extensions` moves to 4.16.0 alongside it.
+- `WebView.evaluate_js` returns JSON-compatible values (integral numbers as
+  `int`, `undefined` as `None`). It raises `WebViewJSError` for a thrown
+  error and `WebViewTimeout` instead of quietly returning `None`. It waits
+  for a page that is still loading.
+- `WebView.snapshot_rgba` raises `WebViewTimeout` instead of returning
+  `b""` when the engine does not answer. `WebView.paint` never blocks: it
+  draws the latest frame and requests the next one.
+- `WebView.background` is honoured (default opaque white; alpha 0 gives a
+  transparent view). `_exposed` is no longer a constructor argument.
+- The Windows (pywebview) and Linux (WebKitGTK) WebView backends are
+  withdrawn until their rewrites land. They could not work as shipped, and
+  those platforms now get the no-op backend (`WebView.available` is False).
 
 ## [1.3.0] - 2026-09-13
 

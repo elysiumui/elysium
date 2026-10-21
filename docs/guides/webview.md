@@ -1,8 +1,9 @@
 # WebView
 
-Embed a native browser engine inside a skin layer: composited like any other Elysium element, with rounding, blur, and animation applied uniformly.
+Embed the platform's browser engine as an image in a skin layer, composited like any other Elysium element, with rounding, blur and animation applied uniformly.
 
 ```python
+import asyncio
 from elysium.webview import WebView
 
 wv = WebView(width=800, height=600)
@@ -10,61 +11,72 @@ wv.load_url("https://example.com")
 
 # Surface a Python callable on the JS side as window.elysium.<name>.
 wv.expose("greet", lambda name: f"hi, {name}")
-
 # From inside the page:
 #   const reply = await window.elysium.greet("kenley");
 
-# Per-frame snapshot for compositing.
-rgba = wv.snapshot_rgba()
+async def main():
+    await wv.wait_loaded()
+    print(await wv.evaluate_js("document.title"))
+
+asyncio.run(main())
 ```
 
+A WebView is **display and scripting only**: the page renders off-screen and is drawn as an image, and mouse and keyboard input are not forwarded to it. Drive the page from Python with `evaluate_js` and `expose`.
+
 ## Backends
-- **macOS**: `WKWebView` (system framework, no extra install).
-- **Windows**: WebView2 via [pywebview](https://pywebview.flowrl.com/) (`pip install pywebview`). Requires the Evergreen WebView2 runtime; ships with Windows 11, auto-installed on Windows 10 via Edge Updater.
-- **Linux**: WebKitGTK 6.0 via PyGObject (`sudo apt-get install gir1.2-webkit-6.0 python3-gi`).
-- **Headless**: a no-op fallback so tests can construct a `WebView` on platforms without an installed backend.
 
-## Bridge protocol
-The bridge uses `webkit.messageHandlers.elysium.postMessage(JSON.stringify({id, name, args}))` on macOS and Linux, and pywebview's `window.pywebview.api.*` on Windows, with a shim that rewrites both into `window.elysium.<name>(...)` so application code stays portable.
+| OS | Engine | Install |
+|---|---|---|
+| macOS | `WKWebView` | nothing (system framework) |
+| Windows | none yet | `WebView.available` is `False` |
+| Linux | none yet | `WebView.available` is `False` |
 
-Round-tripped Python return values land via `window.elysium._resolve(id, value)`.
+Without an engine, a no-op backend stands in so code and tests can still construct a `WebView`. Check `wv.available` before relying on output.
+
+## Scripting
+
+`await wv.evaluate_js(code, timeout=5.0)` returns the completion value of `code` as JSON-compatible Python: strings, `int`/`float`, `bool`, `None` (for both `null` and `undefined`), lists and dicts. A thrown JavaScript error raises `WebViewJSError`, an engine that does not answer in time raises `WebViewTimeout`, and every other failure raises `WebViewError`. If a page is still loading, `evaluate_js` waits for it first, within the same timeout. Promises are not awaited: to get an async result, have the page store it and poll, or call back into Python through the bridge.
+
+`await wv.wait_loaded()` waits for the latest `load_url`/`load_html`/`reload` and raises `WebViewError` if it failed.
+
+## Bridge
+
+`wv.expose(name, fn)` binds `window.elysium.<name>(...)` in the current page and every page loaded later. Each call returns a Promise. Arguments and return values travel as JSON. Sync handlers run on a worker thread and coroutines run on Elysium's background event loop, so a slow handler never blocks the engine. A handler that raises rejects the Promise with `"<ExceptionType>: <message>"`.
+
+Under the hood the page posts `JSON.stringify({id, name, args})` to the `elysium` script-message handler, and the reply settles the Promise through `window.elysium._resolve(id, value)` or `window.elysium._reject(id, message)`.
 
 ## Composition
-`snapshot_rgba()` returns premultiplied RGBA the same size as the view; pass it through `DisplayList::draw_image_bytes` and it inherits the parent layer's transform: rounded corners, frosted-glass blur, anim-slot tweens, all of it.
+
+- `wv.paint(dl, x, y, w, h)` draws the latest page image into a display list and requests a fresh one for the next frame. It never blocks; it returns `False` until the first frame exists. Call it from your frame loop.
+- `wv.latest_frame()` returns that image as a `Frame` (premultiplied RGBA8 at the engine's native pixel size, which is 2× on Retina displays) without blocking.
+- `wv.snapshot_rgba(timeout=2.0)` renders *now* and returns exactly `width*height*4` bytes, top row first. Use it for one-off captures and tests.
+
+`background` (default opaque white) shows wherever the page itself is transparent. Pass an alpha of 0 for a transparent webview.
+
+## Threading
+
+Every method can be called from any thread.
+
+**macOS.** The engine lives on the main thread.
+- **Inside a running `elysium.App`**, the app already turns the main thread, and frame callbacks run on worker threads, so nothing special is needed.
+- **In a plain script**, the blocking calls (`snapshot_rgba`, and awaiting `evaluate_js`/`wait_loaded` on the main thread) turn the main thread themselves. A script whose main thread is busy elsewhere calls `elysium.webview.pump(seconds)` to let the engine catch up.
+- **Ordering.** Call `App.run()` before blocking on a WebView from the main thread. Once a script has done that, the process can no longer start an App, and `App.run()` raises `ElysiumError`. Constructing a `WebView` before `App.run()` is fine.
+
+Call `wv.close()`, or use `with WebView(...) as wv:`, to destroy the engine view. Views still open at interpreter exit are closed automatically.
 
 ## When to use WebView
 
-A WebView is a hatch into the OS's browser engine. Use when:
+A WebView is a hatch into the OS's browser engine. Use it to:
 
-- Embedding a third-party widget (Stripe Elements, a video player,
-  a documentation page).
-- Rendering a chart from a JS lib (D3, ECharts) that has no Python
-  equivalent.
-- Hosting OAuth flows whose providers require a real browser.
+- Render a chart or scene from a JS library (D3, ECharts, three.js) that has no Python equivalent.
+- Show a documentation page or other read-only web content.
 
-Avoid for general UI: the framework's components and the brush
-+ skin system are dramatically faster than a WebView for rendering
-native chrome.
-
-## Latency
-
-`snapshot_rgba()` takes ~3-8 ms on a baseline GPU. For real-time
-compositing, target ~30 Hz updates rather than 60 Hz unless you
-need every frame.
-
-For interactive WebViews (Stripe forms, etc.), the WebView's own
-event loop handles input; you do not need to drive snapshot
-updates rapidly.
+Avoid it for general UI: the framework's components and the brush and skin system are much faster than a WebView for native chrome. Interactive pages (forms, OAuth flows) need input forwarding, which the WebView does not do yet.
 
 ## Security
 
-The bridge exposes only Python callables you explicitly pass to
-`wv.expose(...)`. No filesystem, no shell. If you bind a callable
-that reads sensitive state, sanitize its inputs the same as any
-network surface: the WebView is the network from the framework's
-point of view.
+The bridge exposes only the Python callables you explicitly pass to `wv.expose(...)`: no filesystem, no shell. Messages from sub-frames are ignored. If you bind a callable that reads sensitive state, sanitize its inputs as you would for any network surface, because from the framework's point of view the WebView *is* the network.
 
 ## See also
 
 - [API: elysium.webview](../api/webview.md)
-- [Recipes](../recipes/index.md): search for "webview" patterns.

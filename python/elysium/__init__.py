@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys as _sys
+
 # The maturin-built extension lands at elysium._native._native. Import is
 # lazy + tolerant so pure-Python subpackages (elysium.reactive, .anim, ...)
 # remain usable during early development before the native wheel is built.
@@ -113,6 +115,13 @@ if _NATIVE_AVAILABLE:
             return _wrap_window(self._native.window(**kwargs))
 
         def run(self) -> None:
+            webview_runtime = _sys.modules.get("elysium.webview._objc")
+            if webview_runtime is not None and webview_runtime.created_application:
+                raise ElysiumError(
+                    "a WebView call made from the main thread before App.run() "
+                    "already created the macOS application object, so the event "
+                    "loop cannot start; call App.run() first and make blocking "
+                    "WebView calls from other threads")
             self._native.run()
 
         def quit(self) -> None:

@@ -1,354 +1,424 @@
-"""macOS WKWebView backend.
+"""macOS WKWebView backend (pure ctypes; see ``_objc``).
 
-Uses ``objc2`` when available, falls back to a thin ``ctypes`` wrapper
-otherwise. The view is allocated off-screen (no NSWindow) and snapshot
-into a Skia atlas so the framework can composite it inside a skin
-layer with rounding / blur / animation applied uniformly.
+The web view lives in a borderless window parked far off-screen: WebKit
+only runs ``requestAnimationFrame`` and composites (WebGL included) for
+a view that is in a window, and an off-screen window is never seen.
+Occlusion detection and hidden-page throttling are switched off so the
+page keeps its full frame rate.
 
-The ``window.elysium.<name>(...)`` JS bridge is installed by injecting
-a ``WKUserScript`` that wires a ``WKScriptMessageHandler`` for every
-exposed handler name.
+Every WebKit call runs on the main thread, posted with
+``dispatch_async_f``; nothing touches AppKit while the ``WebView`` is
+constructed, so an ``elysium.App`` started afterwards still creates the
+application object itself. Results come back through Objective-C blocks
+into ``concurrent.futures.Future`` objects.
+
+The ``window.elysium.<name>(...)`` bridge is a ``WKUserScript`` that
+posts JSON to a ``WKScriptMessageHandler`` registered as ``"elysium"``.
 """
 from __future__ import annotations
 
-import asyncio
-import ctypes
+import concurrent.futures
 import sys
-from ctypes import c_void_p, c_char_p, c_double, c_int, c_uint, c_uint64
-from ctypes.util import find_library
-from typing import Any
+import weakref
+from ctypes import c_bool, c_double, c_long, c_size_t, c_uint32, c_uint8, c_ulong, c_void_p
+from typing import Any, Callable
+
+from . import (
+    Frame, WebViewError, WebViewJSError, _Backend, _POST_WEBKIT, _bridge_script, _settle,
+)
+from . import _objc as O
+from ._objc import cls, nsstring, nsurl, rect, release, responds, send
 
 
-_cf  = ctypes.CDLL(find_library("CoreFoundation"))
-_obj = ctypes.CDLL(find_library("objc"))
-_wk  = ctypes.CDLL(find_library("WebKit"))   # framework load
+_cg = O.cg
+_cg.CGImageGetWidth.restype = c_size_t
+_cg.CGImageGetWidth.argtypes = [c_void_p]
+_cg.CGImageGetHeight.restype = c_size_t
+_cg.CGImageGetHeight.argtypes = [c_void_p]
+_cg.CGColorSpaceCreateWithName.restype = c_void_p
+_cg.CGColorSpaceCreateWithName.argtypes = [c_void_p]
+_cg.CGColorSpaceRelease.restype = None
+_cg.CGColorSpaceRelease.argtypes = [c_void_p]
+_cg.CGBitmapContextCreate.restype = c_void_p
+_cg.CGBitmapContextCreate.argtypes = [c_void_p, c_size_t, c_size_t, c_size_t, c_size_t,
+                                      c_void_p, c_uint32]
+_cg.CGContextRelease.restype = None
+_cg.CGContextRelease.argtypes = [c_void_p]
+_cg.CGContextDrawImage.restype = None
+_cg.CGContextDrawImage.argtypes = [c_void_p, O.CGRect, c_void_p]
+_cg.CGContextSetRGBFillColor.restype = None
+_cg.CGContextSetRGBFillColor.argtypes = [c_void_p, c_double, c_double, c_double, c_double]
+_cg.CGContextFillRect.restype = None
+_cg.CGContextFillRect.argtypes = [c_void_p, O.CGRect]
 
-_obj.objc_getClass.restype  = c_void_p
-_obj.objc_getClass.argtypes = [c_char_p]
-_obj.sel_registerName.restype  = c_void_p
-_obj.sel_registerName.argtypes = [c_char_p]
-_obj.objc_msgSend.restype  = c_void_p
+_kCGColorSpaceSRGB = c_void_p.in_dll(_cg, "kCGColorSpaceSRGB").value
+# RGBA8, premultiplied, R first in memory — the DisplayList's format.
+_RGBA_PREMUL = 1 | (4 << 12)   # kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big
+
+_WK_ERROR_JS_EXCEPTION = 4
+_WK_ERROR_UNSUPPORTED_RESULT = 5
+_NSURL_ERROR_CANCELLED = -999
+
+_PARKED_ORIGIN = (-20000.0, -20000.0)
+# Transient | Stationary | IgnoresCycle: kept out of Mission Control and ⌘`.
+_COLLECTION_BEHAVIOR = (1 << 3) | (1 << 4) | (1 << 6)
 
 
-def _cls(name: str) -> c_void_p:
-    return _obj.objc_getClass(name.encode())
-
-def _sel(s: str) -> c_void_p:
-    return _obj.sel_registerName(s.encode())
-
-def _send(obj, sel: str, *args, restype=c_void_p, argtypes=None):
-    fn = _obj.objc_msgSend
-    fn.restype = restype
-    fn.argtypes = [c_void_p, c_void_p] + (list(argtypes) if argtypes else [])
-    return fn(obj, _sel(sel), *args)
+# Delegate / handler instance pointer → owning backend.
+_owners: dict[int, "weakref.ref[WkWebViewBackend]"] = {}
+_classes: dict[str, int] = {}
 
 
-def _ns_string(s: str) -> c_void_p:
-    cls = _cls("NSString")
-    return _send(cls, "stringWithUTF8String:", s.encode(),
-                 argtypes=[c_char_p])
+def _owner(instance) -> "WkWebViewBackend | None":
+    ref = _owners.get(instance)
+    return ref() if ref else None
 
 
-def _ns_url(s: str) -> c_void_p:
-    cls = _cls("NSURL")
-    return _send(cls, "URLWithString:", _ns_string(s))
+def _on_script_message(handler, _ucc, message) -> None:
+    backend = _owner(handler)
+    if backend is None:
+        return
+    frame = send(message, "frameInfo")
+    if not frame or not send(frame, "isMainFrame", restype=c_bool):
+        return
+    body = O.to_python(send(message, "body"))
+    if isinstance(body, str):
+        backend.view._on_bridge_message(body, backend._run_script)
 
 
-class WkWebViewBackend:
+def _on_finish(delegate, _webview, navigation) -> None:
+    backend = _owner(delegate)
+    if backend is not None:
+        backend._navigation_done(navigation, None)
+
+
+def _on_fail(delegate, _webview, navigation, error) -> None:
+    backend = _owner(delegate)
+    if backend is not None:
+        backend._navigation_done(navigation, error)
+
+
+def _on_terminate(delegate, _webview) -> None:
+    backend = _owner(delegate)
+    if backend is not None:
+        backend._fail_pending(WebViewError("the web content process terminated"))
+
+
+def _register_classes() -> None:
+    if _classes:
+        return
+    _classes["handler"] = O.new_class(
+        "ElysiumWebViewScriptHandler",
+        {"userContentController:didReceiveScriptMessage:": (b"v32@0:8@16@24", _on_script_message)},
+        protocols=("WKScriptMessageHandler",),
+    )
+    _classes["navigation"] = O.new_class(
+        "ElysiumWebViewNavigationDelegate",
+        {
+            "webView:didFinishNavigation:": (b"v32@0:8@16@24", _on_finish),
+            "webView:didFailNavigation:withError:": (b"v40@0:8@16@24@32", _on_fail),
+            "webView:didFailProvisionalNavigation:withError:": (b"v40@0:8@16@24@32", _on_fail),
+            "webViewWebContentProcessDidTerminate:": (b"v24@0:8@16", _on_terminate),
+        },
+        protocols=("WKNavigationDelegate",),
+    )
+
+
+def _set_bool(obj, selector: str, value: bool) -> None:
+    if responds(obj, selector):
+        send(obj, selector, value, restype=None, argtypes=(c_bool,))
+
+
+class WkWebViewBackend(_Backend):
     def __init__(self, view) -> None:
-        self.view = view
-        cls_wkconf  = _cls("WKWebViewConfiguration")
-        cls_wkview  = _cls("WKWebView")
-        cls_cgrect  = _cls("NSValue")  # only used for sizing helper
-        if not cls_wkview:
+        if not cls("WKWebView"):
             raise RuntimeError("WKWebView class not available; is WebKit loaded?")
-        self._config = _send(_send(cls_wkconf, "alloc"), "init")
-        self._user_content = _send(self._config, "userContentController")
+        super().__init__(view)
+        self._closed = False
+        self._wk = None
+        self._window = None
+        self._handler = None
+        self._navigation_delegate = None
+        self._navigations: dict[int, concurrent.futures.Future] = {}
+        self._post(self._create)
 
-        # Allocate the view with the given frame.
-        class CGRect(ctypes.Structure):
-            _fields_ = [("x", c_double), ("y", c_double),
-                        ("w", c_double), ("h", c_double)]
-        frame = CGRect(0, 0, float(view.width), float(view.height))
+    # --- main-thread plumbing ---------------------------------------------
 
-        # Allocate the view first (this round-trip through `_send` would
-        # otherwise clobber the typed argtypes we install just below).
-        alloc = _send(cls_wkview, "alloc")
-        fn = _obj.objc_msgSend
-        fn.restype  = c_void_p
-        fn.argtypes = [c_void_p, c_void_p, CGRect, c_void_p]
-        self._view = fn(alloc, _sel("initWithFrame:configuration:"),
-                        frame, self._config)
+    def _post(self, fn: Callable[[], Any], fut: concurrent.futures.Future | None = None) -> None:
+        """Run ``fn`` on the main thread. An exception it raises settles
+        ``fut`` (or is printed when nobody is waiting)."""
+        def run() -> None:
+            try:
+                fn()
+            except Exception as e:  # noqa: BLE001
+                if fut is not None:
+                    _settle(fut, error=e if isinstance(e, WebViewError) else WebViewError(str(e)))
+                else:
+                    print(f"WebView (macOS): {e}", file=sys.stderr)
+        O.on_main(run)
+
+    def _webview(self):
+        if self._closed or not self._wk:
+            raise WebViewError("WebView is closed")
+        return self._wk
+
+    def wait(self, fut, timeout):
+        try:
+            return O.wait(fut, timeout)
+        except O.MainThreadError as e:
+            raise WebViewError(str(e)) from None
+
+    async def wait_async(self, fut, timeout):
+        try:
+            return await O.wait_async(fut, timeout)
+        except O.MainThreadError as e:
+            raise WebViewError(str(e)) from None
+
+    # --- setup / teardown (main thread) --------------------------------------
+
+    def _create(self) -> None:
+        if self._closed:
+            return
+        O.ensure_application()
+        _register_classes()
+        view = self.view
+
+        config = O.alloc_init("WKWebViewConfiguration")
+        prefs = send(config, "preferences")
+        # Private switches (guarded): an off-screen page must not be
+        # throttled or suspended as "hidden".
+        _set_bool(prefs, "_setHiddenPageDOMTimerThrottlingEnabled:", False)
+        _set_bool(prefs, "_setPageVisibilityBasedProcessSuppressionEnabled:", False)
+
+        handler = O.alloc_init("ElysiumWebViewScriptHandler")
+        _owners[handler] = weakref.ref(self)
+        send(send(config, "userContentController"), "addScriptMessageHandler:name:",
+             handler, nsstring("elysium"), restype=None)
+
+        wk = send(send(cls("WKWebView"), "alloc"), "initWithFrame:configuration:",
+                  rect(0, 0, view.width, view.height), config, argtypes=(O.CGRect, c_void_p))
+        release(config)
+        if not wk:
+            raise WebViewError("could not create WKWebView")
+        _set_bool(wk, "_setWindowOcclusionDetectionEnabled:", False)
+        # The page is composited over `background` when snapshots are taken.
+        send(wk, "setValue:forKey:",
+             send(cls("NSNumber"), "numberWithBool:", False, argtypes=(c_bool,)),
+             nsstring("drawsBackground"), restype=None)
         if view.user_agent:
-            _send(self._view, "setCustomUserAgent:", _ns_string(view.user_agent))
+            send(wk, "setCustomUserAgent:", nsstring(view.user_agent), restype=None)
+
+        navigation = O.alloc_init("ElysiumWebViewNavigationDelegate")
+        _owners[navigation] = weakref.ref(self)
+        send(wk, "setNavigationDelegate:", navigation, restype=None)   # weak in WebKit
+
+        x, y = _PARKED_ORIGIN
+        window = send(send(cls("NSWindow"), "alloc"), "initWithContentRect:styleMask:backing:defer:",
+                      rect(x, y, view.width, view.height), 0, 2, False,
+                      argtypes=(O.CGRect, c_ulong, c_ulong, c_bool))
+        send(window, "setReleasedWhenClosed:", False, restype=None, argtypes=(c_bool,))
+        send(window, "setIgnoresMouseEvents:", True, restype=None, argtypes=(c_bool,))
+        send(window, "setExcludedFromWindowsMenu:", True, restype=None, argtypes=(c_bool,))
+        send(window, "setHasShadow:", False, restype=None, argtypes=(c_bool,))
+        send(window, "setCollectionBehavior:", _COLLECTION_BEHAVIOR,
+             restype=None, argtypes=(c_ulong,))
+        send(window, "setContentView:", wk, restype=None)
+        send(window, "orderFrontRegardless", restype=None)
+
+        self._wk, self._window = wk, window
+        self._handler, self._navigation_delegate = handler, navigation
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._fail_pending(WebViewError("WebView is closed"))
+        if O.is_main_thread() and not O.app_running():
+            # Interpreter exit or a script's own teardown: nothing would
+            # turn the run loop for a posted call any more.
+            self._teardown()
+        else:
+            O.on_main(self._teardown)
+
+    def _teardown(self) -> None:
+        wk, window = self._wk, self._window
+        handler, navigation = self._handler, self._navigation_delegate
+        self._wk = self._window = self._handler = self._navigation_delegate = None
+        with O.autorelease_pool():
+            if wk:
+                ucc = send(send(wk, "configuration"), "userContentController")
+                # The controller retains its handler: break the cycle.
+                send(ucc, "removeScriptMessageHandlerForName:", nsstring("elysium"), restype=None)
+                send(ucc, "removeAllUserScripts", restype=None)
+                send(wk, "setNavigationDelegate:", None, restype=None)
+                send(wk, "stopLoading", restype=None)
+            if window:
+                send(window, "setContentView:", None, restype=None)
+                send(window, "orderOut:", None, restype=None)
+                send(window, "close", restype=None)
+            for nav in self._navigations:
+                release(nav)
+            self._navigations.clear()
+            for obj in (wk, window, handler, navigation):
+                _owners.pop(obj, None)
+                release(obj)
+
+    # --- navigation -----------------------------------------------------------
+
+    def _track_navigation(self, fut: concurrent.futures.Future, navigation) -> None:
+        if navigation:
+            self._navigations[O.retain(navigation)] = fut
+        else:
+            _settle(fut)
+
+    def _navigation_done(self, navigation, error) -> None:
+        fut = self._navigations.pop(navigation, None)
+        if fut is None:
+            return
+        release(navigation)
+        if error:
+            domain, code, desc, _ = O.error_info(error)
+            reason = "navigation cancelled" if code == _NSURL_ERROR_CANCELLED else desc
+            _settle(fut, error=WebViewError(f"{reason} ({domain} {code})"))
+        else:
+            _settle(fut)
 
     def load_url(self, url: str) -> None:
-        cls_req = _cls("NSURLRequest")
-        req = _send(cls_req, "requestWithURL:", _ns_url(url))
-        _send(self._view, "loadRequest:", req)
+        fut = self._new_load()
+
+        def run() -> None:
+            ns_url = nsurl(url)
+            if not ns_url:
+                raise WebViewError(f"invalid URL: {url!r}")
+            request = send(cls("NSURLRequest"), "requestWithURL:", ns_url)
+            self._track_navigation(fut, send(self._webview(), "loadRequest:", request))
+        self._post(run, fut)
 
     def load_html(self, html: str, base_url: str | None = None) -> None:
-        base = _ns_url(base_url) if base_url else c_void_p(0)
-        _send(self._view, "loadHTMLString:baseURL:",
-              _ns_string(html), base,
-              argtypes=[c_void_p, c_void_p])
+        fut = self._new_load()
 
-    def reload(self) -> None:  _send(self._view, "reload")
-    def back(self) -> None:    _send(self._view, "goBack")
-    def forward(self) -> None: _send(self._view, "goForward")
+        def run() -> None:
+            base = nsurl(base_url) if base_url else None
+            self._track_navigation(
+                fut, send(self._webview(), "loadHTMLString:baseURL:", nsstring(html), base))
+        self._post(run, fut)
 
-    async def evaluate_js(self, code: str) -> Any:
-        """Evaluate JS and return the result. We synthesize a completion
-        block via libffi (mirrors how objc2 builds blocks) and pump
-        the main run-loop until the block fires. Falls through to
-        ``None`` if libffi isn't present."""
-        loop = asyncio.get_event_loop()
-        fut: asyncio.Future = loop.create_future()
-        block = _make_completion_block(
-            lambda result, err: fut.set_result(_objc_to_python(result)))
-        _send(self._view, "evaluateJavaScript:completionHandler:",
-              _ns_string(code), block,
-              argtypes=[c_void_p, c_void_p])
-        # Pump until the JS engine fires our callback. WKWebView dispatches
-        # the block on the main thread, so iterate NSDefaultRunLoopMode
-        # until done or until a 2s budget elapses.
-        import time
-        deadline = time.monotonic() + 2.0
-        while not fut.done() and time.monotonic() < deadline:
-            _run_runloop_once()
-            await asyncio.sleep(0)
-        return fut.result() if fut.done() else None
+    def _navigate(self, selector: str) -> None:
+        fut = self._new_load()
+        self._post(lambda: self._track_navigation(fut, send(self._webview(), selector)), fut)
+
+    def reload(self) -> None:  self._navigate("reload")
+    def back(self) -> None:    self._navigate("goBack")
+    def forward(self) -> None: self._navigate("goForward")
+
+    def resize(self, width: int, height: int) -> None:
+        def run() -> None:
+            send(self._window, "setContentSize:", O.CGSize(width, height),
+                 restype=None, argtypes=(O.CGSize,))
+            send(self._webview(), "setFrameSize:", O.CGSize(width, height),
+                 restype=None, argtypes=(O.CGSize,))
+        self._post(run)
+
+    # --- scripting --------------------------------------------------------------
+
+    def evaluate(self, code: str) -> concurrent.futures.Future:
+        fut = self._future()
+
+        def done(result, error) -> None:
+            if not error:
+                _settle(fut, O.to_python(result))
+                return
+            domain, err_code, desc, info = O.error_info(error)
+            if domain == "WKErrorDomain" and err_code == _WK_ERROR_UNSUPPORTED_RESULT:
+                _settle(fut, None)          # undefined, functions, symbols…
+            elif domain == "WKErrorDomain" and err_code == _WK_ERROR_JS_EXCEPTION:
+                _settle(fut, error=WebViewJSError(info.get("WKJavaScriptExceptionMessage") or desc))
+            else:
+                _settle(fut, error=WebViewError(f"{desc} ({domain} {err_code})"))
+
+        def run() -> None:
+            with O.Block(O.BLOCK_ID_ID, done) as block:
+                send(self._webview(), "evaluateJavaScript:completionHandler:",
+                     nsstring(code), block.ptr, restype=None)
+        self._post(run, fut)
+        return fut
+
+    def _run_script(self, code: str) -> None:
+        """Fire-and-forget evaluation (bridge replies)."""
+        def run() -> None:
+            if self._wk and not self._closed:
+                send(self._wk, "evaluateJavaScript:completionHandler:",
+                     nsstring(code), None, restype=None)
+        self._post(run)
 
     def refresh_bridge(self, names: list[str]) -> None:
-        # Inject a tiny shim that postMessages back to Python via
-        # `webkit.messageHandlers.elysium.postMessage(...)`.
-        js = """
-        (function() {
-          if (window.elysium) return;
-          window.elysium = {};
-          const counters = { id: 0 };
-          const pending  = new Map();
-          window.elysium._send = (name, args) => new Promise((res, rej) => {
-            const id = ++counters.id;
-            pending.set(id, { res, rej });
-            window.webkit.messageHandlers.elysium.postMessage(JSON.stringify({
-              id, name, args,
-            }));
-          });
-          window.elysium._resolve = (id, value) => {
-            const p = pending.get(id);
-            if (!p) return;
-            pending.delete(id);
-            p.res(value);
-          };
-        """
-        for n in names:
-            js += f"\n  window.elysium.{n} = (...a) => window.elysium._send({n!r}, a);"
-        js += "\n})();"
+        source = _bridge_script(names, _POST_WEBKIT)
 
-        cls_script = _cls("WKUserScript")
-        # Allocate first; setting argtypes then re-invoking _send would
-        # reset them. WKUserScriptInjectionTimeAtDocumentStart = 0.
-        alloc = _send(cls_script, "alloc")
-        src_str = _ns_string(js)
-        fn = _obj.objc_msgSend
-        fn.restype  = c_void_p
-        fn.argtypes = [c_void_p, c_void_p, c_void_p, c_int, c_int]
-        script = fn(alloc, _sel("initWithSource:injectionTime:forMainFrameOnly:"),
-                    src_str, 0, 1)
-        _send(self._user_content, "addUserScript:", script)
-        # Register the message handler under the name "elysium".
-        # The Python side hooks into the dispatch via webview._dispatch.
-        # A real WKScriptMessageHandler requires a custom Objective-C
-        # class; we use a one-off helper registered through objc2 when
-        # available.
+        def run() -> None:
+            wk = self._webview()
+            ucc = send(send(wk, "configuration"), "userContentController")
+            send(ucc, "removeAllUserScripts", restype=None)
+            # WKUserScriptInjectionTimeAtDocumentStart = 0, main frame only.
+            script = send(send(cls("WKUserScript"), "alloc"),
+                          "initWithSource:injectionTime:forMainFrameOnly:",
+                          nsstring(source), 0, True, argtypes=(c_void_p, c_long, c_bool))
+            send(ucc, "addUserScript:", script, restype=None)
+            release(script)
+            # …and bind the names in the page that is already loaded.
+            send(wk, "evaluateJavaScript:completionHandler:", nsstring(source), None, restype=None)
+        self._post(run)
+
+    # --- pixels -------------------------------------------------------------------
+
+    def snapshot(self, after_updates: bool) -> concurrent.futures.Future:
+        fut = self._future()
+
+        def done(image, error) -> None:
+            if error:
+                _, _, desc, _ = O.error_info(error)
+                _settle(fut, error=WebViewError(f"snapshot failed: {desc}"))
+                return
+            try:
+                _settle(fut, self._image_to_frame(image))
+            except Exception as e:  # noqa: BLE001
+                _settle(fut, error=WebViewError(f"snapshot failed: {e}"))
+
+        def run() -> None:
+            wk = self._webview()
+            config = O.alloc_init("WKSnapshotConfiguration")
+            _set_bool(config, "setAfterScreenUpdates:", after_updates)
+            try:
+                with O.Block(O.BLOCK_ID_ID, done) as block:
+                    send(wk, "takeSnapshotWithConfiguration:completionHandler:",
+                         config, block.ptr, restype=None)
+            finally:
+                release(config)
+        self._post(run, fut)
+        return fut
+
+    def _image_to_frame(self, image) -> Frame:
+        """NSImage → premultiplied RGBA8 at its native pixel size, drawn
+        over ``background`` in sRGB. Main thread; the CGImage is borrowed
+        from the NSImage and not released here."""
+        if not image:
+            raise WebViewError("no image")
+        cg_image = send(image, "CGImageForProposedRect:context:hints:", None, None, None)
+        if not cg_image:
+            raise WebViewError("no CGImage")
+        width, height = _cg.CGImageGetWidth(cg_image), _cg.CGImageGetHeight(cg_image)
+        pixels = (c_uint8 * (width * height * 4))()
+        space = _cg.CGColorSpaceCreateWithName(_kCGColorSpaceSRGB)
+        ctx = _cg.CGBitmapContextCreate(pixels, width, height, 8, width * 4, space, _RGBA_PREMUL)
+        _cg.CGColorSpaceRelease(space)
+        if not ctx:
+            raise WebViewError("CGBitmapContextCreate failed")
         try:
-            from .macos_bridge import register_handler
-            register_handler(self._user_content, self.view)
-        except Exception:
-            pass
-
-    def snapshot_rgba(self) -> bytes:
-        """Rasterise the current page into a CGBitmapContext and read
-        out RGBA8 bytes. We bypass WKWebView's async snapshot API and
-        ask the view to draw its layer hierarchy into a CGContext
-        directly — synchronous, no run-loop pump required."""
-        try:
-            return _snapshot_via_cg(self._view,
-                                     int(self.view.width),
-                                     int(self.view.height))
-        except Exception as e:
-            print(f"WebView snapshot failed: {e}", file=__import__("sys").stderr)
-            return b""
-
-
-# --- Snapshot helper --------------------------------------------------------
-
-_cg_lib = ctypes.CDLL(find_library("CoreGraphics") or "")
-_qz_lib = ctypes.CDLL(find_library("QuartzCore") or "")
-
-# kCGColorSpaceSRGB / kCGImageAlphaPremultipliedLast.
-_kCGImageAlphaPremultipliedLast = 1
-_kCGBitmapByteOrder32Big        = (4 << 12)
-
-
-def _snapshot_via_cg(ns_view: ctypes.c_void_p, w: int, h: int) -> bytes:
-    """Draw the NSView's CALayer hierarchy into a CGBitmapContext and
-    return RGBA8 (premultiplied). Works synchronously without WKWebView's
-    async snapshot block — uses the layer's `render_in_context:` method
-    which composites on the calling thread."""
-    if not ns_view or w <= 0 or h <= 0:
-        return b""
-    # Allocate the pixel buffer Python-side so the caller owns its
-    # lifetime; CG draws into the same memory.
-    buf = (ctypes.c_uint8 * (w * h * 4))()
-
-    # CGColorSpaceCreateDeviceRGB.
-    _cg_lib.CGColorSpaceCreateDeviceRGB.restype = c_void_p
-    cs = _cg_lib.CGColorSpaceCreateDeviceRGB()
-    if not cs:
-        return b""
-
-    # CGBitmapContextCreate.
-    _cg_lib.CGBitmapContextCreate.argtypes = [
-        c_void_p, ctypes.c_size_t, ctypes.c_size_t, ctypes.c_size_t,
-        ctypes.c_size_t, c_void_p, ctypes.c_uint,
-    ]
-    _cg_lib.CGBitmapContextCreate.restype = c_void_p
-    ctx = _cg_lib.CGBitmapContextCreate(
-        buf, w, h, 8, w * 4, cs,
-        _kCGImageAlphaPremultipliedLast | _kCGBitmapByteOrder32Big,
-    )
-    _cg_lib.CGColorSpaceRelease.argtypes = [c_void_p]
-    _cg_lib.CGColorSpaceRelease(cs)
-    if not ctx:
-        return b""
-
-    # The view's layer renders into the context. CALayer renderInContext:
-    # walks the sublayer tree synchronously.
-    layer = _send(ns_view, "layer")
-    if not layer:
-        # Fall back: ask the view to draw itself rect-style.
-        _cg_lib.CGContextRelease.argtypes = [c_void_p]
-        _cg_lib.CGContextRelease(ctx)
-        return b""
-
-    _send(layer, "renderInContext:", ctx, argtypes=[c_void_p])
-    _cg_lib.CGContextRelease.argtypes = [c_void_p]
-    _cg_lib.CGContextRelease(ctx)
-    return bytes(buf)
-
-
-# --- Completion-block trampoline -------------------------------------------
-# WKWebView.evaluateJavaScript:completionHandler: takes an Objective-C
-# stack block — a struct with isa / flags / reserved / invoke pointer /
-# descriptor. We build that struct in pure ctypes here so the call works
-# without objc2. When the JS engine fires our block, ``_BlockInvoke``
-# extracts the (id result, NSError* error) arguments and calls back into
-# Python.
-
-_NSConcreteStackBlock = ctypes.c_void_p.in_dll(
-    ctypes.CDLL(find_library("System") or ""),
-    "_NSConcreteStackBlock",
-)
-
-# Block descriptor.
-class _BlockDescriptor(ctypes.Structure):
-    _fields_ = [
-        ("reserved",   ctypes.c_ulong),
-        ("size",       ctypes.c_ulong),
-        ("copy_helper",    c_void_p),
-        ("dispose_helper", c_void_p),
-    ]
-
-
-class _Block(ctypes.Structure):
-    _fields_ = [
-        ("isa",        c_void_p),
-        ("flags",      ctypes.c_int),
-        ("reserved",   ctypes.c_int),
-        ("invoke",     c_void_p),
-        ("descriptor", ctypes.POINTER(_BlockDescriptor)),
-        ("trampoline", c_void_p),    # we stash the callback id here
-    ]
-
-
-_BLOCK_DESCRIPTOR = _BlockDescriptor(0, ctypes.sizeof(_Block), None, None)
-_LIVE_BLOCKS: list = []   # keep callback refs alive
-
-
-# invoke signature: void (Block*, id result, NSError* error)
-_InvokeProto = ctypes.CFUNCTYPE(None, c_void_p, c_void_p, c_void_p)
-
-
-def _make_completion_block(py_callback):
-    """Build a real Objective-C block that calls ``py_callback(result_id,
-    err_id)`` when invoked. Keeps the trampoline alive in
-    ``_LIVE_BLOCKS`` so the GC doesn't free it while WKWebView holds
-    the pointer."""
-    def trampoline(_block_self, result, err):
-        try:
-            py_callback(result, err)
-        except Exception as e:
-            print(f"webview block trampoline: {e}", file=sys.stderr)
-
-    invoke_cfn = _InvokeProto(trampoline)
-    block = _Block()
-    block.isa = _NSConcreteStackBlock
-    block.flags = (1 << 25)        # BLOCK_HAS_STRET = 0; BLOCK_IS_GLOBAL.
-    block.reserved = 0
-    block.invoke = ctypes.cast(invoke_cfn, c_void_p)
-    block.descriptor = ctypes.pointer(_BLOCK_DESCRIPTOR)
-    block.trampoline = c_void_p(0)
-    _LIVE_BLOCKS.append((block, invoke_cfn, py_callback))
-    return ctypes.cast(ctypes.pointer(block), c_void_p)
-
-
-# --- Objective-C value → Python --------------------------------------------
-
-def _objc_to_python(obj_ptr) -> Any:
-    """Best-effort conversion of the JS engine's return value.
-    NSString → str, NSNumber → int/float, NSNull → None, anything else
-    falls through to the object's `description` string."""
-    if not obj_ptr:
-        return None
-    # Class probe — NSNumber / NSString / NSNull / NSDictionary / NSArray.
-    cls = _send(obj_ptr, "class")
-    name = _obj.class_getName(cls).decode() if hasattr(_obj, "class_getName") else ""
-    if not hasattr(_obj, "class_getName"):
-        _obj.class_getName.restype = c_char_p
-        _obj.class_getName.argtypes = [c_void_p]
-        name = _obj.class_getName(cls).decode()
-    if name.startswith("__NSCFString") or name == "NSString":
-        cstr = _send(obj_ptr, "UTF8String", restype=c_char_p)
-        return ctypes.string_at(cstr).decode() if cstr else ""
-    if name.startswith("__NSCFNumber") or name == "NSNumber":
-        # Try double first (covers JS numbers); int fallback.
-        _obj.objc_msgSend.restype = c_double
-        try:
-            return float(_obj.objc_msgSend(obj_ptr, _sel("doubleValue")))
+            bounds = rect(0, 0, width, height)
+            r, g, b, a = self.view.background
+            if a:
+                _cg.CGContextSetRGBFillColor(ctx, r / 255, g / 255, b / 255, a / 255)
+                _cg.CGContextFillRect(ctx, bounds)
+            _cg.CGContextDrawImage(ctx, bounds, cg_image)
         finally:
-            _obj.objc_msgSend.restype = c_void_p
-    if name == "NSNull":
-        return None
-    # Anything else: stringify via -description for diagnostics.
-    desc = _send(obj_ptr, "description")
-    if desc:
-        cstr = _send(desc, "UTF8String", restype=c_char_p)
-        if cstr:
-            return ctypes.string_at(cstr).decode()
-    return None
-
-
-# --- Runloop pump ----------------------------------------------------------
-
-_cf.CFRunLoopGetMain.restype = c_void_p
-_cf.CFRunLoopRunInMode.restype = c_int
-_cf.CFRunLoopRunInMode.argtypes = [c_void_p, c_double, ctypes.c_bool]
-_NSDefaultRunLoopMode = c_void_p.in_dll(_cf, "kCFRunLoopDefaultMode")
-
-
-def _run_runloop_once() -> None:
-    """Drain one pass of the main CFRunLoop with a tiny budget. Returns
-    immediately if there's nothing to do."""
-    _cf.CFRunLoopRunInMode(_NSDefaultRunLoopMode, 0.005, True)
+            _cg.CGContextRelease(ctx)
+        return Frame(bytes(pixels), width, height, width / max(1, self.view.width), 0)
