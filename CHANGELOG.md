@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org) — see
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-21
+
+The WebView release. `elysium.webview` now works on all three platforms:
+WKWebView on macOS, WebKitGTK 6.0 on Linux and WebView2 on Windows. It
+renders WebGL, runs scripts, and bridges calls between Python and
+JavaScript, and it joins the locked public API. The release also carries
+security updates for anyio, Pillow and certifi, and raises the minimum
+Python to 3.11 (3.10 reached end of life).
+
 ### Fixed
 
 - **`elysium-lsp` installs and runs.**

@@ -56,7 +56,7 @@ try:
     __version__ = _dist_version("elysium-ui")
 except Exception:
     _nmod = globals().get("_n")
-    __version__ = getattr(_nmod, "__version__", None) or "1.3.0"
+    __version__ = getattr(_nmod, "__version__", None) or "1.4.0"
 
 from elysium import layout, theme, components, anim, reactive  # re-export
 from elysium._deprecation import deprecated, deprecated_alias
