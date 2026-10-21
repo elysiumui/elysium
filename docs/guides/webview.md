@@ -37,7 +37,7 @@ Without an engine, a no-op backend stands in so code and tests can still constru
 
 ## Scripting
 
-`await wv.evaluate_js(code, timeout=5.0)` returns the completion value of `code` as JSON-compatible Python: strings, `int`/`float`, `bool`, `None` (for both `null` and `undefined`), lists and dicts. A thrown JavaScript error raises `WebViewJSError`, an engine that does not answer in time raises `WebViewTimeout`, and every other failure raises `WebViewError`. If a page is still loading, `evaluate_js` waits for it first, within the same timeout. Promises are not awaited: to get an async result, have the page store it and poll, or call back into Python through the bridge.
+`await wv.evaluate_js(code, timeout=5.0)` returns the completion value of `code` as JSON-compatible Python: strings, `int`/`float`, `bool`, `None` (for both `null` and `undefined`), lists and dicts. A thrown JavaScript error raises `WebViewJSError`, an engine that does not answer in time raises `WebViewTimeout`, and every other failure raises `WebViewError`. If a page is still loading, `evaluate_js` first waits for it (up to `elysium.webview.LOAD_TIMEOUT`, 30 s, which also covers the engine's first start), and then `timeout` bounds the evaluation itself. `NaN` and `Infinity` come back as `None`, as in JSON. Promises are not awaited: to get an async result, have the page store it and poll, or call back into Python through the bridge.
 
 `await wv.wait_loaded()` waits for the latest `load_url`/`load_html`/`reload` and raises `WebViewError` if it failed.
 

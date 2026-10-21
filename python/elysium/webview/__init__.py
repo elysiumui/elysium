@@ -53,6 +53,12 @@ from typing import Any, Awaitable, Callable, NamedTuple
 
 _Handler = Callable[..., Any | Awaitable[Any]]
 
+#: How long a pending page load is waited for (``wait_loaded``'s default,
+#: and before ``evaluate_js``/``snapshot_rgba`` start their own timeout).
+#: Generous because it can include starting the engine: WebView2's first
+#: view spawns its browser processes, which takes seconds on a cold machine.
+LOAD_TIMEOUT = 30.0
+
 
 class WebViewError(RuntimeError):
     """A webview operation failed (engine error, closed view, crashed
@@ -150,7 +156,7 @@ class WebView:
         self._check_open()
         self._backend.forward()
 
-    async def wait_loaded(self, timeout: float = 10.0) -> None:
+    async def wait_loaded(self, timeout: float = LOAD_TIMEOUT) -> None:
         """Wait until the most recent ``load_*``/``reload`` finished.
         Raises ``WebViewError`` if it failed, ``WebViewTimeout`` if it is
         still loading after ``timeout`` seconds."""
@@ -171,12 +177,11 @@ class WebView:
         as JSON-compatible Python (``undefined`` and ``null`` → ``None``,
         integral numbers → ``int``). A thrown error raises
         ``WebViewJSError``. Promises are not awaited. A page that is still
-        loading is waited for first, within the same ``timeout``."""
+        loading is waited for first (up to ``LOAD_TIMEOUT``); ``timeout``
+        then bounds the evaluation itself."""
         self._check_open()
-        deadline = time.monotonic() + timeout
-        await self._settle_load(timeout)
-        return await self._await(self._backend.evaluate(code),
-                                 max(0.0, deadline - time.monotonic()))
+        await self._settle_load(LOAD_TIMEOUT)
+        return await self._await(self._backend.evaluate(code), timeout)
 
     def expose(self, name: str, fn: _Handler) -> None:
         """Surface a Python callable as ``window.elysium.<name>(...)``,
@@ -234,22 +239,20 @@ class WebView:
         """Render the page now and return premultiplied RGBA8 of exactly
         ``width*height*4`` bytes (top-down rows), suitable for
         ``DisplayList.draw_image_bytes``. Blocks until the engine has
-        drawn (and any page still loading has loaded); ``b""`` without an
-        engine."""
+        drawn; a page still loading is waited for first (up to
+        ``LOAD_TIMEOUT``). ``b""`` without an engine."""
         self._check_open()
         if not self.available:
             return b""
-        deadline = time.monotonic() + timeout
         load = self._backend.load_future()
         if not load.done():
             try:
-                self._await_sync(load, timeout)
+                self._await_sync(load, LOAD_TIMEOUT)
             except WebViewTimeout:
                 raise
             except WebViewError:
                 pass   # a failed load still renders (an error page); wait_loaded reports it
-        frame = self._await_sync(self._backend.snapshot(after_updates=True),
-                                 max(0.0, deadline - time.monotonic()))
+        frame = self._await_sync(self._backend.snapshot(after_updates=True), timeout)
         self._store_frame(frame)
         return _fit(frame, self.width, self.height)
 
@@ -544,4 +547,5 @@ def _close_all() -> None:
 
 __all__ = [
     "WebView", "Frame", "WebViewError", "WebViewJSError", "WebViewTimeout", "pump",
+    "LOAD_TIMEOUT",
 ]

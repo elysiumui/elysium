@@ -99,10 +99,11 @@ def test_wait_loaded_times_out_as_webview_timeout(fake):
     assert issubclass(WebViewTimeout, TimeoutError)
 
 
-def test_evaluate_waits_for_a_pending_load_within_its_timeout(fake):
+def test_evaluate_waits_for_a_pending_load_first(fake, monkeypatch):
+    monkeypatch.setattr(webview, "LOAD_TIMEOUT", 0.05)
     fake.load_url("https://example.com")
     with pytest.raises(WebViewTimeout):
-        asyncio.run(fake.evaluate_js("1", timeout=0.05))
+        asyncio.run(fake.evaluate_js("1", timeout=10))
     assert fake._backend.evaluated == []        # never evaluated in the old page
     webview._settle(fake._backend.load_future())
     assert asyncio.run(fake.evaluate_js("abc")) == 3

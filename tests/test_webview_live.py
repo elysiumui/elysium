@@ -58,15 +58,15 @@ def test_reported_crash_repro_returns_the_value():
 
 def test_evaluate_js_returns_json_values_and_raises_js_errors():
     r = probe("types")
-    assert r["1+1"] == 2 and isinstance(r["1+1"], int)
-    assert r["1.5"] == 1.5
-    assert r["'s'"] == "s"
-    assert r["true"] is True and r["false"] is False
-    assert r["null"] is None and r["undefined"] is None
-    assert r["({a:[1,'x',null], b:{c:2.5}})"] == {"a": [1, "x", None], "b": {"c": 2.5}}
-    assert r["[]"] == []
-    assert r["-0"] == 0
-    assert r["throw"][0] == "WebViewJSError" and "boom" in r["throw"][1]
+    thrown = r.pop("throw")
+    assert r == {
+        "1+1": 2, "1.5": 1.5, "'s'": "s", "true": True, "false": False,
+        "null": None, "undefined": None,
+        "({a:[1,'x',null], b:{c:2.5}})": {"a": [1, "x", None], "b": {"c": 2.5}},
+        "[]": [], "-0": 0, "0/0": None, "1/0": None,      # JSON has no NaN/Infinity
+    }
+    assert isinstance(r["1+1"], int)
+    assert thrown[0] == "WebViewJSError" and "boom" in thrown[1], thrown
 
 
 def test_many_evaluations_release_their_completion_blocks():

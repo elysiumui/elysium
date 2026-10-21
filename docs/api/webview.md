@@ -13,6 +13,7 @@ any other Elysium element.
 | `WebViewJSError` | The evaluated JavaScript threw |
 | `WebViewTimeout` | The engine did not answer in time (also a `TimeoutError`) |
 | `pump(seconds)` | Let the engine work on the main thread (macOS scripts without an App) |
+| `LOAD_TIMEOUT` | Seconds a pending page load is waited for (30) |
 
 ## WebView surface
 
@@ -24,7 +25,7 @@ async def tour(dl, x, y, w, h):
     wv.load_url("https://example.com")
     wv.load_html("<h1>Hello</h1>", base_url="https://app.local/")
     wv.reload(); wv.back(); wv.forward()
-    await wv.wait_loaded(timeout=10.0)                 # raises WebViewError if the load failed
+    await wv.wait_loaded()                             # up to LOAD_TIMEOUT (30 s); WebViewError if it failed
 
     await wv.evaluate_js("document.title")             # JSON-compatible value
     wv.expose("greet", lambda name: f"hi, {name}")     # window.elysium.greet(...) → Promise

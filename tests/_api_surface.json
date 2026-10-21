@@ -413,6 +413,7 @@
   ],
   "elysium.webview": [
     "Frame",
+    "LOAD_TIMEOUT",
     "WebView",
     "WebViewError",
     "WebViewJSError",

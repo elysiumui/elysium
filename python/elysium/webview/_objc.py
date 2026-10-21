@@ -25,6 +25,7 @@ import asyncio
 import concurrent.futures
 import ctypes
 import itertools
+import math
 import threading
 import time
 from ctypes import (
@@ -221,6 +222,8 @@ def to_python(obj) -> Any:
         if kind[0] in _INT_TYPES:
             return int(send(obj, "longLongValue", restype=ctypes.c_longlong))
         value = float(send(obj, "doubleValue", restype=c_double))
+        if not math.isfinite(value):
+            return None          # JSON.stringify(NaN / ±Infinity) is null
         if value.is_integer() and abs(value) < 2 ** 53:
             return int(value)
         return value
